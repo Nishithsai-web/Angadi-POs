@@ -48,6 +48,10 @@ jobs:
           -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
              DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Include="[Angadi.Domain]*,[Angadi.Application]*,[Angadi.Infrastructure]*"
 
+      - name: Report failed tests
+        if: always()
+        run: python3 tools/ci_tests.py TestResults
+
       - name: Coverage gate (NFR-10)
         run: python3 tools/coverage_gate.py TestResults
 
