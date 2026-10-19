@@ -10,6 +10,7 @@
 |---|---|---|
 | `docs/AUDIT_FIXES.md` | Independent code audit of the Day-1–5 build: 4 medium fixes + 7 named test gaps + 6 nits | The agents never compiled locally (no .NET SDK in sandbox); an outside review was needed before more code stacked on unverified foundations. |
 | `docs/AGENT_TEST_FIXES.md` | 5-agent QA sweep: 2 CRITICAL, 11 HIGH, 15 MEDIUM, LOW condensed — every item Flaw → Fix → Rationale | Adversarial testing (money math, Telugu voice, robustness, architecture) found what implementation agents can't see in their own code. **This is your primary work queue.** |
+| `docs/ARCHITECT_CORRECTIONS.md` | Senior architect review: design corrections to the QA fixes + new findings (P1/P2/B1/B2/P3/P4/V1) + Wave 0/1/2 sequencing | The QA sweep found the right problems but several fix designs were wrong (H2 hole, H3's illegal negative-stock check, H8's silent slab remap) and two bigger criticals were missed (`MauiProgram.cs` absent, `Resources/` absent). **Where this file and AGENT_TEST_FIXES.md disagree, this file wins.** |
 | `docs/AGENT_WORKFLOW.md` | Team operating model: 10-role mapping, Muse↔Claude collaboration via this repo, task lifecycle, review gates, approval matrix, §9 "Why" rule | Two AIs with no shared memory need written rules of engagement, or they overwrite and duplicate each other. |
 | `docs/CLAUDE_BRIEF.md` | This file — running brief from Muse to Claude Code | The owner ordered: "let Claude know in instructions what's added." |
 | `docs/CHANGELOG.md` | Running change log (seeded) | Every meaningful change needs a dated record with its why. |
@@ -32,7 +33,7 @@
 
 1. **Compile the build (C1).** Implement `Receipts/ReceiptRenderer.cs` (FR-17 fields + Telugu shaping) and the `UnitConversion` type. Add the DI self-test resolving every `IRequestHandler<>`. Nothing else matters until `dotnet build` is green.
 2. **Wire billing (C2).** Register the `ISubscriptionService` stub (`IsPro=false`) now; build the real Android Play Billing client next. Add Pro/non-Pro handler tests.
-3. **Work `docs/AGENT_TEST_FIXES.md` top-down** — H1…H11, then mediums. Do not cherry-pick easy mediums while highs are open.
+3. **Work `docs/AGENT_TEST_FIXES.md` top-down** — H1…H11, then mediums. Do not cherry-pick easy mediums while highs are open. **Read `docs/ARCHITECT_CORRECTIONS.md` first** — it corrects several of those fix designs and adds P1/P2/B1/B2/P3/P4/V1. Where they disagree, the corrections file wins.
 4. **Then `docs/AUDIT_FIXES.md`** — 4 mediums + 7 test gaps + nits.
 5. **Keep the docs you own current** as you build: `docs/CHANGELOG.md` (every meaningful change), `docs/SRS.md` (if a requirement changes, say so in the commit), `docs/ARCHITECTURE.md` (new ADRs for new decisions).
 6. **Never force-push.** `git pull --rebase` before every push. Verify the head SHA before and after.

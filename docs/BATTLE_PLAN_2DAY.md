@@ -6,6 +6,16 @@
 **File ownership.** With ~20 agents in one repo, two agents editing the same file = merge conflicts and lost work. Each workstream below owns its files. If you must touch another stream's file, say so in the commit message.
 
 ## DAY 1 — Make it compile, make money safe (hours 0–24)
+**Per the architect review (`docs/ARCHITECT_CORRECTIONS.md`), Day 1 runs as waves, not a free-for-all:**
+
+**Wave 0 — first hours, SERIALIZED, 3 agents (nothing else starts):**
+1. **C1 agent:** `ReceiptRenderer` (HarfBuzz shaping via `SKShaper` + Telugu TTF + smoke test), `UnitConversion` (verify existence first), **`MauiProgram.cs` (P1)**, **`Resources/` (P2)** — icon, splash, Noto Sans Telugu — DI registrations, xunit DI-resolution test (CI-time, not a startup self-test).
+2. **C2 agent:** `StubSubscriptionService` in Infrastructure (stateless, `stub_*` keys, never grants Pro) + registration — after the C1 agent's DI edits (same file; rebase).
+3. **Voice agent:** serialized `TeluguParser.cs` pass — H4 (decimal-aware splitter), H6 (descending-compound + `IsAmbiguous`→Confirm), M1 (+matcher dosage fallback), M3 (pipeline defaults), M13. Re-target the battery for H5.
+
+**Wave 1 — C1 green, parallel lanes:** Billing (H1, H8, B1, B2, M9 hard-reject, H10 tests) · Data (H2 per-month counters, H3 corrected restore, H9+dues, M4/M6, backup encryption) · Platform (H7, P3 share adapter, P4 speech fallback chain, `ExportLogsCommand`, golden-path pages) · Strings (single agent, one te/en pass: H1/H8/M10/M11).
+
+**File-ownership rules:** `DependencyInjection.cs` and `MauiProgram.cs` serialized (one agent each, rebase after); `TeluguParser.cs` one serialized pass, never co-edited; seed JSON one data-lane agent; `errors.json`/Telugu strings one strings agent; handler code vs handler tests may parallelize (different files).
 
 | # | Workstream | Owner files | Fixes |
 |---|---|---|---|
