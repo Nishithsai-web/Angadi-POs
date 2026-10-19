@@ -169,6 +169,9 @@
 | FR-36–37, NFR-07/08 | E (Quality) | TEST_PLAN.md |
 
 ## 7. Open questions for sign-off
+
+> **Build started 2026-10-19 on Claude's defaults below, at Sri's instruction.** They stand unless Sri overrides one at sign-off: (1) thermal printing out of v1; (2) Bill of Supply when no GSTIN; (3) UAT shops to be named by Day 10; (4) discount reduces the inclusive price, tax is extracted from the discounted amount.
+
 1. **Thermal printers.** Many shops already own a 58 mm Bluetooth printer. Keeping it out of v1 is my recommendation, but confirm.
 2. **GSTIN.** Is "Bill of Supply when no GSTIN" (FR-18) right for your pilot shops?
 3. **UAT shops.** Which kirana and which chemist, and are they available Days 11–12?

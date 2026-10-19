@@ -23,7 +23,7 @@ section{background:#fff;border-radius:12px;padding:4px 18px 18px;margin:16px 0;b
 .badge{display:inline-block;background:#1f6feb;color:#fff;font-size:12px;padding:3px 10px;border-radius:12px;margin-right:6px}
 </style></head><body>
 <header><h1>Project Angadi — HQ</h1><p>Telugu Square-like POS · kirana + pharmacy · ₹200/mo · everything in one page</p></header>
-<nav><a href="#overview">Product Spec</a><a href="#architecture">Architecture</a><a href="#briefs">14-Day Agent Briefs</a><a href="#kickoff">Kickoff Pack</a></nav><main><section id="overview"><h2 class="doc-title">Product Spec</h2><h1>Project Angadi — Telugu Square-like POS (Final Scope)</h1>
+<nav><a href="#overview">Product Spec</a><a href="#architecture">Architecture</a><a href="#briefs">14-Day Agent Briefs</a><a href="#kickoff">Kickoff Pack</a></nav><main><blockquote><strong>Updated 2026-10-19 (Day 1):</strong> <code>docs/SRS.md</code> and <code>docs/ARCHITECTURE.md</code> are now canonical where they differ from this page — ₹200/mo, Tier 2 LLM in v2, 5-project solution (ADR-7).</blockquote><section id="overview"><h2 class="doc-title">Product Spec</h2><h1>Project Angadi — Telugu Square-like POS (Final Scope)</h1>
 <h3>Locked 2026-10-19: single retail POS for kirana &amp; pharmacy. Telugu UI · UPI + cash + udhaar · barcode scanner · Telugu voice billing · GST receipts · reports · inventory. No expiry module. No delivery module. Pharmacy = general retail (item library covers medicines).</h3>
 <h3>One .NET MAUI codebase, ₹200/mo subscription. Architecture: <code>Angadi_Architecture_Blueprint.md</code> (canonical).</h3>
 <p><strong>Positioning:</strong> "మీ అంగడి, మీ హిసాబు — మీ భాషలో." Your shop, your accounts, in your language.</p>
@@ -44,7 +44,7 @@ section{background:#fff;border-radius:12px;padding:4px 18px 18px;margin:16px 0;b
 </ul>
 <h2>2. Why this scope wins</h2>
 <ul>
-<li>One app, one paywall (₹99/mo), one Play listing, one Telugu reel channel — 3× cheaper to maintain than vertical sprawl.</li>
+<li>One app, one paywall (₹200/mo), one Play listing, one Telugu reel channel — 3× cheaper to maintain than vertical sprawl.</li>
 <li>Pharmacy needs no special module: medicines are just items with GST slabs. (Expiry tracking stays a v2 option, not v1 scope.)</li>
 <li>Every feature above is proven by incumbents (Vyapar/myBillBook) — the wedge is <strong>Telugu-first + voice</strong>, which none of them do.</li>
 </ul>
@@ -59,7 +59,7 @@ section{background:#fff;border-radius:12px;padding:4px 18px 18px;margin:16px 0;b
 <li><strong>A (Data):</strong> all tables incl. <code>Item.Barcode</code> (indexed); repositories + <code>GetByBarcodeAsync</code>; seed 80 kirana + 40 pharmacy items with Telugu aliases.</li>
 <li><strong>B (Voice):</strong> Telugu parser + fuzzy matcher (30-phrase battery); <code>ISpeechToText</code> Android te-IN.</li>
 <li><strong>C (UI):</strong> POS home (mic, quick-sale, bill panel, tender bar) + barcode scanner screen (camera, scan-to-add) + items/bills/reports/customers/settings.</li>
-<li><strong>D (Money):</strong> billing engine (GST-inclusive, rounding), PDF receipts with UPI QR, WhatsApp share, Play Billing gate (₹99/mo, 50 free bills/mo).</li>
+<li><strong>D (Money):</strong> billing engine (GST-inclusive, rounding), PDF receipts with UPI QR, WhatsApp share, Play Billing gate (₹200/mo · ₹1,999/yr, 50 free bills/mo).</li>
 <li><strong>E (Quality/Docs):</strong> logging/error standards, test plan, defect log.</li>
 <li><strong>Days 7–10 — integration.</strong> Golden path: scan-or-speak → lines → tender → PDF → WhatsApp. 40-phrase voice battery (target ≥35/40). Defect log.</li>
 <li><strong>Days 11–12 — final testing + UAT:</strong> one kirana owner + one chemist, 10 real bills each. Test report.</li>
@@ -210,7 +210,7 @@ section{background:#fff;border-radius:12px;padding:4px 18px 18px;margin:16px 0;b
 - All AI calls logged (count + tokens, never prompt PII) — you watch the spend per shop in the exported logs.
 - Provider swappable: <code>IAiService</code> with <code>GeminiFlashProvider</code> / <code>OpenAiMiniProvider</code>; switch by config, no code changes. Sai holds the API key; per-shop caps make the spend predictable.</p>
 <p><strong>Privacy:</strong> prompts carry aggregates and item names only — never customer names, phones, or full bills. Stated in the privacy policy.</p>
-<p><strong>Build placement:</strong> <code>Angadi.AI</code> platform library (joins Core/Voice/Comms). Tier 1 ships in v1; Tier 2 ships in v1 behind the flag with the cap enforced — the seam is designed Day 1 so the flag is a config line, not a rewrite.</p>
+<p><strong>Build placement:</strong> <code>Angadi.AI</code> platform library (joins Core/Voice/Comms). Tier 1 ships in v1; Tier 2 moves to v2 (SRS D2): an on-device app cannot hold an LLM API key safely, so v2 adds a small proxy that holds the key and enforces caps.</p>
 <h2>12. What this gives you in 5 years</h2>
 <p>A new vertical (say, the dhaba tracker) = new MAUI head + thin UI referencing <code>Angadi.Core/Voice/Comms</code>. No forked billing math, no duplicated GST logic, no second paywall to maintain. The platform compounds; the apps stay thin.</p></section><section id="briefs"><h2 class="doc-title">14-Day Agent Briefs</h2><h1>Project Angadi — 14-Day Full-Lifecycle Claude Code Plan</h1>
 <h3>Requirements → Build → Logging/Error-handling → Testing → Docs → PPT → User guide. All inside 14 days.</h3>
@@ -225,7 +225,7 @@ section{background:#fff;border-radius:12px;padding:4px 18px 18px;margin:16px 0;b
 1. Who exactly uses it? (owner, cashier — one PIN-less role in v1, or two?)
 2. Exact v1 feature list — each becomes <code>FR-01…FR-n</code> (e.g., FR-07: "Shopkeeper speaks items in Telugu; bill lines appear within 3 seconds").
 3. Non-functional: <code>NFR-01</code> voice needs internet (stated honestly); <code>NFR-02</code> bill finalize &lt; 2 seconds; <code>NFR-03</code> works on Android 9+ tablets 7"/10"; <code>NFR-04</code> Telugu + English UI; <code>NFR-05</code> zero backend, all data on device.
-4. Scope OUT (v2): staff logins, cloud sync, iOS, per-customer history detail. AI: Tier 1 insights IN v1; Tier 2 LLM features IN v1 behind flag with caps (per <code>Angadi_Architecture_Blueprint.md</code> §11). Scope IN (v1): barcode scanner, Telugu voice billing, GST receipts, inventory, reports.
+4. Scope OUT (v2): staff logins, cloud sync, iOS, per-customer history detail. AI: Tier 1 insights IN v1; Tier 2 LLM features OUT (v2, SRS D2) (per <code>Angadi_Architecture_Blueprint.md</code> §11). Scope IN (v1): barcode scanner, Telugu voice billing, GST receipts, inventory, reports.
 5. Assumptions: GST-inclusive MRP pricing, whole-rupee rounding, Google Play billing only.</p>
 <p><strong>Definition of done:</strong> <code>docs/SRS.md</code> exists with numbered FR/NFR, scope in/out, and <strong>your sign-off comment at the top.</strong> Every later test traces back to an FR number — if it's not in the SRS, it doesn't get built.</p>
 <h2>DAY 1 PM — Foundation (same agent, half day)</h2>
@@ -253,7 +253,7 @@ section{background:#fff;border-radius:12px;padding:4px 18px 18px;margin:16px 0;b
 <li><strong>A (Data &amp; Domain):</strong> entities + SQLite via Unit of Work + Repository; <code>Item.Barcode</code> indexed + <code>GetByBarcodeAsync</code>; seed 80 kirana + 40 pharmacy items with Telugu aliases; every stock change writes a <code>StockMove</code>; GST math helpers. Keeps <code>docs/DB_SCHEMA.md</code>.</li>
 <li><strong>B (Voice Pipeline):</strong> <code>ISpeechToText</code> Android implementation (te-IN, partial results streamed); Telugu parser (numbers/units from JSON resources); fuzzy matcher (≥0.90 auto-confirm / 0.70–0.90 ask / &lt;0.70 no match); 30-phrase test battery. Keeps <code>docs/VOICE_PIPELINE.md</code>.</li>
 <li><strong>C (POS UI):</strong> tablet-first MAUI UI — POS home (giant mic, quick-sale grid, bill panel, tender bar), <strong>barcode scanner screen</strong> (camera via BarcodeScanning.Native.Maui, scan-to-add on POS home + item form, manual entry fallback), items/bills/reports/customers/settings. CommunityToolkit.Mvvm source generators, no hand-written INPC. Keeps <code>docs/UI_MAP.md</code>.</li>
-<li><strong>D (Money &amp; Documents):</strong> <code>IBillingService</code> (GST-inclusive math, rounding line, discount order); PDF receipts with per-slab tax split + UPI QR (Telugu-capable font embedded — test early); WhatsApp share via OS share sheet; Play Billing gate (₹99/mo, 50 free bills/mo, restore). Keeps <code>docs/BILLING_RULES.md</code>.</li>
+<li><strong>D (Money &amp; Documents):</strong> <code>IBillingService</code> (GST-inclusive math, rounding line, discount order); PDF receipts with per-slab tax split + UPI QR (Telugu-capable font embedded — test early); WhatsApp share via OS share sheet; Play Billing gate (₹200/mo · ₹1,999/yr, 50 free bills/mo, restore). Keeps <code>docs/BILLING_RULES.md</code>.</li>
 </ul>
 <p>All agents:
 - Adopt the logging/error standards from Day 3 onward.
@@ -290,7 +290,7 @@ section{background:#fff;border-radius:12px;padding:4px 18px 18px;margin:16px 0;b
 <li>[ ] Telugu launch reel recorded</li>
 </ul>
 <h2>The one honest timeline note (unchanged)</h2>
-<p>"Done in 14 days" = v1 built, fully tested, documented, and in 12+ real testers' hands. Google mandates the 14-day closed test before production — so the public launch lands ~2 weeks after day 14. Starting closed testing on day 13 is what keeps the calendar honest.</p></section><section id="kickoff"><h2 class="doc-title">Kickoff Pack</h2><h1>Project Galla — Telugu Voice-First POS for Kirana Shops</h1>
+<p>"Done in 14 days" = v1 built, fully tested, documented, and in 12+ real testers' hands. Google mandates the 14-day closed test before production — so the public launch lands ~2 weeks after day 14. Starting closed testing on day 13 is what keeps the calendar honest.</p></section><section id="kickoff"><h2 class="doc-title">Kickoff Pack</h2><blockquote><strong>Historical.</strong> This is the original Galla pack (₹99/mo, 20 days). Price, scope and plan are superseded by the Product Spec above and <code>docs/SRS.md</code>.</blockquote><h1>Project Galla — Telugu Voice-First POS for Kirana Shops</h1>
 <h3>Claude Code kickoff pack (20-day multi-agent build plan)</h3>
 <p><strong>Idea source:</strong> the "Crore Idea" reel — a voice billing app where a Telugu kirana shopkeeper just <em>speaks</em> the items and the app makes the bill + updates stock. No typing, no English UI friction. Hindi has voice-khata apps; <strong>nobody owns Telugu voice billing.</strong> That lane is open.</p>
 <p><strong>Your decision (2026-10-19):</strong> build a full POS that runs on the tablets shops already own — <strong>no card readers, no hardware to buy.</strong> Cash + UPI tenders, Square-style features (item library, GST bills, inventory, WhatsApp receipts, day-end reports), with Telugu voice billing as the killer feature.</p>

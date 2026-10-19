@@ -1,0 +1,9 @@
+{
+  "_comment": "Words that split one utterance into item phrases, and filler words the parser drops.",
+  "separators": [",", "،", ".", "ఇంకా", "మరియు", "తర్వాత", "ఆ తర్వాత", "and", "also", "plus"],
+  "fillers": [
+    "ఇవ్వండి", "ఇవ్వు", "ఇవ్వండీ", "కావాలి", "కావాలండి", "అండి", "అండీ", "చాలు", "పెట్టండి", "వేయండి", "వెయ్యి",
+    "please", "కూడా", "ఒకసారి", "ఏమిటంటే", "అది", "ఇది"
+  ],
+  "_fillerComment": "Do NOT add 'ఒక' here — it is also the number one (numbers.te.json)."
+}

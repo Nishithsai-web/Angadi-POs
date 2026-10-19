@@ -1,0 +1,86 @@
+using Angadi.Domain.Billing;
+using Angadi.Domain.Common;
+using Angadi.Domain.Customers;
+using Angadi.Domain.Events;
+using Angadi.Domain.Inventory;
+using Angadi.Domain.Items;
+using Angadi.Domain.Shop;
+
+namespace Angadi.Application.Persistence;
+
+/// <summary>
+/// One transaction per command (blueprint §4). TransactionBehavior opens it; handlers never commit.
+/// A bill never half-saves (FR-15).
+/// </summary>
+public interface IUnitOfWork
+{
+    Task BeginAsync(CancellationToken ct = default);
+    Task CommitAsync(CancellationToken ct = default);
+    Task RollbackAsync(CancellationToken ct = default);
+}
+
+public interface IItemRepository
+{
+    Task<Item?> GetAsync(Guid id, CancellationToken ct = default);
+    Task<Item?> GetByBarcodeAsync(string barcode, CancellationToken ct = default);   // indexed, FR-08
+    /// <summary>Matches Telugu name, English name, aliases or barcode prefix (FR-05).</summary>
+    Task<IReadOnlyList<Item>> SearchAsync(string text, int limit = 20, CancellationToken ct = default);
+    /// <summary>All active items; the voice matcher scores against this list.</summary>
+    Task<IReadOnlyList<Item>> GetActiveAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<Item>> GetQuickSaleAsync(CancellationToken ct = default);     // FR-10
+    Task<IReadOnlyList<Item>> GetLowStockAsync(CancellationToken ct = default);      // FR-25
+    Task SaveAsync(Item item, CancellationToken ct = default);
+    Task<bool> AnyAsync(CancellationToken ct = default);                              // seeding idempotency
+}
+
+public interface IBillRepository
+{
+    Task<Bill?> GetAsync(Guid id, CancellationToken ct = default);
+    Task<IReadOnlyList<Bill>> ListAsync(DateTimeOffset from, DateTimeOffset to, CancellationToken ct = default);
+    Task<int> CountFinalizedInMonthAsync(int year, int month, CancellationToken ct = default);   // FR-34
+    Task SaveAsync(Bill bill, CancellationToken ct = default);   // bill + lines together
+}
+
+public interface ICustomerRepository
+{
+    Task<Customer?> GetAsync(Guid id, CancellationToken ct = default);
+    Task<IReadOnlyList<Customer>> SearchAsync(string text, CancellationToken ct = default);
+    Task<IReadOnlyList<Customer>> GetWithDuesAsync(CancellationToken ct = default);   // FR-30
+    Task<IReadOnlyList<DuesEntry>> GetLedgerAsync(Guid customerId, CancellationToken ct = default);
+    Task SaveAsync(Customer customer, CancellationToken ct = default);
+    Task AddDuesEntryAsync(DuesEntry entry, CancellationToken ct = default);
+}
+
+/// <summary>
+/// The only way stock changes. Writes the StockMove and updates Item.Stock in the current
+/// transaction (FR-24, NFR-06). Must be safe under concurrent adjusts (no lost updates).
+/// </summary>
+public interface IStockLedger
+{
+    Task AdjustAsync(Guid itemId, Qty delta, StockMoveReason reason, Guid? billId = null, string? note = null, CancellationToken ct = default);
+    Task<IReadOnlyList<StockMove>> GetHistoryAsync(Guid itemId, CancellationToken ct = default);   // FR-26
+    /// <summary>Σ sold qty per item per day, for insights (FR-31/32).</summary>
+    Task<IReadOnlyList<DailySales>> GetDailySalesAsync(DateOnly from, DateOnly to, CancellationToken ct = default);
+}
+
+public sealed record DailySales(Guid ItemId, DateOnly Day, Qty Sold);
+
+/// <summary>v2 sync seam (ADR-3). v1 appends only; nothing drains it yet.</summary>
+public interface IOutbox
+{
+    Task AppendAsync(string aggregateType, IDomainEvent @event, CancellationToken ct = default);
+}
+
+public interface IShopProfileRepository
+{
+    Task<ShopProfile?> GetAsync(CancellationToken ct = default);
+    Task SaveAsync(ShopProfile profile, CancellationToken ct = default);
+    /// <summary>Atomically returns the next number ("A-000123") and increments the sequence.</summary>
+    Task<string> NextBillNumberAsync(CancellationToken ct = default);
+}
+
+/// <summary>FR-04. Idempotent: does nothing if items exist.</summary>
+public interface ISeedService
+{
+    Task<int> SeedAsync(bool kirana, bool pharmacy, CancellationToken ct = default);
+}

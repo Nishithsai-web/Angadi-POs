@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Angadi.Application</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Angadi.Domain\Angadi.Domain.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Mediator.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Options" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Telugu/English strings and voice rules: data, never code (ADR-5). -->
+    <EmbeddedResource Include="Resources\*.json" LogicalName="Angadi.Resources.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Resources\voice\*.json" LogicalName="Angadi.Resources.voice.%(Filename)%(Extension)" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Angadi.Tests" />
+  </ItemGroup>
+</Project>

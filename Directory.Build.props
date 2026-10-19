@@ -1,0 +1,12 @@
+<Project>
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <!-- Flip to true after the first green build (Agent E, Day 2). -->
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <Company>Angadi</Company>
+    <Product>Angadi POS</Product>
+  </PropertyGroup>
+</Project>

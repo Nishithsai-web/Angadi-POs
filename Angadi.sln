@@ -1,0 +1,56 @@
+
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.0.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{A7A0317B-31C2-5C33-8D9A-986187BD3DA6}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{E2A18F7A-9804-56D5-8891-B1CB3103C3C0}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Angadi.Domain", "src\Angadi.Domain\Angadi.Domain.csproj", "{79A5759B-0309-51E7-97D4-910C985C2F28}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Angadi.Application", "src\Angadi.Application\Angadi.Application.csproj", "{BAE26A31-91C7-5305-92BB-17921BFB48D7}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Angadi.Infrastructure", "src\Angadi.Infrastructure\Angadi.Infrastructure.csproj", "{D8372A4C-46C3-5986-B370-FBA0B9A4AEEA}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Angadi.Maui", "src\Angadi.Maui\Angadi.Maui.csproj", "{26E22515-69B0-5A45-AA97-BAE81EE51CD5}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Angadi.Tests", "tests\Angadi.Tests\Angadi.Tests.csproj", "{A7ABACDD-4ACA-5B2D-A25B-C5D919D1E729}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{79A5759B-0309-51E7-97D4-910C985C2F28}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{79A5759B-0309-51E7-97D4-910C985C2F28}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{79A5759B-0309-51E7-97D4-910C985C2F28}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{79A5759B-0309-51E7-97D4-910C985C2F28}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BAE26A31-91C7-5305-92BB-17921BFB48D7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BAE26A31-91C7-5305-92BB-17921BFB48D7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BAE26A31-91C7-5305-92BB-17921BFB48D7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BAE26A31-91C7-5305-92BB-17921BFB48D7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D8372A4C-46C3-5986-B370-FBA0B9A4AEEA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D8372A4C-46C3-5986-B370-FBA0B9A4AEEA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D8372A4C-46C3-5986-B370-FBA0B9A4AEEA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D8372A4C-46C3-5986-B370-FBA0B9A4AEEA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{26E22515-69B0-5A45-AA97-BAE81EE51CD5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{26E22515-69B0-5A45-AA97-BAE81EE51CD5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{26E22515-69B0-5A45-AA97-BAE81EE51CD5}.Debug|Any CPU.Deploy.0 = Debug|Any CPU
+		{26E22515-69B0-5A45-AA97-BAE81EE51CD5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{26E22515-69B0-5A45-AA97-BAE81EE51CD5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{26E22515-69B0-5A45-AA97-BAE81EE51CD5}.Release|Any CPU.Deploy.0 = Release|Any CPU
+		{A7ABACDD-4ACA-5B2D-A25B-C5D919D1E729}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A7ABACDD-4ACA-5B2D-A25B-C5D919D1E729}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A7ABACDD-4ACA-5B2D-A25B-C5D919D1E729}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A7ABACDD-4ACA-5B2D-A25B-C5D919D1E729}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{79A5759B-0309-51E7-97D4-910C985C2F28} = {A7A0317B-31C2-5C33-8D9A-986187BD3DA6}
+		{BAE26A31-91C7-5305-92BB-17921BFB48D7} = {A7A0317B-31C2-5C33-8D9A-986187BD3DA6}
+		{D8372A4C-46C3-5986-B370-FBA0B9A4AEEA} = {A7A0317B-31C2-5C33-8D9A-986187BD3DA6}
+		{26E22515-69B0-5A45-AA97-BAE81EE51CD5} = {A7A0317B-31C2-5C33-8D9A-986187BD3DA6}
+		{A7ABACDD-4ACA-5B2D-A25B-C5D919D1E729} = {E2A18F7A-9804-56D5-8891-B1CB3103C3C0}
+	EndGlobalSection
+EndGlobal
