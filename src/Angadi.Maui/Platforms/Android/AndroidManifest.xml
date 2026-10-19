@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <!-- minSdk 28 (Android 9) comes from <SupportedOSPlatformVersion>28.0 in Angadi.Maui.csproj;
+       the build writes uses-sdk, so it is deliberately not repeated here. -->
+
+  <!-- Why each permission is needed: docs/PLATFORM_NOTES.md -->
+  <uses-permission android:name="android.permission.INTERNET" />
+  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+  <uses-permission android:name="android.permission.RECORD_AUDIO" />
+  <uses-permission android:name="android.permission.CAMERA" />
+  <uses-permission android:name="android.permission.VIBRATE" />
+  <uses-permission android:name="com.android.vending.BILLING" />
+
+  <!-- Scanning is optional: manual barcode entry (FR-09) works on camera-less tablets. -->
+  <uses-feature android:name="android.hardware.camera" android:required="false" />
+  <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
+  <uses-feature android:name="android.hardware.microphone" android:required="false" />
+
+  <!-- Android 11+ package visibility: what Angadi must be able to see or launch. -->
+  <queries>
+    <!-- Google speech recognizer (SpeechRecognizer.IsRecognitionAvailable returns false without this). -->
+    <intent>
+      <action android:name="android.speech.RecognitionService" />
+    </intent>
+    <!-- WhatsApp and WhatsApp Business (wa.me links, receipt share). -->
+    <package android:name="com.whatsapp" />
+    <package android:name="com.whatsapp.w4b" />
+    <!-- OS share sheet for the receipt PDF and backups. -->
+    <intent>
+      <action android:name="android.intent.action.SEND" />
+      <data android:mimeType="*/*" />
+    </intent>
+    <!-- UPI apps (upi://pay intent links). -->
+    <intent>
+      <action android:name="android.intent.action.VIEW" />
+      <data android:scheme="upi" />
+    </intent>
+    <!-- https links (wa.me fallback to browser). -->
+    <intent>
+      <action android:name="android.intent.action.VIEW" />
+      <data android:scheme="https" />
+    </intent>
+  </queries>
+
+  <application
+      android:allowBackup="true"
+      android:icon="@mipmap/appicon"
+      android:roundIcon="@mipmap/appicon_round"
+      android:supportsRtl="true">
+  </application>
+</manifest>
