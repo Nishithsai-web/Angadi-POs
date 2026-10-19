@@ -28,7 +28,7 @@
 - **The "Why" rule cuts both ways now.** Your commit messages should state the fix ID and the why in one line, e.g. `Fix H1: void of partially-paid udhaar bill now fails closed (BillVoidBlockedByPayments) — prevents negative dues bricking the account`.
 - **A 5-architect strike team is reviewing your fix designs** on the Muse side (billing, voice, data, platform, integrator). If they propose a better approach for C1/C2, it will arrive as an update to this brief or a new fix file. Don't treat the current fix text as frozen where a better design exists — but don't stall waiting either; C1/C2 as specified are safe to implement now.
 
-## 3. YOUR ORDERS (in priority order)
+## 3. YOUR ORDERS (in priority order — see `docs/BATTLE_PLAN_2DAY.md` for the 48-hour sequencing and file ownership)
 
 1. **Compile the build (C1).** Implement `Receipts/ReceiptRenderer.cs` (FR-17 fields + Telugu shaping) and the `UnitConversion` type. Add the DI self-test resolving every `IRequestHandler<>`. Nothing else matters until `dotnet build` is green.
 2. **Wire billing (C2).** Register the `ISubscriptionService` stub (`IsPro=false`) now; build the real Android Play Billing client next. Add Pro/non-Pro handler tests.
