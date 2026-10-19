@@ -70,7 +70,7 @@ internal sealed class Sender(IServiceProvider services) : ISender
             }
 
             // Logging (with a correlation id that shows up in every log line inside this request)
-            var correlationId = Guid.NewGuid().ToString("N")[..8];
+            var correlationId = Guid.NewGuid().ToString("N", System.Globalization.CultureInfo.InvariantCulture)[..8];
             using var scope = log.BeginScope(new Dictionary<string, object> { ["CorrelationId"] = correlationId });
             var sw = Stopwatch.StartNew();
             try

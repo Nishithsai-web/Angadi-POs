@@ -39,7 +39,7 @@ public static class TeluguText
     /// </summary>
     public static string MatchKey(string? text)
     {
-        var s = Normalize(text).Replace(" ", "");
+        var s = Normalize(text).Replace(" ", "", StringComparison.Ordinal);
         // Recognisers write the final nasal both ways: బియ్యం / బియ్యమ్.
         if (s.EndsWith("మ్", StringComparison.Ordinal)) s = s[..^2] + "ం";
         if (s.Length > 4 && s.EndsWith("లు", StringComparison.Ordinal)) s = s[..^2];

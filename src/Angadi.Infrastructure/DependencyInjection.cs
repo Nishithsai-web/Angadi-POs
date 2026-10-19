@@ -1,5 +1,6 @@
 using Angadi.Application.Persistence;
 using Angadi.Application.Platform;
+using Angadi.Infrastructure.Billing;
 using Angadi.Infrastructure.Logging;
 using Angadi.Infrastructure.Persistence;
 using Angadi.Infrastructure.Receipts;
@@ -15,8 +16,8 @@ public sealed class InfrastructureOptions
     public required string DataDirectory { get; init; }
     /// <summary>Shareable cache folder for receipts, backups and log exports (MAUI: FileSystem.CacheDirectory).</summary>
     public required string CacheDirectory { get; init; }
-    /// <summary>A TTF with Telugu glyphs, e.g. NotoSansTelugu-Regular.ttf, for receipts (FR-17).</summary>
-    public required Func<Stream> TeluguFont { get; init; }
+    /// <summary>Noto Sans Telugu + Noto Sans (Latin, ₹) font streams for receipt PDFs (FR-17).</summary>
+    public required ReceiptFonts ReceiptFonts { get; init; }
 }
 
 public static class DependencyInjection
@@ -41,7 +42,11 @@ public static class DependencyInjection
             Path.Combine(options.CacheDirectory, "backups"), sp.GetRequiredService<ILogger<BackupService>>()));
 
         services.AddSingleton<IReceiptRenderer>(sp => new ReceiptRenderer(
-            options.TeluguFont, Path.Combine(options.CacheDirectory, "receipts"), sp.GetRequiredService<ILogger<ReceiptRenderer>>()));
+            options.ReceiptFonts, Path.Combine(options.CacheDirectory, "receipts"),
+            sp.GetRequiredService<ILocalizer>(), sp.GetRequiredService<ILogger<ReceiptRenderer>>()));
+
+        // C2: never-Pro stub until the Play Billing adapter lands; the platform layer may replace it.
+        services.AddSingleton<ISubscriptionService, StubSubscriptionService>();
 
         services.AddSingleton(new LogFiles(Path.Combine(options.DataDirectory, "logs")));
         return services;

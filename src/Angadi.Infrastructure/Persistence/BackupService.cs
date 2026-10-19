@@ -58,7 +58,7 @@ internal sealed class BackupService(AngadiDb db, IClock clock, string exportDire
             var app = c.ExecuteScalar<string>("SELECT Value FROM Meta WHERE Key = 'app'");
             var version = c.ExecuteScalar<string>("SELECT Value FROM Meta WHERE Key = 'schema_version'");
             if (app != AngadiDb.AppMarker) { reason = "not an Angadi database"; return false; }
-            if (!int.TryParse(version, out var v) || v > AngadiDb.SchemaVersion) { reason = $"schema {version} is newer than this app"; return false; }
+            if (!int.TryParse(version, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var v) || v > AngadiDb.SchemaVersion) { reason = $"schema {version} is newer than this app"; return false; }
             return true;
         }
         catch (SQLiteException ex)

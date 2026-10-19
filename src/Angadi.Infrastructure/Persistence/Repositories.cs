@@ -27,7 +27,7 @@ internal sealed class ItemRepository(AngadiDb db, IClock clock) : IItemRepositor
     {
         var q = text.Trim();
         if (q.Length == 0) return Task.FromResult<IReadOnlyList<Item>>([]);
-        var like = "%" + q.Replace("%", "").Replace("_", "") + "%";
+        var like = "%" + q.Replace("%", "", StringComparison.Ordinal).Replace("_", "", StringComparison.Ordinal) + "%";
         return db.RunAsync<IReadOnlyList<Item>>(c => c.Query<ItemRow>(
                 "SELECT * FROM Item WHERE IsActive = 1 AND (TeluguName LIKE ? OR EnglishName LIKE ? OR AliasesJson LIKE ? OR Barcode LIKE ?) " +
                 "ORDER BY TeluguName LIMIT ?", like, like, like, q + "%", limit)
@@ -137,7 +137,7 @@ internal sealed class CustomerRepository(AngadiDb db, IClock clock) : ICustomerR
 
     public Task<IReadOnlyList<Customer>> SearchAsync(string text, CancellationToken ct = default)
     {
-        var like = "%" + text.Trim().Replace("%", "").Replace("_", "") + "%";
+        var like = "%" + text.Trim().Replace("%", "", StringComparison.Ordinal).Replace("_", "", StringComparison.Ordinal) + "%";
         return db.RunAsync<IReadOnlyList<Customer>>(c => c.Query<CustomerRow>(
                 "SELECT * FROM Customer WHERE Name LIKE ? OR Phone LIKE ? ORDER BY Name LIMIT 50", like, like)
             .Select(ToDomain).ToList(), ct);

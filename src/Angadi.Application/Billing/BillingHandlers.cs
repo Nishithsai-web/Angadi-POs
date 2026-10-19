@@ -77,7 +77,7 @@ internal sealed class FinalizeBillHandler(
 
         foreach (var itemId in bill.Lines.Select(l => l.ItemId).Distinct())
             if (await items.GetAsync(itemId, ct) is null)
-                return Result.Failure<FinalizedBill>(ErrorCodes.ItemNotFound, itemId.ToString());
+                return Result.Failure<FinalizedBill>(ErrorCodes.ItemNotFound, itemId.ToString("D", System.Globalization.CultureInfo.InvariantCulture));
 
         BillCalculator.Compute(bill, shopHasGstin: !string.IsNullOrWhiteSpace(profile.Gstin));
 
@@ -164,7 +164,7 @@ internal sealed class VoidBillHandler(
 
 /// <summary>FR-17/19/20. No transaction: the share sheet waits on the user.</summary>
 internal sealed class ShareReceiptHandler(
-    IBillRepository bills, IShopProfileRepository shop, ICustomerRepository customers,
+    IBillRepository bills, IShopProfileRepository shop,
     IReceiptRenderer renderer, IReceiptShare share, ILocalizer text)
     : IRequestHandler<ShareReceiptCommand, Result>
 {

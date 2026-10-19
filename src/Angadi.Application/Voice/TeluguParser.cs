@@ -41,11 +41,31 @@ public sealed partial class TeluguParser(VoiceRules rules) : ITeluguParser
         return result;
     }
 
+    /// <summary>
+    /// Replaces single-character punctuation separators with a phrase marker, except a "." or ","
+    /// that sits between two digits (decimal point / thousands mark), so "2.5 కేజీలు" stays 2.5 (H4).
+    /// </summary>
+    internal string MarkPunctuationSeparators(string text)
+    {
+        var punct = rules.Separators.Where(s => s.Length == 1 && !char.IsLetterOrDigit(s[0])).Select(s => s[0]).ToHashSet();
+        var sb = new System.Text.StringBuilder(text.Length + 8);
+        for (var i = 0; i < text.Length; i++)
+        {
+            var c = text[i];
+            var betweenDigits = i > 0 && i < text.Length - 1 && char.IsAsciiDigit(text[i - 1]) && char.IsAsciiDigit(text[i + 1]);
+            if (punct.Contains(c) && !(betweenDigits && c is '.' or ','))
+                sb.Append(" \u0001 ");
+            else
+                sb.Append(c);
+        }
+        return sb.ToString();
+    }
+
     internal IEnumerable<IReadOnlyList<string>> SplitPhrases(string text)
     {
         // Punctuation separators become spaces around a marker; word separators are matched as whole tokens.
-        foreach (var sep in rules.Separators.Where(s => s.Length == 1 && !char.IsLetterOrDigit(s[0])))
-            text = text.Replace(sep, " \u0001 ");
+        // H4: a "." between two digits is a decimal point ("2.5 కేజీలు"), never a phrase break.
+        text = MarkPunctuationSeparators(text);
 
         var tokens = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         var wordSeps = rules.Separators
@@ -174,9 +194,9 @@ public sealed partial class TeluguParser(VoiceRules rules) : ITeluguParser
         }
 
         var f = Fraction().Match(token);
-        if (f.Success && long.TryParse(f.Groups[2].Value, out var den) && den > 0)
+        if (f.Success && long.TryParse(f.Groups[2].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var den) && den > 0)
         {
-            milli = (long)Math.Round(long.Parse(f.Groups[1].Value) * 1000m / den, MidpointRounding.AwayFromZero);
+            milli = (long)Math.Round(long.Parse(f.Groups[1].Value, CultureInfo.InvariantCulture) * 1000m / den, MidpointRounding.AwayFromZero);
             return true;
         }
 

@@ -53,8 +53,8 @@ public sealed class AngadiDb : IUnitOfWork, IDisposable
 
         c.InsertOrReplace(new MetaRow { Key = "app", Value = AppMarker });
         var current = c.Find<MetaRow>("schema_version");
-        if (current is null || int.Parse(current.Value) < SchemaVersion)
-            c.InsertOrReplace(new MetaRow { Key = "schema_version", Value = SchemaVersion.ToString() });
+        if (current is null || int.Parse(current.Value, System.Globalization.CultureInfo.InvariantCulture) < SchemaVersion)
+            c.InsertOrReplace(new MetaRow { Key = "schema_version", Value = SchemaVersion.ToString(System.Globalization.CultureInfo.InvariantCulture) });
     }
 
     /// <summary>Runs a read or write; joins the open transaction when called inside ExecuteAsync.</summary>
