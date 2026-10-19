@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="456" height="456" viewBox="0 0 456 456" xmlns="http://www.w3.org/2000/svg">
+  <!-- Original mark: a shop awning over a counter, with a sound wave for voice billing. -->
+  <g transform="translate(108 118)">
+    <path d="M0 40 L240 40 L216 0 L24 0 Z" fill="#F4A300"/>
+    <path d="M0 40 q20 26 40 0 q20 26 40 0 q20 26 40 0 q20 26 40 0 q20 26 40 0 q20 26 40 0" fill="none" stroke="#F4A300" stroke-width="10" stroke-linejoin="round"/>
+    <rect x="20" y="92" width="200" height="110" rx="12" fill="none" stroke="#FFFFFF" stroke-width="14"/>
+    <path d="M78 147 v0 M102 127 v40 M126 112 v70 M150 127 v40 M174 147 v0" stroke="#FFFFFF" stroke-width="14" stroke-linecap="round"/>
+  </g>
+</svg>
