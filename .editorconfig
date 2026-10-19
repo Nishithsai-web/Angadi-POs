@@ -1,0 +1,35 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{json,xml,csproj,props,targets,yml,yaml,xaml,svg}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+
+[*.cs]
+csharp_style_namespace_declarations = file_scoped:warning
+csharp_prefer_braces = when_multiline:suggestion
+csharp_style_var_for_built_in_types = true:suggestion
+csharp_style_var_when_type_is_apparent = true:suggestion
+dotnet_sort_system_directives_first = true
+
+# Correctness rules that matter for a money app — errors, not suggestions.
+dotnet_diagnostic.CA2007.severity = none          # ConfigureAwait: not needed in app code
+dotnet_diagnostic.CA1305.severity = warning       # culture-specific formatting (₹ amounts must be invariant)
+dotnet_diagnostic.CA1307.severity = warning       # string comparison must be explicit
+dotnet_diagnostic.CA2016.severity = warning       # forward CancellationToken
+dotnet_diagnostic.CS8602.severity = error         # possible null dereference
+dotnet_diagnostic.CS8604.severity = error         # possible null argument
+dotnet_diagnostic.CS4014.severity = error         # un-awaited task (lost exceptions at the counter)
+
+[tests/**.cs]
+dotnet_diagnostic.CA1305.severity = none
+dotnet_diagnostic.CA1307.severity = none

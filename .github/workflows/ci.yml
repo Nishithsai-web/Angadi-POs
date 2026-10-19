@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "claude/**"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+
+jobs:
+  core:
+    name: Core build + tests + coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore
+        run: dotnet restore tests/Angadi.Tests/Angadi.Tests.csproj
+
+      - name: Build (warnings are errors)
+        run: >
+          dotnet build tests/Angadi.Tests/Angadi.Tests.csproj -c Release --no-restore
+          -p:TreatWarningsAsErrors=true -p:ContinuousIntegrationBuild=true
+
+      - name: Test with coverage
+        run: >
+          dotnet test tests/Angadi.Tests/Angadi.Tests.csproj -c Release --no-build
+          --logger "trx;LogFileName=results.trx" --logger "console;verbosity=normal"
+          --collect:"XPlat Code Coverage" --results-directory TestResults
+          -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+             DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Include="[Angadi.Domain]*,[Angadi.Application]*,[Angadi.Infrastructure]*"
+
+      - name: Coverage gate (NFR-10)
+        run: python3 tools/coverage_gate.py TestResults
+
+      - name: Voice rules and seed data check
+        run: python3 tools/generate_seed.py --check
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults/**
+
+  android:
+    name: Android app build
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: microsoft
+          java-version: "17"
+
+      - name: Install MAUI Android workload
+        run: dotnet workload install maui-android
+
+      - name: Build Android (Debug, unsigned)
+        run: >
+          dotnet build src/Angadi.Maui/Angadi.Maui.csproj -c Debug -f net10.0-android
+          -p:AndroidSdkDirectory=$ANDROID_SDK_ROOT -p:ContinuousIntegrationBuild=true
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: angadi-debug-apk
+          path: src/Angadi.Maui/bin/Debug/net10.0-android/*-Signed.apk
+          if-no-files-found: warn

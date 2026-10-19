@@ -148,6 +148,13 @@ def out(rows,opening,low,stripOpen,stripLow):
         r.append(dict(te=te,en=en,aliases=al,category=cat,unit=u,pricePaise=price*100,gstBasisPoints=gst*100,openingStockMilli=o*1000,lowStockMilli=l*1000,quickSale=bool(q)))
     return r
 hdr={"_comment":"Sample items for first-run seeding (FR-04). Prices are typical MRP and must be edited to the shop's own. GST slabs follow GST 2.0 (22 Sep 2025) for the usual packaged form; loose staples are nil. Shopkeepers should confirm slabs with their accountant."}
-json.dump({**hdr,"items":out(kirana,20,5,30,10)},open("/home/claude/angadi-pos/src/Angadi.Infrastructure/Seed/kirana.json","w"),ensure_ascii=False,indent=1)
-json.dump({**hdr,"items":out(pharm,20,5,30,10)},open("/home/claude/angadi-pos/src/Angadi.Infrastructure/Seed/pharmacy.json","w"),ensure_ascii=False,indent=1)
+import os
+SEED=os.path.join(os.path.dirname(os.path.abspath(__file__)),"..","src","Angadi.Infrastructure","Seed")
+files={"kirana.json":{**hdr,"items":out(kirana,20,5,30,10)},"pharmacy.json":{**hdr,"items":out(pharm,20,5,30,10)}}
+if "--check" in sys.argv:
+    # CI: the committed JSON must equal what this script generates (nobody hand-edits the JSON).
+    stale=[n for n,d in files.items() if json.load(open(os.path.join(SEED,n),encoding="utf-8"))!=d]
+    if stale: print("seed JSON out of date, run python3 tools/generate_seed.py:",stale); sys.exit(1)
+else:
+    for n,d in files.items(): json.dump(d,open(os.path.join(SEED,n),"w",encoding="utf-8"),ensure_ascii=False,indent=1)
 sys.exit(1) if bad else None; print("collisions:",bad,"| quick-sale:",sum(r[-1] for r in kirana+pharm))
