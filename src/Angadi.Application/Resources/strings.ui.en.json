@@ -1,0 +1,17 @@
+{
+  "pos.newbill.confirm": "Discard this bill and start a new one?",
+  "pos.optional": "optional — leave empty for exact cash",
+  "pos.upi.paid": "Payment received ✓",
+  "receipt.title": "Bill done",
+  "setup.gstin.note": "Without a GSTIN, bills print as a 'Bill of Supply' (no tax split)",
+  "setup.prefix": "Bill number prefix",
+  "sub.monthly.price": "₹{0} / month",
+  "sub.yearly.price": "₹{0} / year (2 months free)",
+  "sub.included": "50 bills free every month. Pro makes voice, scan and reports unlimited.",
+  "settings.backup.tip": "Back up weekly and keep it on WhatsApp or Drive — your dues are safe even if the phone is lost.",
+  "items.aliases.hint": "Other names, separated by commas",
+  "items.opening": "Stock now",
+  "stock.count.prompt": "Counted stock in total",
+  "insights.reorder.title": "Running out soon",
+  "insights.ondevice": "Computed on this phone from your own sales — no data leaves the device."
+}

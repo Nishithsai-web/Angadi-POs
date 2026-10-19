@@ -176,7 +176,7 @@ public class BillCalculatorTests
         BillCalculator.Compute(bill, true);
         bill.Tender = TenderType.Cash;
         bill.CashReceived = Paise.FromRupees(200);
-        Assert.Equal(2000, BillCalculator.ChangeDue(bill).Value);
+        Assert.Equal(2500, BillCalculator.ChangeDue(bill).Value);   // ₹200 − ₹175 = ₹25
     }
 
     [Theory]

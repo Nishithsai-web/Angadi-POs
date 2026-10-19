@@ -48,7 +48,7 @@ public sealed class AndroidSpeechToText(ILogger<AndroidSpeechToText> log) : ISpe
         // One listen at a time: abort whoever holds the mic, then take it.
         lock (_sync) { _current?.Cancel(); }
         try { await _gate.WaitAsync(ct); }
-        catch (OperationCanceledException) { return Cancelled(); }
+        catch (System.OperationCanceledException) { return Cancelled(); }
 
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct);
         lock (_sync) { _current = linked; }
@@ -57,7 +57,7 @@ public sealed class AndroidSpeechToText(ILogger<AndroidSpeechToText> log) : ISpe
             linked.CancelAfter(HardTimeout);
             return await ListenOnceAsync(string.IsNullOrWhiteSpace(culture) ? "te-IN" : culture, partials, linked.Token, ct);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not System.OperationCanceledException)
         {
             log.LogError(ex, "Speech recognizer failed to start");
             return Result.Failure<string>(ErrorCodes.VoiceNothingHeard, "start_failed");

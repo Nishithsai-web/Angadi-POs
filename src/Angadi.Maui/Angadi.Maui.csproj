@@ -21,11 +21,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Microsoft.Maui.Controls comes implicitly from UseMaui (the workload version); no explicit reference under central package management. -->
+    <!-- Microsoft.Maui.Controls comes implicitly from UseMaui. v1 deliberately avoids CommunityToolkit.Maui, the camera
+         barcode library and the Play Billing plugin (ARCHITECT_CORRECTIONS cut list): manual barcode entry and the stub
+         subscription cover the golden path; the real adapters return in v1.1. -->
     <PackageReference Include="CommunityToolkit.Mvvm" />
-    <PackageReference Include="CommunityToolkit.Maui" />
-    <PackageReference Include="BarcodeScanning.Native.Maui" />
-    <PackageReference Include="Plugin.InAppBilling" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Binder" />
   </ItemGroup>
