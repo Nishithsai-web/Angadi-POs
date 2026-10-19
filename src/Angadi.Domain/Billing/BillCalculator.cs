@@ -60,7 +60,9 @@ public static class BillCalculator
         bill.RoundingAdjustment = new Paise(grand - net);
     }
 
-    public static Paise ChangeDue(Bill bill) => bill.CashReceived - bill.GrandTotal;
+    /// <summary>B1: change exists only for cash. UPI/udhaar bills never show a (negative) change due.</summary>
+    public static Paise ChangeDue(Bill bill) =>
+        bill.Tender == TenderType.Cash && bill.CashReceived > bill.GrandTotal ? bill.CashReceived - bill.GrandTotal : Paise.Zero;
 
     /// <summary>Line discounts plus bill discount, for the day-end report.</summary>
     public static Paise TotalDiscount(Bill bill)

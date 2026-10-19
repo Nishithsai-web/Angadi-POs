@@ -67,6 +67,9 @@ public static class ErrorCodes
     public const string BillUdhaarNeedsCustomer = "BILL_UDHAAR_NEEDS_CUSTOMER";
     public const string BillAlreadyVoid = "BILL_ALREADY_VOID";
     public const string BillNotFound = "BILL_NOT_FOUND";
+    public const string BillVoidBlockedByPayments = "BILL_VOID_BLOCKED_BY_PAYMENTS";
+    public const string BillLegacySlab = "BILL_LEGACY_SLAB";
+    public const string BillDiscountTooLarge = "BILL_DISCOUNT_TOO_LARGE";
     public const string FreeLimitReached = "FREE_LIMIT_REACHED";
     public const string PurchaseFailed = "PURCHASE_FAILED";
     public const string ShareFailed = "SHARE_FAILED";

@@ -174,8 +174,29 @@ public class BillCalculatorTests
     {
         var bill = BillOf(Line(17500, 1000, GstSlab.Zero));
         BillCalculator.Compute(bill, true);
+        bill.Tender = TenderType.Cash;
         bill.CashReceived = Paise.FromRupees(200);
         Assert.Equal(2000, BillCalculator.ChangeDue(bill).Value);
+    }
+
+    [Theory]
+    [InlineData(TenderType.Upi)]
+    [InlineData(TenderType.Udhaar)]
+    public void B1_ChangeDue_IsZero_ForNonCashTenders(TenderType tender)
+    {
+        var bill = BillOf(Line(20000, 1000, GstSlab.Zero));
+        BillCalculator.Compute(bill, true);
+        bill.Tender = tender;
+        Assert.Equal(0, BillCalculator.ChangeDue(bill).Value);   // was −₹200 on udhaar
+    }
+
+    [Fact]
+    public void B1_ChangeDue_IsZero_WhenCashNotYetEntered()
+    {
+        var bill = BillOf(Line(20000, 1000, GstSlab.Zero));
+        BillCalculator.Compute(bill, true);
+        bill.Tender = TenderType.Cash;
+        Assert.Equal(0, BillCalculator.ChangeDue(bill).Value);
     }
 
     [Fact]

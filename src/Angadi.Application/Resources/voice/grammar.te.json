@@ -23,7 +23,6 @@
     "చాలు",
     "పెట్టండి",
     "వేయండి",
-    "వెయ్యి",
     "please",
     "కూడా",
     "ఒకసారి",
@@ -31,7 +30,7 @@
     "అది",
     "ఇది"
   ],
-  "_fillerComment": "Do NOT add 'ఒక' here — it is also the number one (numbers.te.json).",
+  "_fillerComment": "Do NOT add number words here: ఒక is one, వెయ్యి is a thousand (V1: 'వెయ్యి రూపాయల బియ్యం' lost its amount when it was a filler).",
   "currency": [
     "రూపాయలు",
     "రూపాయల",

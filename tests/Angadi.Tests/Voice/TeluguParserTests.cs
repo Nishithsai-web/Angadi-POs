@@ -42,6 +42,30 @@ public class TeluguParserTests
     }
 
     [Fact]
+    public void H4_DecimalQuantity_IsNotSplitAtThePoint()
+    {
+        var line = Assert.Single(_parser.Parse("2.5 కేజీల బియ్యం"));
+        Assert.Equal("బియ్యం", line.Name);
+        Assert.Equal(2500L, line.Qty?.Milli);   // was two phrases → 7 kg
+        Assert.Equal(Unit.Kilogram, line.Unit);
+    }
+
+    [Fact]
+    public void H4_SentenceFullStop_StillSplitsPhrases()
+    {
+        var lines = _parser.Parse("బియ్యం రెండు కేజీలు. చక్కెర ఒక కేజీ");
+        Assert.Equal(new[] { "బియ్యం", "చక్కెర" }, lines.Select(l => l.Name));
+    }
+
+    [Fact]
+    public void V1_Thousand_IsANumber_NotAFiller()
+    {
+        var line = Assert.Single(_parser.Parse("వెయ్యి రూపాయల బియ్యం"));
+        Assert.Equal("బియ్యం", line.Name);
+        Assert.Equal(100_000L, line.Amount?.Value);   // ₹1,000 — was silently dropped
+    }
+
+    [Fact]
     public void FR06_NameOnly_HasNoQuantity()
     {
         var line = Assert.Single(_parser.Parse("అగ్గిపెట్టె"));

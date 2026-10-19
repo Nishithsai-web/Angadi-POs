@@ -1,26 +1,110 @@
 {
-  "VOICE_NO_INTERNET":          { "te": "వాయిస్ కోసం ఇంటర్నెట్ కావాలి — సరుకులు నొక్కి బిల్లు వేయండి", "en": "Voice needs internet — tap or type items instead" },
-  "VOICE_PERMISSION_DENIED":    { "te": "మైక్ అనుమతి ఇవ్వండి — సెట్టింగ్స్‌లో మార్చవచ్చు", "en": "Allow microphone access in Settings to use voice" },
-  "VOICE_NOTHING_HEARD":        { "te": "ఏమీ వినిపించలేదు — మళ్ళీ చెప్పండి", "en": "Didn't hear anything — please try again" },
-  "VOICE_NO_MATCH":             { "te": "ఈ సరుకు దొరకలేదు — వెతికి ఎంచుకోండి", "en": "Item not found — search and pick it" },
-  "CAMERA_PERMISSION_DENIED":   { "te": "బార్‌కోడ్ కోసం కెమెరా అనుమతి ఇవ్వండి", "en": "Allow camera access to scan barcodes" },
-  "BARCODE_UNKNOWN":            { "te": "ఈ బార్‌కోడ్ ఉన్న సరుకు లేదు — కొత్తగా చేర్చాలా?", "en": "No item with this barcode — add it as a new item?" },
-  "BARCODE_DUPLICATE":          { "te": "ఈ బార్‌కోడ్ ఇంకో సరుకుకు ఇప్పటికే ఉంది", "en": "This barcode is already used by another item" },
-  "BILL_EMPTY":                 { "te": "బిల్లులో సరుకులు లేవు", "en": "The bill has no items" },
-  "BILL_QTY_INVALID":           { "te": "పరిమాణం సున్నా కంటే ఎక్కువ ఉండాలి", "en": "Quantity must be more than zero" },
-  "BILL_TENDER_MISSING":        { "te": "చెల్లింపు విధానం ఎంచుకోండి — నగదు, UPI లేదా ఉద్దెర", "en": "Choose a payment: cash, UPI or udhaar" },
-  "BILL_CASH_SHORT":            { "te": "తీసుకున్న నగదు బిల్లు మొత్తం కంటే తక్కువ", "en": "Cash received is less than the bill total" },
-  "BILL_UDHAAR_NEEDS_CUSTOMER": { "te": "ఉద్దెర కోసం కస్టమర్‌ను ఎంచుకోండి", "en": "Select a customer for udhaar" },
-  "BILL_ALREADY_VOID":          { "te": "ఈ బిల్లు ఇప్పటికే రద్దు అయింది", "en": "This bill is already voided" },
-  "BILL_NOT_FOUND":             { "te": "బిల్లు దొరకలేదు", "en": "Bill not found" },
-  "FREE_LIMIT_REACHED":         { "te": "ఈ నెల ఉచిత 50 బిల్లులు అయిపోయాయి — ₹200/నెలతో అపరిమితం", "en": "This month's 50 free bills are used — go unlimited for ₹200/month" },
-  "PURCHASE_FAILED":            { "te": "చెల్లింపు పూర్తి కాలేదు — మళ్ళీ ప్రయత్నించండి", "en": "Purchase didn't complete — please try again" },
-  "SHARE_FAILED":               { "te": "బిల్లు పంపలేకపోయాం — మళ్ళీ ప్రయత్నించండి", "en": "Couldn't share the bill — please try again" },
-  "RECEIPT_RENDER_FAILED":      { "te": "బిల్లు PDF తయారు కాలేదు", "en": "Couldn't create the bill PDF" },
-  "BACKUP_FAILED":              { "te": "బ్యాకప్ కాలేదు — ఫోన్‌లో స్థలం చూడండి", "en": "Backup failed — check free storage" },
-  "RESTORE_INVALID_FILE":       { "te": "ఇది అంగడి బ్యాకప్ ఫైల్ కాదు", "en": "This is not an Angadi backup file" },
-  "ITEM_NOT_FOUND":             { "te": "సరుకు దొరకలేదు", "en": "Item not found" },
-  "CUSTOMER_NOT_FOUND":         { "te": "కస్టమర్ దొరకలేదు", "en": "Customer not found" },
-  "VALIDATION_FAILED":          { "te": "వివరాలు సరిచూడండి", "en": "Please check the details" },
-  "UNEXPECTED":                 { "te": "ఏదో తప్పు జరిగింది — మీ డేటా సురక్షితం. మళ్ళీ ప్రయత్నించండి", "en": "Something went wrong — your data is safe. Please try again" }
+  "VOICE_NO_INTERNET": {
+    "te": "వాయిస్ కోసం ఇంటర్నెట్ కావాలి — సరుకులు నొక్కి బిల్లు వేయండి",
+    "en": "Voice needs internet — tap or type items instead"
+  },
+  "VOICE_PERMISSION_DENIED": {
+    "te": "మైక్ అనుమతి ఇవ్వండి — సెట్టింగ్స్‌లో మార్చవచ్చు",
+    "en": "Allow microphone access in Settings to use voice"
+  },
+  "VOICE_NOTHING_HEARD": {
+    "te": "ఏమీ వినిపించలేదు — మళ్ళీ చెప్పండి",
+    "en": "Didn't hear anything — please try again"
+  },
+  "VOICE_NO_MATCH": {
+    "te": "ఈ సరుకు దొరకలేదు — వెతికి ఎంచుకోండి",
+    "en": "Item not found — search and pick it"
+  },
+  "CAMERA_PERMISSION_DENIED": {
+    "te": "బార్‌కోడ్ కోసం కెమెరా అనుమతి ఇవ్వండి",
+    "en": "Allow camera access to scan barcodes"
+  },
+  "BARCODE_UNKNOWN": {
+    "te": "ఈ బార్‌కోడ్ ఉన్న సరుకు లేదు — కొత్తగా చేర్చాలా?",
+    "en": "No item with this barcode — add it as a new item?"
+  },
+  "BARCODE_DUPLICATE": {
+    "te": "ఈ బార్‌కోడ్ ఇంకో సరుకుకు ఇప్పటికే ఉంది",
+    "en": "This barcode is already used by another item"
+  },
+  "BILL_EMPTY": {
+    "te": "బిల్లులో సరుకులు లేవు",
+    "en": "The bill has no items"
+  },
+  "BILL_QTY_INVALID": {
+    "te": "పరిమాణం సున్నా కంటే ఎక్కువ ఉండాలి",
+    "en": "Quantity must be more than zero"
+  },
+  "BILL_TENDER_MISSING": {
+    "te": "చెల్లింపు విధానం ఎంచుకోండి — నగదు, UPI లేదా ఉద్దెర",
+    "en": "Choose a payment: cash, UPI or udhaar"
+  },
+  "BILL_CASH_SHORT": {
+    "te": "తీసుకున్న నగదు బిల్లు మొత్తం కంటే తక్కువ",
+    "en": "Cash received is less than the bill total"
+  },
+  "BILL_UDHAAR_NEEDS_CUSTOMER": {
+    "te": "ఉద్దెర కోసం కస్టమర్‌ను ఎంచుకోండి",
+    "en": "Select a customer for udhaar"
+  },
+  "BILL_ALREADY_VOID": {
+    "te": "ఈ బిల్లు ఇప్పటికే రద్దు అయింది",
+    "en": "This bill is already voided"
+  },
+  "BILL_NOT_FOUND": {
+    "te": "బిల్లు దొరకలేదు",
+    "en": "Bill not found"
+  },
+  "FREE_LIMIT_REACHED": {
+    "te": "ఈ నెల ఉచిత 50 బిల్లులు అయిపోయాయి — ₹200/నెలతో అపరిమితం",
+    "en": "This month's 50 free bills are used — go unlimited for ₹200/month"
+  },
+  "PURCHASE_FAILED": {
+    "te": "చెల్లింపు పూర్తి కాలేదు — మళ్ళీ ప్రయత్నించండి",
+    "en": "Purchase didn't complete — please try again"
+  },
+  "SHARE_FAILED": {
+    "te": "బిల్లు పంపలేకపోయాం — మళ్ళీ ప్రయత్నించండి",
+    "en": "Couldn't share the bill — please try again"
+  },
+  "RECEIPT_RENDER_FAILED": {
+    "te": "బిల్లు PDF తయారు కాలేదు",
+    "en": "Couldn't create the bill PDF"
+  },
+  "BACKUP_FAILED": {
+    "te": "బ్యాకప్ కాలేదు — ఫోన్‌లో స్థలం చూడండి",
+    "en": "Backup failed — check free storage"
+  },
+  "RESTORE_INVALID_FILE": {
+    "te": "ఇది అంగడి బ్యాకప్ ఫైల్ కాదు",
+    "en": "This is not an Angadi backup file"
+  },
+  "ITEM_NOT_FOUND": {
+    "te": "సరుకు దొరకలేదు",
+    "en": "Item not found"
+  },
+  "CUSTOMER_NOT_FOUND": {
+    "te": "కస్టమర్ దొరకలేదు",
+    "en": "Customer not found"
+  },
+  "VALIDATION_FAILED": {
+    "te": "వివరాలు సరిచూడండి",
+    "en": "Please check the details"
+  },
+  "UNEXPECTED": {
+    "te": "ఏదో తప్పు జరిగింది — మీ డేటా సురక్షితం. మళ్ళీ ప్రయత్నించండి",
+    "en": "Something went wrong — your data is safe. Please try again"
+  },
+  "BILL_VOID_BLOCKED_BY_PAYMENTS": {
+    "te": "ఈ ఉద్దెర బిల్లుకు ఇప్పటికే చెల్లింపు జరిగింది — రద్దు చేయలేం. ముందు బాకీ సర్దుబాటు చేయండి",
+    "en": "Payments were already made against this udhaar bill — it can't be voided. Settle the dues first"
+  },
+  "BILL_LEGACY_SLAB": {
+    "te": "ఈ సరుకుకు పాత GST స్లాబ్ (12% లేదా 28%) ఉంది — సరుకులో కొత్త స్లాబ్ ఎంచుకోండి",
+    "en": "An item has an old GST slab (12% or 28%) — choose a current slab for it first"
+  },
+  "BILL_DISCOUNT_TOO_LARGE": {
+    "te": "తగ్గింపు 100% కంటే ఎక్కువ ఉండకూడదు",
+    "en": "Discount can't be more than 100%"
+  }
 }

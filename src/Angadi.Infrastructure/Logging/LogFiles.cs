@@ -25,6 +25,7 @@ public sealed class LogFiles(string directory)
             .Enrich.FromLogContext()
             .WriteTo.File(
                 Path.Combine(Directory, "angadi-.log"),
+                formatProvider: System.Globalization.CultureInfo.InvariantCulture,
                 rollingInterval: RollingInterval.Day,
                 retainedFileCountLimit: RetainedDays,
                 fileSizeLimitBytes: MaxFileBytes,

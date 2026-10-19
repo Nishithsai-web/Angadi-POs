@@ -7,6 +7,7 @@ using Angadi.Domain.Common;
 using Angadi.Domain.Customers;
 using Angadi.Domain.Events;
 using Angadi.Domain.Inventory;
+using Angadi.Domain.Items;
 using Microsoft.Extensions.Options;
 
 namespace Angadi.Application.Billing;
@@ -15,6 +16,8 @@ namespace Angadi.Application.Billing;
 
 internal sealed class FinalizeBillValidator : IValidator<FinalizeBillCommand>
 {
+    private static bool IsOver100Percent(Discount d) => d.Kind == DiscountKind.PercentBasisPoints && d.Amount > 10_000;
+
     public Error? Validate(FinalizeBillCommand c)
     {
         var bill = c.Draft;
@@ -24,6 +27,14 @@ internal sealed class FinalizeBillValidator : IValidator<FinalizeBillCommand>
         if (bill.Tender is null) return new Error(ErrorCodes.BillTenderMissing);
         if (bill.Tender == TenderType.Udhaar && bill.CustomerId is null) return new Error(ErrorCodes.BillUdhaarNeedsCustomer);
         if (bill.Status != BillStatus.Draft) return new Error(ErrorCodes.ValidationFailed, "bill already finalized");
+        // B1: only a cash tender may carry cash received.
+        if (bill.Tender != TenderType.Cash && bill.CashReceived.Value != 0) return new Error(ErrorCodes.ValidationFailed, "cash received on a non-cash tender");
+        // M9: a typo like 150% must stop the bill, never silently clamp to free goods.
+        if (IsOver100Percent(bill.BillDiscount) || bill.Lines.Any(l => IsOver100Percent(l.LineDiscount)))
+            return new Error(ErrorCodes.BillDiscountTooLarge);
+        // H8: GST 2.0 abolished 12%/28% (22 Sep 2025); fail closed rather than bill wrong tax.
+        var legacy = bill.Lines.FirstOrDefault(l => GstSlabs.IsLegacy(l.GstSlab));
+        if (legacy is not null) return new Error(ErrorCodes.BillLegacySlab, legacy.EnglishName);
         return null;
     }
 }
@@ -141,6 +152,17 @@ internal sealed class VoidBillHandler(
         if (bill is null) return Result.Failure(ErrorCodes.BillNotFound);
         if (bill.Status == BillStatus.Void) return Result.Failure(ErrorCodes.BillAlreadyVoid);
         if (bill.Status != BillStatus.Finalized) return Result.Failure(ErrorCodes.ValidationFailed, "only finalized bills can be voided");
+
+        // H1 (approved as specified): if any part of an udhaar bill has been paid, a full reversal would push dues
+        // negative and lock the account. Fail closed before mutating anything; real refunds are v2.
+        if (bill.Tender == TenderType.Udhaar && bill.CustomerId is { } owingId && bill.GrandTotal.Value > 0)
+        {
+            var owing = await customers.GetAsync(owingId, ct);
+            if (owing is null) return Result.Failure(ErrorCodes.CustomerNotFound);
+            if (owing.DuesBalance < bill.GrandTotal)
+                return Result.Failure(ErrorCodes.BillVoidBlockedByPayments,
+                    string.Create(System.Globalization.CultureInfo.InvariantCulture, $"dues {owing.DuesBalance.Value} < bill {bill.GrandTotal.Value}"));
+        }
 
         var now = clock.Now;
         bill.Status = BillStatus.Void;
