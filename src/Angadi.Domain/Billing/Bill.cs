@@ -47,7 +47,10 @@ public sealed class BillLine
     public GstSlab GstSlab { get; set; }
     public Qty Qty { get; set; }
     public Discount LineDiscount { get; set; } = Discount.None;
+    public Paise Gross { get; set; }         // round(UnitPrice × Qty), before any discount
     public Paise LineTotal { get; set; }     // after line discount, GST-inclusive
+    public Paise BillDiscountShare { get; set; }   // this line's part of the bill discount
+    public Paise Net => LineTotal - BillDiscountShare;
     public LineSource Source { get; set; }   // analytics + voice accuracy tracking
 }
 

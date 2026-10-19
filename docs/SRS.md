@@ -31,7 +31,7 @@
 - **FR-02** The shopkeeper can switch the UI between Telugu and English at any time. All strings come from resource JSON.
 
 ### 2.2 Item library
-- **FR-03** Create, edit and deactivate items. Fields: Telugu name, English name, aliases, category, unit (kg/g/l/ml/pcs/pack/strip), GST-inclusive price, GST slab (0/5/12/18/28%), optional HSN, stock quantity, low-stock threshold, optional barcode.
+- **FR-03** Create, edit and deactivate items. Fields: Telugu name, English name, aliases, category, unit (kg/g/l/ml/pcs/pack/strip), GST-inclusive price, GST slab (0/5/18/40% per GST 2.0; 12/28% kept for legacy items only), optional HSN, stock quantity, low-stock threshold, optional barcode.
 - **FR-04** First run can seed 80 kirana and 40 pharmacy items, each with Telugu aliases. Seeding can be skipped and is idempotent: running it twice adds nothing.
 - **FR-05** Search items by Telugu name, English name, alias or barcode. Voice search is available on the search box.
 

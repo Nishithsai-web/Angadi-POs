@@ -1,0 +1,1306 @@
+{
+ "_comment": "Sample items for first-run seeding (FR-04). Prices are typical MRP and must be edited to the shop's own. GST slabs follow GST 2.0 (22 Sep 2025) for the usual packaged form; loose staples are nil. Shopkeepers should confirm slabs with their accountant.",
+ "items": [
+  {
+   "te": "బియ్యం",
+   "en": "Rice (Sona Masoori)",
+   "aliases": [
+    "biyyam",
+    "rice",
+    "సోనా మసూరి",
+    "సోనామసూరి"
+   ],
+   "category": "ధాన్యాలు",
+   "unit": "Kilogram",
+   "pricePaise": 6200,
+   "gstBasisPoints": 0,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": true
+  },
+  {
+   "te": "గోధుమ పిండి",
+   "en": "Wheat atta",
+   "aliases": [
+    "atta",
+    "ఆటా",
+    "గోధుమపిండి",
+    "godhuma pindi"
+   ],
+   "category": "పిండ్లు",
+   "unit": "Kilogram",
+   "pricePaise": 5500,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": true
+  },
+  {
+   "te": "మైదా",
+   "en": "Maida",
+   "aliases": [
+    "maida",
+    "మైదా పిండి"
+   ],
+   "category": "పిండ్లు",
+   "unit": "Kilogram",
+   "pricePaise": 5000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "బొంబాయి రవ్వ",
+   "en": "Rava (sooji)",
+   "aliases": [
+    "రవ్వ",
+    "ఉప్మా రవ్వ",
+    "sooji",
+    "rava",
+    "suji"
+   ],
+   "category": "పిండ్లు",
+   "unit": "Kilogram",
+   "pricePaise": 5500,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "కంది పప్పు",
+   "en": "Toor dal",
+   "aliases": [
+    "కందిపప్పు",
+    "తూర్ దాల్",
+    "toor dal",
+    "kandi pappu"
+   ],
+   "category": "పప్పులు",
+   "unit": "Kilogram",
+   "pricePaise": 16000,
+   "gstBasisPoints": 0,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": true
+  },
+  {
+   "te": "పెసర పప్పు",
+   "en": "Moong dal",
+   "aliases": [
+    "పెసరపప్పు",
+    "moong dal",
+    "pesara pappu"
+   ],
+   "category": "పప్పులు",
+   "unit": "Kilogram",
+   "pricePaise": 13000,
+   "gstBasisPoints": 0,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "మినప పప్పు",
+   "en": "Urad dal",
+   "aliases": [
+    "మినపప్పు",
+    "మినప గుళ్ళు",
+    "urad dal",
+    "minapa pappu"
+   ],
+   "category": "పప్పులు",
+   "unit": "Kilogram",
+   "pricePaise": 14000,
+   "gstBasisPoints": 0,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "శనగ పప్పు",
+   "en": "Chana dal",
+   "aliases": [
+    "శనగపప్పు",
+    "chana dal",
+    "senaga pappu"
+   ],
+   "category": "పప్పులు",
+   "unit": "Kilogram",
+   "pricePaise": 9500,
+   "gstBasisPoints": 0,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "పుట్నాల పప్పు",
+   "en": "Roasted gram",
+   "aliases": [
+    "పుట్నాలు",
+    "putnalu",
+    "roasted gram"
+   ],
+   "category": "పప్పులు",
+   "unit": "Kilogram",
+   "pricePaise": 12000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "చక్కెర",
+   "en": "Sugar",
+   "aliases": [
+    "పంచదార",
+    "sugar",
+    "chakkera",
+    "panchadara"
+   ],
+   "category": "ధాన్యాలు",
+   "unit": "Kilogram",
+   "pricePaise": 4600,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": true
+  },
+  {
+   "te": "బెల్లం",
+   "en": "Jaggery",
+   "aliases": [
+    "bellam",
+    "jaggery"
+   ],
+   "category": "ధాన్యాలు",
+   "unit": "Kilogram",
+   "pricePaise": 7000,
+   "gstBasisPoints": 0,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "ఉప్పు",
+   "en": "Salt (1 kg)",
+   "aliases": [
+    "salt",
+    "uppu",
+    "ఉప్పు ప్యాకెట్"
+   ],
+   "category": "ధాన్యాలు",
+   "unit": "Pack",
+   "pricePaise": 2800,
+   "gstBasisPoints": 0,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": true
+  },
+  {
+   "te": "పల్లి నూనె",
+   "en": "Groundnut oil",
+   "aliases": [
+    "పల్లీ నూనె",
+    "వేరుశనగ నూనె",
+    "groundnut oil",
+    "palli nune"
+   ],
+   "category": "నూనెలు",
+   "unit": "Litre",
+   "pricePaise": 19000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "సన్ ఫ్లవర్ నూనె",
+   "en": "Sunflower oil",
+   "aliases": [
+    "నూనె",
+    "సన్‌ఫ్లవర్ ఆయిల్",
+    "sunflower oil",
+    "oil"
+   ],
+   "category": "నూనెలు",
+   "unit": "Litre",
+   "pricePaise": 15500,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": true
+  },
+  {
+   "te": "పామాయిల్",
+   "en": "Palm oil",
+   "aliases": [
+    "పామ్ ఆయిల్",
+    "palm oil"
+   ],
+   "category": "నూనెలు",
+   "unit": "Litre",
+   "pricePaise": 12000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "నెయ్యి",
+   "en": "Ghee (500 ml)",
+   "aliases": [
+    "neyyi",
+    "ghee"
+   ],
+   "category": "పాల ఉత్పత్తులు",
+   "unit": "Piece",
+   "pricePaise": 33000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "పాలు",
+   "en": "Milk (500 ml)",
+   "aliases": [
+    "పాల ప్యాకెట్",
+    "milk",
+    "paalu"
+   ],
+   "category": "పాల ఉత్పత్తులు",
+   "unit": "Pack",
+   "pricePaise": 3000,
+   "gstBasisPoints": 0,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": true
+  },
+  {
+   "te": "పెరుగు",
+   "en": "Curd (500 g)",
+   "aliases": [
+    "perugu",
+    "curd",
+    "పెరుగు ప్యాకెట్"
+   ],
+   "category": "పాల ఉత్పత్తులు",
+   "unit": "Pack",
+   "pricePaise": 3500,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": true
+  },
+  {
+   "te": "వెన్న",
+   "en": "Butter (100 g)",
+   "aliases": [
+    "butter",
+    "venna"
+   ],
+   "category": "పాల ఉత్పత్తులు",
+   "unit": "Piece",
+   "pricePaise": 6000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "పనీర్",
+   "en": "Paneer (200 g)",
+   "aliases": [
+    "paneer",
+    "పన్నీర్"
+   ],
+   "category": "పాల ఉత్పత్తులు",
+   "unit": "Piece",
+   "pricePaise": 9000,
+   "gstBasisPoints": 0,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "గుడ్లు",
+   "en": "Eggs",
+   "aliases": [
+    "కోడిగుడ్లు",
+    "గుడ్డు",
+    "ఎగ్స్",
+    "eggs",
+    "egg"
+   ],
+   "category": "పాల ఉత్పత్తులు",
+   "unit": "Piece",
+   "pricePaise": 700,
+   "gstBasisPoints": 0,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": true
+  },
+  {
+   "te": "టీ పొడి",
+   "en": "Tea powder (250 g)",
+   "aliases": [
+    "చాయ్ పొడి",
+    "టీపొడి",
+    "tea",
+    "tea powder"
+   ],
+   "category": "పానీయాలు",
+   "unit": "Pack",
+   "pricePaise": 14000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": true
+  },
+  {
+   "te": "కాఫీ పొడి",
+   "en": "Coffee powder (100 g)",
+   "aliases": [
+    "కాఫీపొడి",
+    "coffee",
+    "coffee powder"
+   ],
+   "category": "పానీయాలు",
+   "unit": "Pack",
+   "pricePaise": 12000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "ఉల్లిపాయలు",
+   "en": "Onions",
+   "aliases": [
+    "ఉల్లిగడ్డలు",
+    "ఉల్లిపాయ",
+    "onion",
+    "onions",
+    "ullipayalu"
+   ],
+   "category": "కూరగాయలు",
+   "unit": "Kilogram",
+   "pricePaise": 3500,
+   "gstBasisPoints": 0,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": true
+  },
+  {
+   "te": "టమాటాలు",
+   "en": "Tomatoes",
+   "aliases": [
+    "టమాటా",
+    "టమాట",
+    "tomato",
+    "tomatoes"
+   ],
+   "category": "కూరగాయలు",
+   "unit": "Kilogram",
+   "pricePaise": 3000,
+   "gstBasisPoints": 0,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": true
+  },
+  {
+   "te": "బంగాళాదుంపలు",
+   "en": "Potatoes",
+   "aliases": [
+    "ఆలుగడ్డలు",
+    "ఆలు",
+    "బంగాళదుంప",
+    "potato",
+    "potatoes",
+    "aloo"
+   ],
+   "category": "కూరగాయలు",
+   "unit": "Kilogram",
+   "pricePaise": 3500,
+   "gstBasisPoints": 0,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": true
+  },
+  {
+   "te": "పచ్చిమిర్చి",
+   "en": "Green chillies",
+   "aliases": [
+    "మిర్చి",
+    "పచ్చి మిరపకాయలు",
+    "green chilli",
+    "mirchi"
+   ],
+   "category": "కూరగాయలు",
+   "unit": "Kilogram",
+   "pricePaise": 8000,
+   "gstBasisPoints": 0,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": true
+  },
+  {
+   "te": "అల్లం",
+   "en": "Ginger",
+   "aliases": [
+    "allam",
+    "ginger"
+   ],
+   "category": "కూరగాయలు",
+   "unit": "Kilogram",
+   "pricePaise": 12000,
+   "gstBasisPoints": 0,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "వెల్లుల్లి",
+   "en": "Garlic",
+   "aliases": [
+    "ఎల్లిపాయ",
+    "వెల్లుల్లిపాయలు",
+    "garlic",
+    "vellulli"
+   ],
+   "category": "కూరగాయలు",
+   "unit": "Kilogram",
+   "pricePaise": 20000,
+   "gstBasisPoints": 0,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "నిమ్మకాయలు",
+   "en": "Lemons",
+   "aliases": [
+    "నిమ్మకాయ",
+    "lemon",
+    "lemons",
+    "nimmakaya"
+   ],
+   "category": "కూరగాయలు",
+   "unit": "Piece",
+   "pricePaise": 500,
+   "gstBasisPoints": 0,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "కరివేపాకు",
+   "en": "Curry leaves",
+   "aliases": [
+    "karivepaku",
+    "curry leaves"
+   ],
+   "category": "కూరగాయలు",
+   "unit": "Pack",
+   "pricePaise": 1000,
+   "gstBasisPoints": 0,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": true
+  },
+  {
+   "te": "కొత్తిమీర",
+   "en": "Coriander leaves",
+   "aliases": [
+    "kothimeera",
+    "coriander"
+   ],
+   "category": "కూరగాయలు",
+   "unit": "Pack",
+   "pricePaise": 1000,
+   "gstBasisPoints": 0,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": true
+  },
+  {
+   "te": "కారం",
+   "en": "Chilli powder",
+   "aliases": [
+    "కారం పొడి",
+    "మిరప్పొడి",
+    "chilli powder",
+    "karam"
+   ],
+   "category": "మసాలాలు",
+   "unit": "Kilogram",
+   "pricePaise": 32000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "పసుపు",
+   "en": "Turmeric powder",
+   "aliases": [
+    "పసుపు పొడి",
+    "turmeric",
+    "pasupu"
+   ],
+   "category": "మసాలాలు",
+   "unit": "Kilogram",
+   "pricePaise": 28000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "ధనియాల పొడి",
+   "en": "Coriander powder",
+   "aliases": [
+    "ధనియాలు",
+    "dhaniya powder",
+    "dhaniyalu"
+   ],
+   "category": "మసాలాలు",
+   "unit": "Kilogram",
+   "pricePaise": 24000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "జీలకర్ర",
+   "en": "Cumin seeds",
+   "aliases": [
+    "జీరా",
+    "jeera",
+    "cumin",
+    "jeelakarra"
+   ],
+   "category": "మసాలాలు",
+   "unit": "Kilogram",
+   "pricePaise": 40000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "ఆవాలు",
+   "en": "Mustard seeds",
+   "aliases": [
+    "avalu",
+    "mustard"
+   ],
+   "category": "మసాలాలు",
+   "unit": "Kilogram",
+   "pricePaise": 12000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "మెంతులు",
+   "en": "Fenugreek seeds",
+   "aliases": [
+    "menthulu",
+    "methi",
+    "fenugreek"
+   ],
+   "category": "మసాలాలు",
+   "unit": "Kilogram",
+   "pricePaise": 16000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "మిరియాలు",
+   "en": "Black pepper",
+   "aliases": [
+    "miriyalu",
+    "pepper",
+    "black pepper"
+   ],
+   "category": "మసాలాలు",
+   "unit": "Kilogram",
+   "pricePaise": 80000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "యాలకులు",
+   "en": "Cardamom (10 g)",
+   "aliases": [
+    "ఏలకులు",
+    "ఇలాచీ",
+    "elaichi",
+    "cardamom"
+   ],
+   "category": "మసాలాలు",
+   "unit": "Pack",
+   "pricePaise": 4000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "లవంగాలు",
+   "en": "Cloves (10 g)",
+   "aliases": [
+    "lavangalu",
+    "cloves"
+   ],
+   "category": "మసాలాలు",
+   "unit": "Pack",
+   "pricePaise": 2500,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "చింతపండు",
+   "en": "Tamarind",
+   "aliases": [
+    "chintapandu",
+    "tamarind",
+    "imli"
+   ],
+   "category": "మసాలాలు",
+   "unit": "Kilogram",
+   "pricePaise": 18000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "గరం మసాలా",
+   "en": "Garam masala (50 g)",
+   "aliases": [
+    "garam masala",
+    "మసాలా"
+   ],
+   "category": "మసాలాలు",
+   "unit": "Pack",
+   "pricePaise": 4500,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "ఇడ్లీ రవ్వ",
+   "en": "Idli rava",
+   "aliases": [
+    "idli rava",
+    "ఇడ్లీరవ్వ"
+   ],
+   "category": "పిండ్లు",
+   "unit": "Kilogram",
+   "pricePaise": 6000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "అటుకులు",
+   "en": "Poha",
+   "aliases": [
+    "పోహా",
+    "poha",
+    "atukulu"
+   ],
+   "category": "ధాన్యాలు",
+   "unit": "Kilogram",
+   "pricePaise": 7000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "సేమియా",
+   "en": "Vermicelli (200 g)",
+   "aliases": [
+    "semiya",
+    "vermicelli",
+    "సేమ్యా"
+   ],
+   "category": "ధాన్యాలు",
+   "unit": "Pack",
+   "pricePaise": 3000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "బిస్కెట్లు",
+   "en": "Biscuits",
+   "aliases": [
+    "బిస్కెట్",
+    "బిస్కట్లు",
+    "biscuit",
+    "biscuits"
+   ],
+   "category": "స్నాక్స్",
+   "unit": "Pack",
+   "pricePaise": 1000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": true
+  },
+  {
+   "te": "బ్రెడ్",
+   "en": "Bread",
+   "aliases": [
+    "bread",
+    "పావ్",
+    "రొట్టె"
+   ],
+   "category": "స్నాక్స్",
+   "unit": "Pack",
+   "pricePaise": 4500,
+   "gstBasisPoints": 0,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": true
+  },
+  {
+   "te": "రస్క్",
+   "en": "Rusk",
+   "aliases": [
+    "rusk",
+    "రస్కులు"
+   ],
+   "category": "స్నాక్స్",
+   "unit": "Pack",
+   "pricePaise": 4000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "చిప్స్",
+   "en": "Chips",
+   "aliases": [
+    "chips",
+    "వేఫర్స్",
+    "wafers"
+   ],
+   "category": "స్నాక్స్",
+   "unit": "Pack",
+   "pricePaise": 2000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": true
+  },
+  {
+   "te": "మిక్చర్",
+   "en": "Namkeen mixture (200 g)",
+   "aliases": [
+    "మిక్స్చర్",
+    "నమ్కీన్",
+    "mixture",
+    "namkeen"
+   ],
+   "category": "స్నాక్స్",
+   "unit": "Pack",
+   "pricePaise": 5000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "చాక్లెట్",
+   "en": "Chocolate",
+   "aliases": [
+    "చాక్లెట్లు",
+    "chocolate"
+   ],
+   "category": "స్నాక్స్",
+   "unit": "Piece",
+   "pricePaise": 1000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": true
+  },
+  {
+   "te": "కూల్ డ్రింక్",
+   "en": "Soft drink (750 ml)",
+   "aliases": [
+    "కూల్‌డ్రింక్",
+    "సాఫ్ట్ డ్రింక్",
+    "cool drink",
+    "soft drink"
+   ],
+   "category": "పానీయాలు",
+   "unit": "Piece",
+   "pricePaise": 4500,
+   "gstBasisPoints": 4000,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": true
+  },
+  {
+   "te": "వాటర్ బాటిల్",
+   "en": "Water bottle (1 L)",
+   "aliases": [
+    "మంచినీళ్ళు",
+    "నీళ్ళ బాటిల్",
+    "water",
+    "water bottle"
+   ],
+   "category": "పానీయాలు",
+   "unit": "Piece",
+   "pricePaise": 2000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": true
+  },
+  {
+   "te": "స్నానం సబ్బు",
+   "en": "Bath soap",
+   "aliases": [
+    "సబ్బు",
+    "బాత్ సోప్",
+    "soap",
+    "bath soap"
+   ],
+   "category": "సౌందర్య",
+   "unit": "Piece",
+   "pricePaise": 4000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": true
+  },
+  {
+   "te": "బట్టల సబ్బు",
+   "en": "Washing bar",
+   "aliases": [
+    "వాషింగ్ సోప్",
+    "washing soap",
+    "battala sabbu"
+   ],
+   "category": "శుభ్రత",
+   "unit": "Piece",
+   "pricePaise": 3000,
+   "gstBasisPoints": 1800,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "డిటర్జెంట్ పౌడర్",
+   "en": "Detergent powder (1 kg)",
+   "aliases": [
+    "సర్ఫ్",
+    "వాషింగ్ పౌడర్",
+    "detergent",
+    "washing powder"
+   ],
+   "category": "శుభ్రత",
+   "unit": "Pack",
+   "pricePaise": 11000,
+   "gstBasisPoints": 1800,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "టూత్ పేస్ట్",
+   "en": "Toothpaste (100 g)",
+   "aliases": [
+    "పేస్ట్",
+    "toothpaste",
+    "paste"
+   ],
+   "category": "సౌందర్య",
+   "unit": "Piece",
+   "pricePaise": 5500,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": true
+  },
+  {
+   "te": "టూత్ బ్రష్",
+   "en": "Toothbrush",
+   "aliases": [
+    "బ్రష్",
+    "brush",
+    "toothbrush"
+   ],
+   "category": "సౌందర్య",
+   "unit": "Piece",
+   "pricePaise": 2500,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "షాంపూ",
+   "en": "Shampoo sachet",
+   "aliases": [
+    "షాంపూ ప్యాకెట్",
+    "shampoo"
+   ],
+   "category": "సౌందర్య",
+   "unit": "Piece",
+   "pricePaise": 200,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": true
+  },
+  {
+   "te": "కొబ్బరి నూనె",
+   "en": "Coconut oil (200 ml)",
+   "aliases": [
+    "తల నూనె",
+    "కొబ్బరినూనె",
+    "coconut oil",
+    "hair oil"
+   ],
+   "category": "సౌందర్య",
+   "unit": "Piece",
+   "pricePaise": 8000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "అగ్గిపెట్టె",
+   "en": "Matchbox",
+   "aliases": [
+    "అగ్గిపుల్లలు",
+    "matchbox",
+    "agipette"
+   ],
+   "category": "పూజ",
+   "unit": "Piece",
+   "pricePaise": 200,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": true
+  },
+  {
+   "te": "అగరబత్తి",
+   "en": "Agarbatti",
+   "aliases": [
+    "అగర్‌బత్తి",
+    "అగరబత్తీలు",
+    "agarbatti",
+    "incense"
+   ],
+   "category": "పూజ",
+   "unit": "Pack",
+   "pricePaise": 3000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "కొవ్వొత్తి",
+   "en": "Candle",
+   "aliases": [
+    "కొవ్వొత్తులు",
+    "candle",
+    "candles"
+   ],
+   "category": "పూజ",
+   "unit": "Piece",
+   "pricePaise": 500,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "అరటిపండ్లు",
+   "en": "Bananas",
+   "aliases": [
+    "అరటిపండు",
+    "అరటి పండ్లు",
+    "banana",
+    "bananas"
+   ],
+   "category": "పండ్లు",
+   "unit": "Piece",
+   "pricePaise": 500,
+   "gstBasisPoints": 0,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "కొబ్బరికాయ",
+   "en": "Coconut",
+   "aliases": [
+    "కొబ్బరి కాయ",
+    "coconut",
+    "kobbarikaya"
+   ],
+   "category": "పండ్లు",
+   "unit": "Piece",
+   "pricePaise": 3000,
+   "gstBasisPoints": 0,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "పల్లీలు",
+   "en": "Groundnuts",
+   "aliases": [
+    "వేరుశనగలు",
+    "పల్లీ",
+    "groundnut",
+    "peanuts",
+    "palleelu"
+   ],
+   "category": "ధాన్యాలు",
+   "unit": "Kilogram",
+   "pricePaise": 14000,
+   "gstBasisPoints": 0,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "జీడిపప్పు",
+   "en": "Cashew",
+   "aliases": [
+    "జీడి పప్పు",
+    "కాజు",
+    "cashew",
+    "kaju"
+   ],
+   "category": "డ్రై ఫ్రూట్స్",
+   "unit": "Kilogram",
+   "pricePaise": 90000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "కిస్మిస్",
+   "en": "Raisins",
+   "aliases": [
+    "ఎండు ద్రాక్ష",
+    "ఎండుద్రాక్ష",
+    "raisins",
+    "kismis"
+   ],
+   "category": "డ్రై ఫ్రూట్స్",
+   "unit": "Kilogram",
+   "pricePaise": 40000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "సగ్గుబియ్యం",
+   "en": "Sabudana",
+   "aliases": [
+    "సగ్గు బియ్యం",
+    "sabudana",
+    "saggubiyyam"
+   ],
+   "category": "ధాన్యాలు",
+   "unit": "Kilogram",
+   "pricePaise": 9000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "రాగి పిండి",
+   "en": "Ragi flour",
+   "aliases": [
+    "రాగిపిండి",
+    "రాగులు",
+    "ragi",
+    "ragi flour"
+   ],
+   "category": "పిండ్లు",
+   "unit": "Kilogram",
+   "pricePaise": 6000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "జొన్నలు",
+   "en": "Jowar",
+   "aliases": [
+    "జొన్న",
+    "jowar",
+    "jonnalu"
+   ],
+   "category": "ధాన్యాలు",
+   "unit": "Kilogram",
+   "pricePaise": 5000,
+   "gstBasisPoints": 0,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "బొబ్బర్లు",
+   "en": "Black-eyed beans",
+   "aliases": [
+    "అలసందలు",
+    "bobbarlu",
+    "lobia"
+   ],
+   "category": "పప్పులు",
+   "unit": "Kilogram",
+   "pricePaise": 11000,
+   "gstBasisPoints": 0,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "శనగలు",
+   "en": "Chickpeas",
+   "aliases": [
+    "కాబూలీ శనగలు",
+    "chana",
+    "chickpeas",
+    "senagalu"
+   ],
+   "category": "పప్పులు",
+   "unit": "Kilogram",
+   "pricePaise": 9000,
+   "gstBasisPoints": 0,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "నూడుల్స్",
+   "en": "Noodles",
+   "aliases": [
+    "noodles",
+    "మ్యాగీ"
+   ],
+   "category": "స్నాక్స్",
+   "unit": "Pack",
+   "pricePaise": 1500,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": true
+  },
+  {
+   "te": "జామ్",
+   "en": "Jam",
+   "aliases": [
+    "jam",
+    "ఫ్రూట్ జామ్"
+   ],
+   "category": "స్నాక్స్",
+   "unit": "Piece",
+   "pricePaise": 12000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "ఆవకాయ",
+   "en": "Mango pickle (500 g)",
+   "aliases": [
+    "పచ్చడి",
+    "ఆవకాయ పచ్చడి",
+    "pickle",
+    "avakaya"
+   ],
+   "category": "స్నాక్స్",
+   "unit": "Piece",
+   "pricePaise": 15000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "అప్పడాలు",
+   "en": "Papad",
+   "aliases": [
+    "అప్పడం",
+    "papad",
+    "appadalu"
+   ],
+   "category": "స్నాక్స్",
+   "unit": "Pack",
+   "pricePaise": 4000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "టాయిలెట్ క్లీనర్",
+   "en": "Toilet cleaner",
+   "aliases": [
+    "toilet cleaner",
+    "బాత్రూమ్ క్లీనర్"
+   ],
+   "category": "శుభ్రత",
+   "unit": "Piece",
+   "pricePaise": 9500,
+   "gstBasisPoints": 1800,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "దోమల కాయిల్",
+   "en": "Mosquito coil",
+   "aliases": [
+    "మస్కిటో కాయిల్",
+    "mosquito coil",
+    "coil"
+   ],
+   "category": "శుభ్రత",
+   "unit": "Pack",
+   "pricePaise": 4000,
+   "gstBasisPoints": 1800,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  }
+ ]
+}

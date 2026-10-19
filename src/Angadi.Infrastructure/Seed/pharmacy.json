@@ -1,0 +1,650 @@
+{
+ "_comment": "Sample items for first-run seeding (FR-04). Prices are typical MRP and must be edited to the shop's own. GST slabs follow GST 2.0 (22 Sep 2025) for the usual packaged form; loose staples are nil. Shopkeepers should confirm slabs with their accountant.",
+ "items": [
+  {
+   "te": "పారాసెటమాల్ 650",
+   "en": "Paracetamol 650 mg",
+   "aliases": [
+    "డోలో",
+    "dolo",
+    "dolo 650",
+    "paracetamol",
+    "జ్వరం మాత్రలు"
+   ],
+   "category": "మాత్రలు",
+   "unit": "Strip",
+   "pricePaise": 3000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 30000,
+   "lowStockMilli": 10000,
+   "quickSale": true
+  },
+  {
+   "te": "పారాసెటమాల్ 500",
+   "en": "Paracetamol 500 mg",
+   "aliases": [
+    "క్రోసిన్",
+    "crocin",
+    "paracetamol 500"
+   ],
+   "category": "మాత్రలు",
+   "unit": "Strip",
+   "pricePaise": 2000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 30000,
+   "lowStockMilli": 10000,
+   "quickSale": false
+  },
+  {
+   "te": "సెటిరిజిన్",
+   "en": "Cetirizine 10 mg",
+   "aliases": [
+    "cetirizine",
+    "సెట్జిన్",
+    "అలర్జీ మాత్ర"
+   ],
+   "category": "మాత్రలు",
+   "unit": "Strip",
+   "pricePaise": 2000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 30000,
+   "lowStockMilli": 10000,
+   "quickSale": true
+  },
+  {
+   "te": "అజిత్రోమైసిన్ 500",
+   "en": "Azithromycin 500 mg",
+   "aliases": [
+    "azithromycin",
+    "అజిత్రాల్",
+    "azithral"
+   ],
+   "category": "మాత్రలు",
+   "unit": "Strip",
+   "pricePaise": 11000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 30000,
+   "lowStockMilli": 10000,
+   "quickSale": false
+  },
+  {
+   "te": "అమోక్సిసిలిన్ 500",
+   "en": "Amoxicillin 500 mg",
+   "aliases": [
+    "amoxicillin",
+    "మోక్స్",
+    "mox"
+   ],
+   "category": "మాత్రలు",
+   "unit": "Strip",
+   "pricePaise": 9000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 30000,
+   "lowStockMilli": 10000,
+   "quickSale": false
+  },
+  {
+   "te": "పాంటోప్రజోల్ 40",
+   "en": "Pantoprazole 40 mg",
+   "aliases": [
+    "pantoprazole",
+    "ప్యాన్ 40",
+    "pan 40",
+    "గ్యాస్ మాత్ర"
+   ],
+   "category": "మాత్రలు",
+   "unit": "Strip",
+   "pricePaise": 11000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 30000,
+   "lowStockMilli": 10000,
+   "quickSale": true
+  },
+  {
+   "te": "ఒమెప్రజోల్ 20",
+   "en": "Omeprazole 20 mg",
+   "aliases": [
+    "omeprazole",
+    "ఓమెజ్",
+    "omez"
+   ],
+   "category": "మాత్రలు",
+   "unit": "Strip",
+   "pricePaise": 6000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 30000,
+   "lowStockMilli": 10000,
+   "quickSale": false
+  },
+  {
+   "te": "ఐబుప్రోఫెన్ 400",
+   "en": "Ibuprofen 400 mg",
+   "aliases": [
+    "ibuprofen",
+    "బ్రూఫెన్",
+    "brufen",
+    "నొప్పి మాత్ర"
+   ],
+   "category": "మాత్రలు",
+   "unit": "Strip",
+   "pricePaise": 2500,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 30000,
+   "lowStockMilli": 10000,
+   "quickSale": false
+  },
+  {
+   "te": "డైక్లోఫెనాక్ 50",
+   "en": "Diclofenac 50 mg",
+   "aliases": [
+    "diclofenac",
+    "వోవెరాన్",
+    "voveran"
+   ],
+   "category": "మాత్రలు",
+   "unit": "Strip",
+   "pricePaise": 2000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 30000,
+   "lowStockMilli": 10000,
+   "quickSale": false
+  },
+  {
+   "te": "మెట్‌ఫార్మిన్ 500",
+   "en": "Metformin 500 mg",
+   "aliases": [
+    "metformin",
+    "షుగర్ మాత్ర",
+    "గ్లైసిఫేజ్"
+   ],
+   "category": "మాత్రలు",
+   "unit": "Strip",
+   "pricePaise": 3000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 30000,
+   "lowStockMilli": 10000,
+   "quickSale": false
+  },
+  {
+   "te": "అమ్లోడిపిన్ 5",
+   "en": "Amlodipine 5 mg",
+   "aliases": [
+    "amlodipine",
+    "బీపీ మాత్ర",
+    "bp tablet"
+   ],
+   "category": "మాత్రలు",
+   "unit": "Strip",
+   "pricePaise": 3500,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 30000,
+   "lowStockMilli": 10000,
+   "quickSale": false
+  },
+  {
+   "te": "టెల్మిసార్టన్ 40",
+   "en": "Telmisartan 40 mg",
+   "aliases": [
+    "telmisartan",
+    "టెల్మా",
+    "telma"
+   ],
+   "category": "మాత్రలు",
+   "unit": "Strip",
+   "pricePaise": 8000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 30000,
+   "lowStockMilli": 10000,
+   "quickSale": false
+  },
+  {
+   "te": "అటోర్వాస్టాటిన్ 10",
+   "en": "Atorvastatin 10 mg",
+   "aliases": [
+    "atorvastatin",
+    "కొలెస్ట్రాల్ మాత్ర"
+   ],
+   "category": "మాత్రలు",
+   "unit": "Strip",
+   "pricePaise": 9000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 30000,
+   "lowStockMilli": 10000,
+   "quickSale": false
+  },
+  {
+   "te": "ఓఆర్ఎస్",
+   "en": "ORS sachet",
+   "aliases": [
+    "ors",
+    "ఓ ఆర్ ఎస్",
+    "ఎలక్ట్రాల్",
+    "electral"
+   ],
+   "category": "సాషేలు",
+   "unit": "Piece",
+   "pricePaise": 2200,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": true
+  },
+  {
+   "te": "దగ్గు సిరప్",
+   "en": "Cough syrup (100 ml)",
+   "aliases": [
+    "కఫ్ సిరప్",
+    "cough syrup",
+    "దగ్గు మందు"
+   ],
+   "category": "సిరప్‌లు",
+   "unit": "Piece",
+   "pricePaise": 11000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": true
+  },
+  {
+   "te": "యాంటాసిడ్ సిరప్",
+   "en": "Antacid syrup (170 ml)",
+   "aliases": [
+    "డైజీన్",
+    "digene",
+    "antacid",
+    "గ్యాస్ సిరప్"
+   ],
+   "category": "సిరప్‌లు",
+   "unit": "Piece",
+   "pricePaise": 12000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "విటమిన్ సి",
+   "en": "Vitamin C tablets",
+   "aliases": [
+    "vitamin c",
+    "లిమ్సీ",
+    "limcee"
+   ],
+   "category": "విటమిన్లు",
+   "unit": "Strip",
+   "pricePaise": 3000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 30000,
+   "lowStockMilli": 10000,
+   "quickSale": false
+  },
+  {
+   "te": "బి కాంప్లెక్స్",
+   "en": "B-complex",
+   "aliases": [
+    "b complex",
+    "బీకాంప్లెక్స్",
+    "becosules"
+   ],
+   "category": "విటమిన్లు",
+   "unit": "Strip",
+   "pricePaise": 3500,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 30000,
+   "lowStockMilli": 10000,
+   "quickSale": false
+  },
+  {
+   "te": "కాల్షియం",
+   "en": "Calcium + D3",
+   "aliases": [
+    "calcium",
+    "కాల్షియం మాత్రలు",
+    "shelcal"
+   ],
+   "category": "విటమిన్లు",
+   "unit": "Strip",
+   "pricePaise": 10000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 30000,
+   "lowStockMilli": 10000,
+   "quickSale": false
+  },
+  {
+   "te": "ఐరన్ మాత్రలు",
+   "en": "Iron + folic acid",
+   "aliases": [
+    "iron",
+    "ఫోలిక్ యాసిడ్",
+    "iron tablets"
+   ],
+   "category": "విటమిన్లు",
+   "unit": "Strip",
+   "pricePaise": 4000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 30000,
+   "lowStockMilli": 10000,
+   "quickSale": false
+  },
+  {
+   "te": "నొప్పి ఆయింట్‌మెంట్",
+   "en": "Pain relief ointment (30 g)",
+   "aliases": [
+    "ఆయింట్‌మెంట్",
+    "pain balm",
+    "బామ్",
+    "balm"
+   ],
+   "category": "క్రీములు",
+   "unit": "Piece",
+   "pricePaise": 9500,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "యాంటీసెప్టిక్ లిక్విడ్",
+   "en": "Antiseptic liquid (100 ml)",
+   "aliases": [
+    "డెట్టాల్",
+    "dettol",
+    "antiseptic"
+   ],
+   "category": "ప్రథమ చికిత్స",
+   "unit": "Piece",
+   "pricePaise": 6000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "బ్యాండ్ ఎయిడ్",
+   "en": "Adhesive bandages",
+   "aliases": [
+    "band aid",
+    "బ్యాండేజ్ స్ట్రిప్స్",
+    "plaster"
+   ],
+   "category": "ప్రథమ చికిత్స",
+   "unit": "Pack",
+   "pricePaise": 4000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": true
+  },
+  {
+   "te": "దూది",
+   "en": "Cotton roll (50 g)",
+   "aliases": [
+    "కాటన్",
+    "cotton",
+    "duudi"
+   ],
+   "category": "ప్రథమ చికిత్స",
+   "unit": "Piece",
+   "pricePaise": 4000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "గాజ్ బ్యాండేజ్",
+   "en": "Gauze bandage roll",
+   "aliases": [
+    "బ్యాండేజ్",
+    "gauze",
+    "bandage"
+   ],
+   "category": "ప్రథమ చికిత్స",
+   "unit": "Piece",
+   "pricePaise": 3000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "థర్మామీటర్",
+   "en": "Digital thermometer",
+   "aliases": [
+    "thermometer",
+    "జ్వరం మీటర్"
+   ],
+   "category": "పరికరాలు",
+   "unit": "Piece",
+   "pricePaise": 18000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "మాస్క్",
+   "en": "Face mask",
+   "aliases": [
+    "mask",
+    "మాస్కులు"
+   ],
+   "category": "పరికరాలు",
+   "unit": "Piece",
+   "pricePaise": 1000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": true
+  },
+  {
+   "te": "శానిటైజర్",
+   "en": "Hand sanitizer (100 ml)",
+   "aliases": [
+    "sanitizer",
+    "sanitiser"
+   ],
+   "category": "శుభ్రత",
+   "unit": "Piece",
+   "pricePaise": 5000,
+   "gstBasisPoints": 1800,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "శానిటరీ ప్యాడ్స్",
+   "en": "Sanitary pads",
+   "aliases": [
+    "ప్యాడ్స్",
+    "నాప్కిన్స్",
+    "pads",
+    "sanitary napkins",
+    "విస్పర్"
+   ],
+   "category": "స్త్రీ సంరక్షణ",
+   "unit": "Pack",
+   "pricePaise": 4000,
+   "gstBasisPoints": 0,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": true
+  },
+  {
+   "te": "డైపర్లు",
+   "en": "Baby diapers",
+   "aliases": [
+    "డైపర్",
+    "diapers",
+    "pampers"
+   ],
+   "category": "శిశు సంరక్షణ",
+   "unit": "Pack",
+   "pricePaise": 35000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "కంటి చుక్కలు",
+   "en": "Eye drops",
+   "aliases": [
+    "కళ్ళ చుక్కలు",
+    "eye drops",
+    "ఐ డ్రాప్స్"
+   ],
+   "category": "చుక్కలు",
+   "unit": "Piece",
+   "pricePaise": 6000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "చెవి చుక్కలు",
+   "en": "Ear drops",
+   "aliases": [
+    "ear drops",
+    "ఇయర్ డ్రాప్స్"
+   ],
+   "category": "చుక్కలు",
+   "unit": "Piece",
+   "pricePaise": 7000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "ఫంగల్ క్రీమ్",
+   "en": "Antifungal cream",
+   "aliases": [
+    "antifungal",
+    "దురద క్రీమ్",
+    "candid"
+   ],
+   "category": "క్రీములు",
+   "unit": "Piece",
+   "pricePaise": 11000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "గ్లూకోజ్",
+   "en": "Glucose powder (500 g)",
+   "aliases": [
+    "glucose",
+    "గ్లూకోజ్ పొడి",
+    "glucon d"
+   ],
+   "category": "సాషేలు",
+   "unit": "Piece",
+   "pricePaise": 11000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "ఇన్సులిన్ సిరంజి",
+   "en": "Insulin syringe",
+   "aliases": [
+    "syringe",
+    "సిరంజి",
+    "insulin syringe"
+   ],
+   "category": "పరికరాలు",
+   "unit": "Piece",
+   "pricePaise": 1200,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 20000,
+   "lowStockMilli": 5000,
+   "quickSale": false
+  },
+  {
+   "te": "డొంపెరిడోన్ 10",
+   "en": "Domperidone 10 mg",
+   "aliases": [
+    "domperidone",
+    "వాంతుల మాత్ర",
+    "domstal"
+   ],
+   "category": "మాత్రలు",
+   "unit": "Strip",
+   "pricePaise": 3500,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 30000,
+   "lowStockMilli": 10000,
+   "quickSale": false
+  },
+  {
+   "te": "లోపరమైడ్ 2",
+   "en": "Loperamide 2 mg",
+   "aliases": [
+    "loperamide",
+    "విరేచనాల మాత్ర",
+    "loperamide tablet"
+   ],
+   "category": "మాత్రలు",
+   "unit": "Strip",
+   "pricePaise": 2000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 30000,
+   "lowStockMilli": 10000,
+   "quickSale": false
+  },
+  {
+   "te": "మల్టీవిటమిన్",
+   "en": "Multivitamin",
+   "aliases": [
+    "multivitamin",
+    "మల్టీ విటమిన్",
+    "zincovit"
+   ],
+   "category": "విటమిన్లు",
+   "unit": "Strip",
+   "pricePaise": 9000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 30000,
+   "lowStockMilli": 10000,
+   "quickSale": false
+  },
+  {
+   "te": "జలుబు మాత్రలు",
+   "en": "Cold relief tablets",
+   "aliases": [
+    "జలుబు మాత్ర",
+    "cold tablet",
+    "sinarest",
+    "సైనారెస్ట్"
+   ],
+   "category": "మాత్రలు",
+   "unit": "Strip",
+   "pricePaise": 4500,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 30000,
+   "lowStockMilli": 10000,
+   "quickSale": true
+  },
+  {
+   "te": "ఆవిరి క్యాప్సూల్స్",
+   "en": "Steam inhalation capsules",
+   "aliases": [
+    "స్టీమ్ క్యాప్సూల్స్",
+    "steam capsules",
+    "ఆవిరి మందు"
+   ],
+   "category": "క్యాప్సూల్స్",
+   "unit": "Strip",
+   "pricePaise": 3000,
+   "gstBasisPoints": 500,
+   "openingStockMilli": 30000,
+   "lowStockMilli": 10000,
+   "quickSale": false
+  }
+ ]
+}

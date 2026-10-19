@@ -34,5 +34,15 @@ public sealed class Item : Entity
 
 public enum Unit { Piece = 0, Kilogram = 1, Gram = 2, Litre = 3, Millilitre = 4, Pack = 5, Strip = 6 }
 
-/// <summary>Stored as basis points so the slab value is the enum value (500 = 5%).</summary>
-public enum GstSlab { Zero = 0, Five = 500, Twelve = 1200, Eighteen = 1800, TwentyEight = 2800 }
+/// <summary>
+/// Stored as basis points so the slab value is the enum value (500 = 5%).
+/// GST 2.0 (effective 22 Sep 2025): 0 / 5 / 18 / 40%. Twelve and TwentyEight are kept only for
+/// legacy items and old bills — the item form offers the four current slabs.
+/// </summary>
+public enum GstSlab { Zero = 0, Five = 500, Twelve = 1200, Eighteen = 1800, TwentyEight = 2800, Forty = 4000 }
+
+public static class GstSlabs
+{
+    public static readonly IReadOnlyList<GstSlab> Current = [GstSlab.Zero, GstSlab.Five, GstSlab.Eighteen, GstSlab.Forty];
+    public static bool IsLegacy(GstSlab slab) => slab is GstSlab.Twelve or GstSlab.TwentyEight;
+}

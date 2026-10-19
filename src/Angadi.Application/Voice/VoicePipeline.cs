@@ -5,10 +5,13 @@ using Angadi.Domain.Items;
 namespace Angadi.Application.Voice;
 
 /// <summary>
-/// One spoken item phrase after parsing. "బియ్యం రెండు కేజీలు" → Name "బియ్యం", Qty 2000, Unit Kilogram.
-/// Qty/Unit are null when not spoken (pipeline defaults to 1 of the item's own unit).
+/// One spoken item phrase after parsing.
+///   "బియ్యం రెండు కేజీలు"      → Name "బియ్యం", Qty 2000, Unit Kilogram
+///   "పది రూపాయల ఉల్లిపాయలు"    → Name "ఉల్లిపాయలు", Amount ₹10 (quantity comes from the item's price)
+/// Qty/Unit are null when not spoken: the bill then takes 1 of the item's own unit.
+/// Qty is in the SPOKEN unit; UnitConversion maps it to the item's unit.
 /// </summary>
-public sealed record ParsedLine(string Name, Qty? Qty, Unit? Unit, string Raw);
+public sealed record ParsedLine(string Name, Qty? Qty, Unit? Unit, Paise? Amount, string Raw);
 
 /// <summary>Deterministic, rule-based, rules from Resources/voice/*.json (ADR-5). No LLM.</summary>
 public interface ITeluguParser
@@ -22,7 +25,10 @@ public sealed record MatchCandidate(Guid ItemId, string DisplayName, double Scor
 public enum MatchKind { AutoAdd = 0, Confirm = 1, NoMatch = 2 }
 
 /// <summary>Top candidates, best first. Kind is decided by VoiceOptions thresholds (FR-07).</summary>
-public sealed record MatchResult(ParsedLine Line, MatchKind Kind, IReadOnlyList<MatchCandidate> Candidates);
+public sealed record MatchResult(ParsedLine Line, MatchKind Kind, IReadOnlyList<MatchCandidate> Candidates)
+{
+    public MatchCandidate? Best => Candidates.Count > 0 ? Candidates[0] : null;
+}
 
 /// <summary>Fuzzy match against the shop's own items + aliases, not open dictation.</summary>
 public interface IItemMatcher

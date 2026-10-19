@@ -1,0 +1,196 @@
+using System.Globalization;
+using System.Text.RegularExpressions;
+using Angadi.Domain.Common;
+using Angadi.Domain.Items;
+
+namespace Angadi.Application.Voice;
+
+/// <summary>
+/// Rule-based Telugu billing parser (FR-06). Word order is free: number, unit and name may come
+/// in any order ("బియ్యం రెండు కేజీలు" = "రెండు కేజీల బియ్యం"). Everything that is not a number,
+/// unit, multiplier, currency word or filler is the item name.
+/// </summary>
+public sealed partial class TeluguParser(VoiceRules rules) : ITeluguParser
+{
+    public TeluguParser() : this(VoiceRules.Default) { }
+
+    // ASCII digits only: .NET's \d matches every script's digits; Telugu digits are mapped by Normalize.
+    [GeneratedRegex(@"^([0-9]+(?:\.[0-9]+)?)([^0-9.].*)$")]
+    private static partial Regex DigitsThenWord();
+
+    [GeneratedRegex(@"^(.*[^0-9.])([0-9]+(?:\.[0-9]+)?)$")]
+    private static partial Regex WordThenDigits();
+
+    [GeneratedRegex(@"^[0-9]+(?:\.[0-9]+)?$")]
+    private static partial Regex Decimal();
+
+    [GeneratedRegex(@"^([0-9]+)/([0-9]+)$")]
+    private static partial Regex Fraction();
+
+    public IReadOnlyList<ParsedLine> Parse(string utterance)
+    {
+        var text = TeluguText.Normalize(utterance);
+        if (text.Length == 0) return [];
+
+        var result = new List<ParsedLine>();
+        foreach (var phrase in SplitPhrases(text))
+        {
+            var line = ParsePhrase(phrase);
+            if (line is not null) result.Add(line);
+        }
+        return result;
+    }
+
+    internal IEnumerable<IReadOnlyList<string>> SplitPhrases(string text)
+    {
+        // Punctuation separators become spaces around a marker; word separators are matched as whole tokens.
+        foreach (var sep in rules.Separators.Where(s => s.Length == 1 && !char.IsLetterOrDigit(s[0])))
+            text = text.Replace(sep, " \u0001 ");
+
+        var tokens = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var wordSeps = rules.Separators
+            .Where(s => !(s.Length == 1 && !char.IsLetterOrDigit(s[0])))
+            .Select(s => s.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+            .ToList();
+
+        var phrases = new List<IReadOnlyList<string>>();
+        var current = new List<string>();
+        for (var i = 0; i < tokens.Length; i++)
+        {
+            if (tokens[i] == "\u0001") { Flush(); continue; }
+            var matched = wordSeps.FirstOrDefault(sep => sep.Length > 0 && i + sep.Length <= tokens.Length
+                && sep.Select((w, k) => tokens[i + k] == w).All(x => x));
+            if (matched is not null) { Flush(); i += matched.Length - 1; continue; }
+            current.Add(tokens[i]);
+        }
+        Flush();
+        return phrases;
+
+        void Flush()
+        {
+            if (current.Count > 0) phrases.Add(current.ToArray());
+            current.Clear();
+        }
+    }
+
+    internal ParsedLine? ParsePhrase(IReadOnlyList<string> rawTokens)
+    {
+        var tokens = rawTokens.SelectMany(Explode).ToList();
+        long number = 0;
+        var sawNumber = false;
+        Unit? unit = null;
+        var multiplier = 1L;
+        var isAmount = false;
+        var name = new List<string>();
+
+        var nameDigits = DigitsThatBelongToName(tokens);
+
+        for (var i = 0; i < tokens.Count; i++)
+        {
+            var t = tokens[i];
+            if (rules.Fillers.Contains(t)) continue;
+            if (nameDigits.Contains(i)) { name.Add(t); continue; }
+
+            if (sawNumber && rules.HundredMultipliers.Contains(t))
+            {
+                number = (number == 0 ? 1000 : number) * 100;
+                continue;
+            }
+
+            if (TryNumber(t, out var value)) { number += value; sawNumber = true; continue; }
+            if (rules.Units.TryGetValue(t, out var u)) { unit = u; continue; }
+            if (rules.Multipliers.TryGetValue(t, out var m)) { multiplier *= m; unit ??= Unit.Piece; continue; }
+            if (rules.Currency.Contains(t)) { isAmount = true; continue; }
+
+            name.Add(t);
+        }
+
+        if (name.Count == 0) return null;
+        var raw = string.Join(' ', rawTokens);
+        var itemName = string.Join(' ', name);
+
+        long? qty = sawNumber ? number * multiplier : multiplier > 1 ? 1000 * multiplier : null;
+
+        if (isAmount)
+        {
+            // number is in milli-rupees: ₹10 → 10000 → 1000 paise.
+            Paise? amount = qty is > 0 ? new Paise(qty.Value / 10) : null;
+            return new ParsedLine(itemName, null, null, amount, raw);
+        }
+
+        return new ParsedLine(itemName, qty is null ? null : new Qty(qty.Value), unit, null, raw);
+    }
+
+    /// <summary>
+    /// Written numbers inside product names ("dolo 650", "pan 40") must not become quantities.
+    /// A digit token is a QUANTITY when a unit/multiplier/currency word follows it, a currency word
+    /// precedes it, or it is under 100 with no other number in the phrase. Otherwise it is part of the name.
+    /// </summary>
+    internal HashSet<int> DigitsThatBelongToName(IReadOnlyList<string> tokens)
+    {
+        var result = new HashSet<int>();
+        for (var i = 0; i < tokens.Count; i++)
+        {
+            if (!Decimal().IsMatch(tokens[i])) continue;
+            var next = i + 1 < tokens.Count ? tokens[i + 1] : null;
+            var prev = i > 0 ? tokens[i - 1] : null;
+            var unitFollows = next is not null && (rules.Units.ContainsKey(next) || rules.Multipliers.ContainsKey(next) || rules.Currency.Contains(next));
+            var currencyBefore = prev is not null && rules.Currency.Contains(prev);
+            if (unitFollows || currencyBefore) continue;
+
+            TryNumber(tokens[i], out var value);
+            var otherNumber = tokens.Where((t, k) => k != i && !rules.Fillers.Contains(t) && TryNumber(t, out _)).Any();
+            if (value >= 100_000 || otherNumber) result.Add(i);
+        }
+        return result;
+    }
+
+    /// <summary>Splits fused tokens: "2కేజీలు" → "2","కేజీలు"; "రెండుకేజీలు" → "రెండు","కేజీలు".</summary>
+    internal IEnumerable<string> Explode(string token)
+    {
+        var m = DigitsThenWord().Match(token);
+        if (m.Success) return [m.Groups[1].Value, m.Groups[2].Value];
+
+        var w = WordThenDigits().Match(token);   // "₹10", "rs20"
+        if (w.Success && rules.Currency.Contains(w.Groups[1].Value)) return [w.Groups[1].Value, w.Groups[2].Value];
+
+        foreach (var suffix in rules.Units.Keys.Concat(rules.Currency).OrderByDescending(k => k.Length))
+        {
+            if (token.Length > suffix.Length && token.EndsWith(suffix, StringComparison.Ordinal))
+            {
+                var prefix = token[..^suffix.Length];
+                if (TryNumber(prefix, out _)) return [prefix, suffix];
+            }
+        }
+        return [token];
+    }
+
+    internal bool TryNumber(string token, out long milli)
+    {
+        if (Decimal().IsMatch(token))
+        {
+            milli = (long)Math.Round(decimal.Parse(token, CultureInfo.InvariantCulture) * 1000m, MidpointRounding.AwayFromZero);
+            return true;
+        }
+
+        var f = Fraction().Match(token);
+        if (f.Success && long.TryParse(f.Groups[2].Value, out var den) && den > 0)
+        {
+            milli = (long)Math.Round(long.Parse(f.Groups[1].Value) * 1000m / den, MidpointRounding.AwayFromZero);
+            return true;
+        }
+
+        if (rules.Numbers.TryGetValue(token, out milli)) return true;
+
+        var half = rules.HalfSuffix;
+        if (token.Length > half.Length && token.EndsWith(half, StringComparison.Ordinal)
+            && rules.Numbers.TryGetValue(token[..^half.Length], out var stem))
+        {
+            milli = stem + 500;
+            return true;
+        }
+
+        milli = 0;
+        return false;
+    }
+}

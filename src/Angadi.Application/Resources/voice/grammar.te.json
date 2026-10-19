@@ -1,9 +1,47 @@
 {
   "_comment": "Words that split one utterance into item phrases, and filler words the parser drops.",
-  "separators": [",", "،", ".", "ఇంకా", "మరియు", "తర్వాత", "ఆ తర్వాత", "and", "also", "plus"],
-  "fillers": [
-    "ఇవ్వండి", "ఇవ్వు", "ఇవ్వండీ", "కావాలి", "కావాలండి", "అండి", "అండీ", "చాలు", "పెట్టండి", "వేయండి", "వెయ్యి",
-    "please", "కూడా", "ఒకసారి", "ఏమిటంటే", "అది", "ఇది"
+  "separators": [
+    ",",
+    "،",
+    ".",
+    "ఇంకా",
+    "మరియు",
+    "తర్వాత",
+    "ఆ తర్వాత",
+    "and",
+    "also",
+    "plus"
   ],
-  "_fillerComment": "Do NOT add 'ఒక' here — it is also the number one (numbers.te.json)."
+  "fillers": [
+    "ఇవ్వండి",
+    "ఇవ్వు",
+    "ఇవ్వండీ",
+    "కావాలి",
+    "కావాలండి",
+    "అండి",
+    "అండీ",
+    "చాలు",
+    "పెట్టండి",
+    "వేయండి",
+    "వెయ్యి",
+    "please",
+    "కూడా",
+    "ఒకసారి",
+    "ఏమిటంటే",
+    "అది",
+    "ఇది"
+  ],
+  "_fillerComment": "Do NOT add 'ఒక' here — it is also the number one (numbers.te.json).",
+  "currency": [
+    "రూపాయలు",
+    "రూపాయల",
+    "రూపాయి",
+    "రూపాయ",
+    "రూ",
+    "rs",
+    "rupees",
+    "rupee",
+    "₹"
+  ],
+  "_currencyComment": "A number followed by a currency word means 'this many rupees worth' (పది రూపాయల ఉల్లిపాయలు = ₹10 of onions)."
 }
