@@ -88,7 +88,7 @@ internal sealed class BillRepository(AngadiDb db, IClock clock) : IBillRepositor
     }
 
     /// <summary>Bills finalized on local days [from, to] inclusive — what reports use.</summary>
-    internal Task<IReadOnlyList<Bill>> ListByDayAsync(DateOnly from, DateOnly to, CancellationToken ct = default)
+    public Task<IReadOnlyList<Bill>> ListByDayAsync(DateOnly from, DateOnly to, CancellationToken ct = default)
         => db.RunAsync<IReadOnlyList<Bill>>(c => Load(c,
             c.Query<BillRow>("SELECT * FROM Bill WHERE Day >= ? AND Day <= ? AND Status <> 0 ORDER BY FinalizedAtMs DESC", Day(from), Day(to))), ct);
 

@@ -40,6 +40,8 @@ public interface IBillRepository
 {
     Task<Bill?> GetAsync(Guid id, CancellationToken ct = default);
     Task<IReadOnlyList<Bill>> ListAsync(DateTimeOffset from, DateTimeOffset to, CancellationToken ct = default);
+    /// <summary>Finalized and voided bills whose local finalize day is in [from, to] (reports, FR-27–29).</summary>
+    Task<IReadOnlyList<Bill>> ListByDayAsync(DateOnly from, DateOnly to, CancellationToken ct = default);
     Task<int> CountFinalizedInMonthAsync(int year, int month, CancellationToken ct = default);   // FR-34
     Task SaveAsync(Bill bill, CancellationToken ct = default);   // bill + lines together
 }

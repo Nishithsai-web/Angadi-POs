@@ -1,16 +1,12 @@
 using Angadi.Application.Common;
 using Angadi.Domain.Billing;
 using Angadi.Domain.Common;
-using Angadi.Domain.Customers;
 using Angadi.Domain.Inventory;
-using Angadi.Domain.Items;
-using Angadi.Domain.Shop;
-using Mediator;
 
 namespace Angadi.Application.Billing;
 
 // One record per use case (blueprint §3). Handlers return Result<T>; pipeline order is
-// Validation → Logging → Transaction. The draft bill lives in the ViewModel until finalize.
+// Validation → Logging → Transaction. The draft bill lives in a BillDraft held by the POS ViewModel.
 
 /// <summary>
 /// FR-13–15, FR-34. Handler: quota check → BillCalculator.Compute → number → save bill →
@@ -23,24 +19,16 @@ public sealed record FinalizedBill(Guid BillId, string Number, Paise GrandTotal,
 public sealed record VoidBillCommand(Guid BillId, string Reason) : ICommand<Result>;
 
 /// <summary>FR-17/19. Renders (or re-renders, FR-20) and opens the share sheet.</summary>
-public sealed record ShareReceiptCommand(Guid BillId) : ICommand<Result>;
+public sealed record ShareReceiptCommand(Guid BillId) : ICommand<Result>, INoTransaction;
 
 /// <summary>FR-22.</summary>
 public sealed record RecordDuesPaymentCommand(Guid CustomerId, Paise Amount, string? Note) : ICommand<Result>;
 
 /// <summary>FR-23. Builds the Telugu reminder text and opens wa.me.</summary>
-public sealed record SendDuesReminderCommand(Guid CustomerId) : ICommand<Result>;
+public sealed record SendDuesReminderCommand(Guid CustomerId) : ICommand<Result>, INoTransaction;
 
 /// <summary>FR-24. Purchase, damage, count correction.</summary>
 public sealed record AdjustStockCommand(Guid ItemId, Qty Delta, StockMoveReason Reason, string? Note) : ICommand<Result>;
-
-/// <summary>FR-03/08. Rejects a barcode already used by another item (BARCODE_DUPLICATE).</summary>
-public sealed record SaveItemCommand(Item Item) : ICommand<Result<Guid>>;
-
-public sealed record SaveCustomerCommand(Customer Customer) : ICommand<Result<Guid>>;
-
-/// <summary>FR-01/02.</summary>
-public sealed record SaveShopProfileCommand(ShopProfile Profile) : ICommand<Result>;
 
 /// <summary>FR-34. Called before finalize and to show the free-bills meter.</summary>
 public sealed record GetBillQuotaQuery : IQuery<BillQuota>;

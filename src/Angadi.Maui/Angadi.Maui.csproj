@@ -9,7 +9,31 @@
     <ApplicationId>com.angadi.pos</ApplicationId>
     <ApplicationDisplayVersion>1.0.0</ApplicationDisplayVersion>
     <ApplicationVersion>1</ApplicationVersion>
-    <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">28.0</SupportedOSPlatformVersion>
+    <SupportedOSPlatformVersion>28.0</SupportedOSPlatformVersion>
+    <!-- Compiled bindings everywhere: every page and template declares x:DataType. -->
     <MauiEnableXamlCBindingWithSourceCompilation>true</MauiEnableXamlCBindingWithSourceCompilation>
+    <AndroidPackageFormat Condition="'$(Configuration)' == 'Release'">aab</AndroidPackageFormat>
   </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Angadi.Application\Angadi.Application.csproj" />
+    <ProjectReference Include="..\Angadi.Infrastructure\Angadi.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Microsoft.Maui.Controls comes implicitly from UseMaui (the workload version); no explicit reference under central package management. -->
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+    <PackageReference Include="CommunityToolkit.Maui" />
+    <PackageReference Include="BarcodeScanning.Native.Maui" />
+    <PackageReference Include="Plugin.InAppBilling" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#0F5132" />
+    <MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#0F5132" BaseSize="128,128" />
+    <MauiFont Include="Resources\Fonts\*.ttf" />
+    <MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
 </Project>

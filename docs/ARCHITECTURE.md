@@ -7,7 +7,7 @@
 ```
 Angadi.sln
 ├── src/Angadi.Domain          entities, value types, BillCalculator, domain events — zero dependencies
-├── src/Angadi.Application     Result<T>, interfaces, Mediator commands/queries + handlers, voice parser/matcher,
+├── src/Angadi.Application     Result<T>, interfaces, commands/queries + handlers (in-house ISender, ADR-2), voice parser/matcher,
 │                              insights, Telugu resources (strings, errors, voice rules — embedded JSON)
 ├── src/Angadi.Infrastructure  sqlite-net-pcl repositories + UoW, outbox, Serilog, receipt PDF (SkiaSharp + HarfBuzz),
 │                              seed data, backup/restore — platform-neutral, runs in tests on Linux
@@ -24,7 +24,7 @@ Dependency rule: `Maui → Application → Domain ← Infrastructure` (Infrastru
 |---|---|
 | Money is `Paise` (long), quantity is `Qty` (long, thousandths). No `decimal`/`double` in storage. | `Domain/Common/Primitives.cs` |
 | All ids are `Guid` (v2 multi-device sync). Human bill numbers are separate (`A-000123`). | `Entity`, `IShopProfileRepository.NextBillNumberAsync` |
-| One transaction per command; a bill never half-saves. | `IUnitOfWork` + TransactionBehavior |
+| One transaction per command; a bill never half-saves. Commits only on a successful Result. | `IUnitOfWork.ExecuteAsync` via `Sender` |
 | Stock changes only through `IStockLedger` (writes `StockMove`). | `Application/Persistence` |
 | Expected failures return `Result`/`Result<T>` with an `ErrorCodes` key; every key exists in `errors.json` (test-enforced). | `Application/Common/Result.cs` |
 | User-facing text only from `strings.te.json` / `strings.en.json` / `errors.json`. | `ILocalizer` |
@@ -41,7 +41,7 @@ Mic → ISpeechToText.ListenAsync("te-IN", partials)
         → IItemMatcher.MatchAsync → AutoAdd (≥0.90) | Confirm (0.70–0.90) | NoMatch
     → PosViewModel adds lines / shows confirm sheet → IAliasLearner on correction
 Scan → IBarcodeScanner.ScanAsync → IItemRepository.GetByBarcodeAsync → add/+1
-Tender → IMediator.Send(FinalizeBillCommand)
+Tender → ISender.Send(FinalizeBillCommand)
     → Validation → Logging → Transaction
     → quota check → BillCalculator.Compute → number → save → IStockLedger (Sale)
       → DuesEntry (udhaar) → IOutbox.Append(BillFinalized) → commit
@@ -72,7 +72,7 @@ Tick each, or comment on the line, then sign at the bottom.
 | # | Decision | Status |
 |---|---|---|
 | ADR-1 | sqlite-net-pcl over EF Core (single user, on device). | Blueprint |
-| ADR-2 | Mediator (source generator) over MediatR. Verify on first restore; fall back to MediatR if blocked on .NET 10. | Blueprint |
+| ADR-2 | ~~Mediator (source generator) over MediatR.~~ **Revised Day 4:** an in-house dispatcher (`Application/Common/Messaging.cs`, ~100 lines) with the same Validation → Logging → Transaction pipeline. It removes the .NET 10 compatibility question and any source-generator step, and handlers are registered explicitly, which keeps it trim-safe on Android. | Day 4 |
 | ADR-3 | No backend in v1; `IOutbox` + future `ISyncService` seam. | Blueprint |
 | ADR-4 | WhatsApp via OS share sheet and `wa.me` only. | Blueprint |
 | ADR-5 | Telugu strings and voice rules in JSON, never code. | Blueprint |

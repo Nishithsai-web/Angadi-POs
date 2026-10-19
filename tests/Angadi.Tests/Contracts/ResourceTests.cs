@@ -34,10 +34,9 @@ public class ResourceTests
     [Fact]
     public void NFR04_TeluguAndEnglishStrings_HaveSameKeys()
     {
-        using var te = Load("strings.te.json");
-        using var en = Load("strings.en.json");
-        var teKeys = te.RootElement.EnumerateObject().Select(p => p.Name).ToHashSet();
-        var enKeys = en.RootElement.EnumerateObject().Select(p => p.Name).ToHashSet();
+        // Merges strings.te.json + every strings.<area>.te.json; throws on a duplicate key.
+        var teKeys = JsonLocalizer.LoadAll("te").Keys.ToHashSet();
+        var enKeys = JsonLocalizer.LoadAll("en").Keys.ToHashSet();
 
         Assert.Empty(teKeys.Except(enKeys));
         Assert.Empty(enKeys.Except(teKeys));

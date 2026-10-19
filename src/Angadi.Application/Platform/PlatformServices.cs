@@ -60,6 +60,7 @@ public interface ILocalizer
     string this[string key] { get; }
     string Error(Error error);
     string Format(string key, params object[] args);
+    string UnitLabel(Angadi.Domain.Items.Unit unit);
 }
 
 /// <summary>Testable time. Bills, reports and insights never call DateTime.Now directly.</summary>
