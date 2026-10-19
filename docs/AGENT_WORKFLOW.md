@@ -67,3 +67,13 @@ A task is **COMPLETE** only when: requirements + acceptance criteria documented 
 ## 8. Conflict resolution
 
 Muse and Claude optimize for the same approved outcome. Disagreements are settled by: explicit requirements > reproducible tests > security/maintainability > preference. Reviewers must cite file/line evidence. Settled decisions stay settled without new evidence. A reviewer approval is claimed only when the review actually happened.
+
+## 9. The "Why" rule (owner directive, 2026-10-19)
+
+Every change Muse pushes to this repo must explain itself so that a Claude Code agent reading the file understands it on sight — no tribal knowledge, no bare diffs. Every change file contains:
+
+1. **WHAT changed** — file paths, and the change in plain words.
+2. **WHAT THE ISSUE WAS** — the flaw, gap, or requirement that made the change necessary. Concrete: quote the failing behavior, the missing requirement, or the risk.
+3. **WHY this fix** — the reasoning: why this approach, what alternatives were considered and rejected, what breaks if it's done differently.
+
+Fix files (`docs/*_FIXES.md`) follow the **Flaw → Fix → Rationale** pattern per item. Workflow/process changes get the same treatment at the top of the file. `docs/CHANGELOG.md` carries the running log: date, change, issue addressed, and the one-line why. A change whose "why" can't be written clearly doesn't get pushed.
