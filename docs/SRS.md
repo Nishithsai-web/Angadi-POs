@@ -1,130 +1,175 @@
-# Angadi POS — Software Requirements Specification (v1)
+# Angadi — Software Requirements Specification (v1)
 
-> **STATUS: DRAFT — awaiting owner sign-off.**
-> Sign-off: _______________________ (name / date). Replace this line with your sign-off comment once §9 is answered.
->
-> Source documents: `docs/Angadi_HQ.html` — Product Spec (final scope, locked 2026-10-19) and Architecture Blueprint (canonical). Where the HQ sections disagree, this draft follows the **Product Spec** and lists the conflict in §9.
+> **SIGN-OFF:** ☐ Approved by Sri — ____ (date). Until this box is ticked, no code is written.
+> Rule: every test traces to an FR/NFR number below. Not in this SRS → not built in v1.
 
----
+| | |
+|---|---|
+| Product | Angadi — Telugu-first retail POS for kirana & pharmacy shops |
+| Version | SRS v1.0 draft · 2026-10-19 |
+| Platform | Android 9+ (API 28), .NET MAUI, on-device SQLite, no backend |
+| Canonical design | `Angadi_Architecture_Blueprint.md` |
 
-## 1. Purpose & scope
+## 0. Decisions locked on Day 1 (supersede older docs)
 
-Angadi is a Telugu-first, Square-like point-of-sale app for small retail — **kirana shops and pharmacies** — running on Android tablets/phones the shop already owns. One retail vertical: the item library covers groceries and medicines alike. No card readers, no hardware purchase, no backend.
-
-**Positioning:** "మీ అంగడి, మీ హిసాబు — మీ భాషలో." The wedge vs Vyapar/myBillBook/Khatabook is Telugu-first UI + Telugu voice billing.
-
-## 2. Users
-
-| Role | Description | v1 |
+| # | Decision | Why |
 |---|---|---|
-| Owner / cashier | Single role, no PIN, operates the counter and the back office | **In** (assumed — see Q1) |
-| Staff with separate logins/roles | | Out (v2) |
-| End customer | Receives receipt on WhatsApp; owes udhaar | Indirect only |
+| D1 | **Price: ₹200/mo or ₹1,999/yr.** Free tier 50 bills/month. | Resolves ₹99 vs ₹200 conflict. Agent D brief and spec §2 must be updated. |
+| D2 | **Tier 2 LLM features move to v2.** v1 ships Tier 1 on-device AI only. | Zero backend means the API key would ship inside the APK and could be stolen. v2 adds a small proxy that holds the key and enforces caps. |
+| D3 | **One user role, no PIN.** | Staff roles are v2. |
+| D4 | **Tablet-first landscape, phone portrait supported.** | As planned. Every screen must also work on a 6" phone. |
 
-## 3. Functional requirements
+## 1. Users
 
-Each FR is testable; every test in `Angadi.Tests` is tagged with its FR number (e.g. `FR07_VoiceBill_TwoKgRice`).
+- **Shopkeeper** (owner or helper, same role): bills customers, manages items, stock, dues and reports.
+- **Customer** (indirect): receives a receipt on WhatsApp and may hold an udhaar balance.
 
-### Onboarding & settings
-- **FR-01** First-run setup captures shop profile: shop name (Telugu/English), address, phone, GSTIN (optional), UPI ID (VPA). Editable later in Settings.
-- **FR-02** First run seeds the item library with 80 kirana + 40 pharmacy items, each with Telugu/English names and Telugu aliases. Seeding is skippable and idempotent.
-- **FR-03** UI language is Telugu-first with English secondary labels; all strings come from resource JSON.
+## 2. Functional requirements
 
-### Item library & inventory
-- **FR-04** Owner can create/edit/archive items: Telugu name, English name, aliases, category, unit (kg / g / L / ml / pcs / strip / box), GST-inclusive price, GST slab (0/5/12/18/28%), stock quantity, low-stock threshold, optional barcode.
-- **FR-05** Item barcode is unique per shop and indexed; item form can fill it by camera scan or typing.
-- **FR-06** Every stock change (sale, manual adjust, stock-in) writes a `StockMove` row; current stock always equals the sum of moves.
-- **FR-07** Items at or below their low-stock threshold appear in a low-stock list and raise an in-app alert on the home screen.
+### 2.1 Shop setup
+- **FR-01** First run asks for shop name, address, phone, UPI ID and optional GSTIN, and offers seed items. Telugu is the default UI language.
+- **FR-02** The shopkeeper can switch the UI between Telugu and English at any time. All strings come from resource JSON.
 
-### Billing
-- **FR-08** Shopkeeper speaks items in Telugu (e.g. "బియ్యం రెండు కేజీలు, పప్పు అర కేజీ"); bill lines appear within **3 seconds** of end of speech.
-- **FR-09** Voice match confidence ≥ 0.90 adds the line automatically; 0.70–0.90 shows a confirmation sheet with top candidates; < 0.70 shows a no-match state with manual search. Each confirmation/correction is saved as a shop-local alias.
-- **FR-10** Voice mic is also available on item search.
-- **FR-11** Camera barcode scan on the POS home adds the matching item to the bill (qty 1; repeat scan increments). Unknown barcode offers "create item with this barcode". Manual code entry fallback.
-- **FR-12** Quick-sale grid of favourite items; one tap adds a line.
-- **FR-13** Line editing: change quantity, remove line, per-line discount (% or flat).
-- **FR-14** Bill-level discount (% or flat).
-- **FR-15** Bill totals use GST-inclusive pricing: `Tax = Gross − Gross/(1+slab)` per slab; grand total rounded to the whole rupee with an explicit rounding-adjustment line. Tax is computed after discounts (see BILLING_RULES.md).
-- **FR-16** Tenders: Cash (with change due), UPI (shop QR shown on screen), Udhaar (requires a customer). Split tender across these — see Q4.
-- **FR-17** Finalizing a bill is atomic: bill, lines, stock moves, dues update and outbox row commit together or not at all.
+### 2.2 Item library
+- **FR-03** Create, edit and deactivate items. Fields: Telugu name, English name, aliases, category, unit (kg/g/l/ml/pcs/pack/strip), GST-inclusive price, GST slab (0/5/12/18/28%), optional HSN, stock quantity, low-stock threshold, optional barcode.
+- **FR-04** First run can seed 80 kirana and 40 pharmacy items, each with Telugu aliases. Seeding can be skipped and is idempotent: running it twice adds nothing.
+- **FR-05** Search items by Telugu name, English name, alias or barcode. Voice search is available on the search box.
 
-### Receipts
-- **FR-18** Finalized bill renders a PDF receipt: shop header, GSTIN, items, per-slab tax split, discounts, rounding line, tender, UPI QR, Telugu text rendered correctly.
-- **FR-19** Receipt shares via the OS share sheet (WhatsApp and others); `wa.me` deep link when customer phone is known.
+### 2.3 Billing
+- **FR-06** **Voice billing.** The shopkeeper speaks items in Telugu (e.g. "బియ్యం రెండు కేజీలు, పప్పు అర కేజీ"). Bill lines appear within 3 s of speech ending.
+- **FR-07** Match confidence ≥ 0.90 adds the line automatically. 0.70–0.90 asks the shopkeeper to confirm. Below 0.70 shows "not found" with manual search. A correction is saved as an alias for that shop.
+- **FR-08** **Barcode scan-to-add** uses the camera on the billing screen. A known barcode adds the item, or +1 qty if already on the bill. An unknown barcode offers "create item with this barcode".
+- **FR-09** The barcode can be typed by hand when the camera fails or the barcode is damaged.
+- **FR-10** **Quick-sale grid.** The shopkeeper pins favourite items, and one tap adds that item to the bill.
+- **FR-11** Edit a line's quantity or price, or remove it, before finalizing.
+- **FR-12** Per-line discount and bill-level discount, each as % or flat ₹.
+- **FR-13** **GST math.** Prices are GST-inclusive. Tax is split per slab. The total is rounded to the whole rupee with an explicit rounding line. Rules are in `docs/BILLING_RULES.md`.
+- **FR-14** **Tenders.** Each bill takes exactly one of:
+  - **Cash**, showing change due.
+  - **UPI**, showing the shop's UPI QR with the amount.
+  - **Udhaar**, which requires a customer to be selected.
+- **FR-15** Finalizing is atomic. The bill, the stock decrement with a `StockMove`, the udhaar update and an outbox row are all saved, or none are.
+- **FR-16** Void a finalized bill with a reason. Stock is restored, udhaar is reversed, and the bill is kept and marked VOID.
 
-### Customers & udhaar
-- **FR-20** Customer directory: name, phone, udhaar balance.
-- **FR-21** Udhaar ledger: credit sales increase balance; recording a payment decreases it; history of entries per customer.
-- **FR-22** One-tap WhatsApp due reminder with a prefilled Telugu message (wa.me deep link, no paid API).
+### 2.4 Receipts
+- **FR-17** Generate a PDF receipt with:
+  - shop details,
+  - bill number and date,
+  - lines,
+  - discounts,
+  - per-slab tax split,
+  - the rounding line,
+  - tender,
+  - the UPI QR.
+  Telugu text must render in the PDF.
+- **FR-18** If no GSTIN is set, the receipt prints as a **"Bill of Supply"** with no tax split. If a GSTIN is set, it prints as a **"Tax Invoice"**.
+- **FR-19** Share the receipt to WhatsApp or any app via the OS share sheet. A customer phone, if present, prefills a `wa.me` link.
+- **FR-20** View any past bill and share it again.
 
-### Reports
-- **FR-23** Day-end report: sales total, bill count, tender split (cash/UPI/udhaar), discounts given.
-- **FR-24** GST summary for a date range, per slab (taxable value + tax).
-- **FR-25** Top items by quantity and value for a date range.
-- **FR-26** Udhaar outstanding: all customers with a balance, total outstanding.
+### 2.5 Customers & udhaar
+- **FR-21** Customer directory with name, phone and udhaar balance.
+- **FR-22** Record an udhaar payment (full or partial) and view the ledger per customer.
+- **FR-23** One-tap WhatsApp dues reminder as a prefilled Telugu message. *(First to cut if the schedule slips.)*
 
-### AI (blueprint §11)
-- **FR-27** Tier 1 (on-device, free, offline): reorder forecast per item, dead-stock radar (30/60/90 days), smart day summary card.
-- **FR-28** Tier 2 (behind `AiFeatures` flag): ask-your-data assistant and supplier-bill photo scan → stock-in, via `IAiService`. Prompts carry aggregates and item names only — never customer names/phones.
-- **FR-29** Tier 2 calls are capped per shop per month (default 50) with a visible meter in Settings; over cap falls back to Tier 1 with a Telugu notice.
+### 2.6 Inventory
+- **FR-24** Stock-in and adjustment with a reason (purchase, damage, count correction). Every change writes a `StockMove`.
+- **FR-25** Low-stock alerts: a list screen plus a home badge for items at or below threshold.
+- **FR-26** Stock history per item, from `StockMove`.
 
-### Subscription
-- **FR-30** Google Play Billing subscription gate: 50 free bills per calendar month; monthly and yearly plans unlock unlimited (price — see Q2). Restore purchase supported.
+### 2.7 Reports
+- **FR-27** Day-end report: sales total, bill count, tender split (cash/UPI/udhaar), discounts, tax, voids.
+- **FR-28** GST summary by slab for a date range.
+- **FR-29** Top items by quantity and value for a date range.
+- **FR-30** Udhaar outstanding by customer.
 
-### Support
-- **FR-31** Settings → "Export logs" shares the rolling log file.
+### 2.8 On-device AI (Tier 1 — free, offline)
+- **FR-31** Reorder forecast per item: "runs out in ~N days", from a moving average of sales.
+- **FR-32** Dead-stock radar: items with no sales in 30, 60 or 90 days, and the stock value locked up.
+- **FR-33** Morning summary card: yesterday vs 7-day average, top mover, dues to collect.
 
-## 4. Non-functional requirements
+### 2.9 Subscription
+- **FR-34** Free tier allows 50 finalized bills per calendar month. Over the limit, new bills are blocked. Viewing, sharing, reports and udhaar payments still work.
+- **FR-35** Google Play Billing subscriptions at ₹200/mo and ₹1,999/yr, with restore purchase.
 
-- **NFR-01** Telugu voice requires internet (cloud-backed te-IN recognizer); app says so clearly. All other features work fully offline.
-- **NFR-02** Bill finalize (tap Tender → receipt screen) < 2 s on a mid-range Android 9 tablet.
-- **NFR-03** Runs on Android 9+ phones and 7"/10" tablets; tablet-first landscape layout, usable in portrait on phones.
-- **NFR-04** Telugu + English UI; Telugu text gets +15% line height; large touch targets.
-- **NFR-05** Zero backend in v1: all data on device in SQLite. Every mutation also appends an `Outbox` row (v2 sync seam).
-- **NFR-06** App never hard-crashes at the counter: global handler logs with correlation ID and shows a friendly `errors.json` message.
-- **NFR-07** Logging: Serilog file sink, 7-day rolling, 5 MB cap; no customer PII beyond phone in logs; AI calls log counts/tokens, never prompts.
-- **NFR-08** Test coverage ≥ 70% of Domain + Application; ≥ 95% on billing math.
-- **NFR-09** Voice accuracy: ≥ 27/30 on the unit battery; ≥ 35/40 phrases need no confirmation on the integration battery.
-- **NFR-10** Per-shop AI cost ≤ ₹5/month at cap; no AI call in the per-bill path.
+### 2.10 Support & data safety
+- **FR-36** Settings → **Export logs** shares the log file.
+- **FR-37** Settings → **Backup / Restore** writes the full database to a file the shopkeeper can save to Drive or WhatsApp, and restores it. *(Added Day 1. Without it, a lost phone loses every udhaar record.)*
 
-## 5. Scope OUT (v2 or later)
+## 3. Non-functional requirements
 
-Expiry/batch tracking · delivery day-book · staff logins/roles · cloud sync/backup · iOS · multi-shop dashboard · supplier purchase orders · GST e-invoicing · detailed per-customer purchase history · card readers / thermal printer drivers (see Q6).
+| ID | Requirement |
+|---|---|
+| NFR-01 | Voice needs internet; the app says so plainly. Every other feature works fully offline. |
+| NFR-02 | Bill finalize takes < 2 s; receipt PDF is ready in < 3 s on a 3 GB RAM device. |
+| NFR-03 | Android 9+. Tested on a 7" and a 10" tablet (landscape) and a 6" phone (portrait). |
+| NFR-04 | Telugu and English UI. No hardcoded user-facing strings. Telugu line height is +15%. |
+| NFR-05 | No backend in v1. All data stays on the device. No paid APIs. Every mutation also appends an `Outbox` row (the v2 sync seam). |
+| NFR-06 | Integrity: no half-saved bill. Stock reconciles to the unit after 100 random sales. |
+| NFR-07 | The app never hard-crashes at the counter. A global handler shows a friendly message and logs with a correlation ID. |
+| NFR-08 | Logs never contain customer names or full bills. Phone numbers are masked. |
+| NFR-09 | Touch targets ≥ 48 dp; billing actions ≥ 64 dp. |
+| NFR-10 | Test coverage ≥ 70% on Domain + Application, and ≥ 95% on billing math. |
+| NFR-11 | Cold start < 3 s; APK < 60 MB. |
+| NFR-12 | Voice accuracy: ≥ 27/30 on the unit-test phrase battery, and ≥ 35/40 phrases needing no confirmation on the integration battery. |
 
-## 6. Assumptions
+## 4. Scope
 
-- Prices are GST-inclusive (Indian MRP norm); whole-rupee rounding.
-- Google Play Billing is the only payment channel for the subscription.
-- Android SpeechRecognizer `te-IN` is available on target devices.
-- WhatsApp sharing via OS share sheet / `wa.me` only.
+**In v1:**
+- Voice billing
+- Barcode scan
+- Quick-sale grid
+- Discounts
+- Cash/UPI/udhaar
+- GST receipts and WhatsApp share
+- Void
+- Inventory and low stock
+- 4 reports
+- Tier 1 AI
+- Subscription
+- Logs export
+- Backup/restore
 
-## 7. Cut order if week 2 slips
+**Out (v2):**
+- Tier 2 LLM features (ask-your-data, supplier-bill scan, voice rescue) and their proxy
+- Staff roles / PINs
+- Cloud sync
+- iOS
+- Expiry / batch tracking
+- Delivery
+- Purchase orders
+- Split tender
+- Returns / partial refunds (void only in v1)
+- Bluetooth thermal printing
+- GST e-invoicing
+- Multi-shop
 
-Discount engine depth → customer purchase-history detail → WhatsApp due reminders.
-**Never cut:** voice billing, barcode scan, GST receipts, inventory + low-stock, day-end reports, on-device AI insights.
+**Cut order if week 2 slips:**
+1. FR-23 reminders
+2. FR-29 top items
+3. FR-12 discount depth (keep flat bill discount)
 
-## 8. Traceability
+**Never cut:** FR-06/07 voice, FR-08 scan, FR-13/17 GST receipt, FR-24/25 inventory, FR-27 day-end, FR-31–33 Tier 1 AI.
 
-| FR group | Owning agent | Doc |
+## 5. Assumptions
+- **A1** Prices are GST-inclusive (MRP norm), and rounding is to the whole rupee.
+- **A2** Payments go through Google Play Billing only. UPI tender is display-only: the app does not confirm the payment, the shopkeeper does.
+- **A3** Telugu speech uses Android's recognizer (`te-IN`), not a paid API.
+- **A4** One device per shop. Backup/restore is the only way to move data between devices.
+
+## 6. Traceability
+
+| FRs | Owning agent | Doc |
 |---|---|---|
-| FR-01…07 | A (Data) + C (UI) | DB_SCHEMA.md, UI_MAP.md |
-| FR-08…10 | B (Voice) | VOICE_PIPELINE.md |
-| FR-11…17 | C (UI) + D (Money) | UI_MAP.md, BILLING_RULES.md |
-| FR-18…19, 30 | D (Money) | BILLING_RULES.md |
-| FR-20…26 | A + C + D | |
-| FR-27…29 | AI lib (owner TBD — see Q7) | |
-| FR-31, NFR-06/07 | E (Quality) | TEST_PLAN.md |
+| FR-01–05, FR-24–26 | A (Data) + C (UI) | DB_SCHEMA.md, UI_MAP.md |
+| FR-06–07 | B (Voice) | VOICE_PIPELINE.md |
+| FR-08–12 | C (UI) | UI_MAP.md |
+| FR-13–20, FR-34–35 | D (Money) | BILLING_RULES.md |
+| FR-21–23, FR-27–30 | A + C + D | — |
+| FR-31–33 | D (Money + AI) | — |
+| FR-36–37, NFR-07/08 | E (Quality) | TEST_PLAN.md |
 
-## 9. Open questions for sign-off
-
-Conflicts found in the HQ doc, plus the Day 1 interview list. Answer inline and sign at the top.
-
-1. **Roles** — one PIN-less owner/cashier role in v1? (Draft assumes yes.)
-2. **Price** — Product Spec says **₹200/mo, ₹1,999/yr**, but Spec §2 and Agent D's brief say **₹99/mo** and the kickoff pack says ₹99/mo, ₹999/yr. Which is final? (Draft leaves price out of FR-30 until confirmed.)
-3. **Seed data** — 80 kirana + 40 pharmacy (Spec/Blueprint) vs "the 80 seeded" in the user-guide brief. Draft assumes 120 total.
-4. **Split tender** — can one bill be paid part cash / part UPI / part udhaar, or one tender per bill?
-5. **Discount/tax order** — Blueprint §1 (Kahera) says "tax removed before discount"; with GST-inclusive prices, draft assumes discount reduces the inclusive price and tax is extracted from the discounted amount. Confirm.
-6. **Printing** — share-only PDF in v1, or also Bluetooth thermal printers (common at counters)? Draft assumes share-only.
-7. **AI ownership & key** — Tier 2 is "in v1 behind the flag", but none of agents A–E owns `Angadi.AI`, and an on-device app can't safely hold an LLM API key. Options: (a) ship Tier 1 only in v1, Tier 2 in v2 with a tiny proxy; (b) Tier 2 in v1 with a key in the app (extractable — not recommended). Draft recommends (a).
-8. **GSTIN** — are target shops mostly unregistered (composition / below threshold)? If so, receipts must say "Bill of Supply" rather than "Tax Invoice" when no GSTIN is set.
-9. **Scope note** — "No backend" and FR-28 Tier 2 conflict (see Q7); "Telugu voice billing" needs internet — confirmed acceptable per NFR-01.
+## 7. Open questions for sign-off
+1. **Thermal printers.** Many shops already own a 58 mm Bluetooth printer. Keeping it out of v1 is my recommendation, but confirm.
+2. **GSTIN.** Is "Bill of Supply when no GSTIN" (FR-18) right for your pilot shops?
+3. **UAT shops.** Which kirana and which chemist, and are they available Days 11–12?
+4. **Discount vs tax order.** The blueprint's Kahera note says "tax removed before discount". With GST-inclusive prices, this draft lets the discount reduce the inclusive price and extracts tax from the discounted amount, which is how the customer actually pays. Confirm.

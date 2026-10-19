@@ -6,7 +6,7 @@ Telugu-first, Square-like point-of-sale app for kirana shops and pharmacies — 
 
 ## Status
 
-**Day 1 AM — requirements.** No code until `docs/SRS.md` is signed off.
+**Day 1 — requirements + contracts.** `docs/SRS.md` is drafted with the Day 1 decisions (₹200/mo, Tier 2 LLM moved to v2, one role, tablet-first) and awaits sign-off. Domain contracts are in `src/Angadi.Domain` for review; they are not yet compiled.
 
 ## Documents
 
@@ -22,7 +22,7 @@ Angadi.sln
 ├── Angadi.Core            # billing engine, GST math, dues ledger, Result<T>
 ├── Angadi.Voice           # ISpeechToText, Telugu parser, fuzzy matcher
 ├── Angadi.Comms           # PDF receipts, WhatsApp share, Play Billing gate
-├── Angadi.AI              # on-device insights + capped LLM assistant
+├── Angadi.AI              # on-device insights (Tier 2 LLM assistant is v2)
 ├── Angadi.Domain          # entities, zero dependencies
 ├── Angadi.Application     # Mediator commands/queries, pipeline behaviors
 ├── Angadi.Infrastructure  # sqlite-net-pcl, outbox, platform adapters
