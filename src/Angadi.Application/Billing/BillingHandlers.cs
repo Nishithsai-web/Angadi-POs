@@ -81,11 +81,13 @@ internal sealed class FinalizeBillHandler(
 
         BillCalculator.Compute(bill, shopHasGstin: !string.IsNullOrWhiteSpace(profile.Gstin));
 
+        var cashTyped = bill.CashReceived;
         switch (bill.Tender)
         {
             case TenderType.Cash:
+                if (bill.CashReceived < bill.GrandTotal && bill.CashReceived.Value != 0)
+                    return Result.Failure<FinalizedBill>(ErrorCodes.BillCashShort);
                 if (bill.CashReceived.Value == 0) bill.CashReceived = bill.GrandTotal;   // exact cash, nothing typed
-                if (bill.CashReceived < bill.GrandTotal) return Result.Failure<FinalizedBill>(ErrorCodes.BillCashShort);
                 break;
             case TenderType.Udhaar:
                 if (await customers.GetAsync(bill.CustomerId!.Value, ct) is null)
@@ -118,10 +120,13 @@ internal sealed class FinalizeBillHandler(
             bill.Number = "";
             bill.Status = BillStatus.Draft;
             bill.FinalizedAt = null;
+            bill.CashReceived = cashTyped;   // the auto-filled "exact cash" must not survive into a retry
             throw;
         }
 
-        return Result.Success(new FinalizedBill(bill.Id, bill.Number, bill.GrandTotal, BillCalculator.ChangeDue(bill)));
+        // Change is only ever due on cash; for UPI/udhaar ChangeDue(bill) would be −GrandTotal.
+        var change = bill.Tender == TenderType.Cash ? BillCalculator.ChangeDue(bill) : Paise.Zero;
+        return Result.Success(new FinalizedBill(bill.Id, bill.Number, bill.GrandTotal, change));
     }
 }
 
@@ -253,7 +258,8 @@ public static partial class PhoneNumbers
         return digits.Length switch
         {
             10 when digits[0] is >= '6' and <= '9' => "91" + digits,
-            12 when digits.StartsWith("91", StringComparison.Ordinal) => digits,
+            // +91 followed by a mobile (6–9); "+91 40 2345 6789" is a landline and wa.me can't reach it.
+            12 when digits.StartsWith("91", StringComparison.Ordinal) && digits[2] is >= '6' and <= '9' => digits,
             _ => null,
         };
     }
