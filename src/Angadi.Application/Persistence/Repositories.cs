@@ -9,14 +9,17 @@ using Angadi.Domain.Shop;
 namespace Angadi.Application.Persistence;
 
 /// <summary>
-/// One transaction per command (blueprint §4). TransactionBehavior opens it; handlers never commit.
-/// A bill never half-saves (FR-15).
+/// One transaction per command (blueprint §4). TransactionBehavior wraps each command handler;
+/// handlers never commit. A bill never half-saves (FR-15).
 /// </summary>
 public interface IUnitOfWork
 {
-    Task BeginAsync(CancellationToken ct = default);
-    Task CommitAsync(CancellationToken ct = default);
-    Task RollbackAsync(CancellationToken ct = default);
+    /// <summary>
+    /// Runs <paramref name="work"/> in one database transaction. Commits only when
+    /// <paramref name="shouldCommit"/> returns true for the result (e.g. Result.IsSuccess);
+    /// rolls back on a failed result or any exception. Repository calls inside join the transaction.
+    /// </summary>
+    Task<T> ExecuteAsync<T>(Func<Task<T>> work, Func<T, bool> shouldCommit, CancellationToken ct = default);
 }
 
 public interface IItemRepository
