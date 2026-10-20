@@ -27,7 +27,7 @@ public static class Barcodes
         if (!normalized.All(char.IsAsciiDigit) || normalized.Length is not (13 or 8)) return true;
         var sum = 0;
         // Weights 3,1,3,1… from the rightmost data digit (the one left of the check digit).
-        for (var i = normalized.Length - 2, w = 3; i >= 0; i--, w = 4 - w) sum += (normalized[i] - '0') * w;
+        for (int i = normalized.Length - 2, w = 3; i >= 0; i--, w = 4 - w) sum += (normalized[i] - '0') * w;
         var check = (10 - sum % 10) % 10;
         return check == normalized[^1] - '0';
     }
