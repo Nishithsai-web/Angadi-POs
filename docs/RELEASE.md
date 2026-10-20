@@ -31,11 +31,12 @@ GitHub → the repo → **Settings → Secrets and variables → Actions → New
 2. **App integrity → Play App Signing:** accept (Google manages the signing key).
 3. **Policy → App content:**
    - **Privacy policy:** the public URL of `docs/PRIVACY_POLICY.md` (fill in its two `[…]` fields first).
-   - **Data safety:** no data collected or shared by Angadi. Data is stored only on the device. Note that voice input may be processed by Google's speech service (Android). Diagnostics are shared only when the user taps Export logs.
+   - **Data safety:** no data collected or shared by Angadi. Every answer, with the reason: `store/listing/DATA_SAFETY.md`.
    - **Target API:** the app targets API 36 (Android 16), which Play requires for new apps and updates from 31 Aug 2026. CI's *Google Play policy gate* fails any build below that, any debuggable release, and any library-added sensitive permission (advertising ID, SMS, location, all-packages).
    - **Android backup:** only the database and settings go to the owner's own Google account (Android Auto Backup); this is not "collection" by Angadi.
-   - **Ads:** no ads. **Target audience:** 18+ (business users). **Content rating:** fill in the questionnaire (utility app).
-4. **Monetize → Subscriptions:** create `angadi_pro_monthly` (₹200 / month) and `angadi_pro_yearly` (₹1,999 / year). The IDs must match exactly.
+   - **Ads:** no ads. **Target audience:** 18+ (business users). **Content rating:** answers in `store/listing/CONTENT_RATING.md`.
+4. **Monetize → Subscriptions:** create `angadi_pro_monthly` (₹200 / month) and `angadi_pro_yearly` (₹1,999 / year). The IDs must match exactly. Click-by-click: `store/listing/IN_APP_PRODUCTS.md`.
+   **Store listing** (texts in English and Telugu, screenshots): `store/listing/README.md`.
 5. **Testing → Closed testing:** create a track and add at least 12 testers' emails. A new personal developer account needs 14 days of closed testing before production.
 
 ### 4. Optional: automatic upload to internal testing
@@ -49,7 +50,7 @@ Play Console → **Setup → API access** → create a service account with "Rel
    git checkout main; git pull
    git tag v1.0.0; git push origin v1.0.0
    ```
-   GitHub → **Actions → release** runs the tests again, builds the signed `.aab`, and attaches it to the run as `angadi-release-1.0.0`. Without the secrets it stops at once and names what's missing.
+   GitHub → **Actions → release** runs the tests again, builds the signed `.aab`, and attaches it to the run as `angadi-release-1.0.0`. Without the secrets it stops at once and names what's missing. Before building it runs `tools/release_check.py`, which stops the release while the privacy policy has unfilled `[…]` fields, the support WhatsApp number is empty, a version is malformed, product IDs drift or a listing text is too long.
 3. **Upload.** Play Console → the testing track → **Create release** → upload the `.aab` (or it is already there, if step A4 is set up) → release notes from `CHANGELOG.md` → **Start rollout**.
 4. **Promote.** After the closed test passes (and 14 days for a new account): **Promote release → Production**, staged rollout 20% → 50% → 100% while watching **Android vitals** and the **pre-launch report**. Production needs the owner's explicit go-ahead.
 

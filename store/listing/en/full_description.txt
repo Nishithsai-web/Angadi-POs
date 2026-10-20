@@ -1,0 +1,47 @@
+Angadi is a billing app for kirana, general and medical shops, made for Telugu-speaking shop owners. Say the items in Telugu, scan a barcode or tap a quick-sale tile, and the bill is ready. Your data stays on your phone or tablet: no account, no ads.
+
+TELUGU FIRST
+• The whole app in Telugu or English. Switch with one tap at the top.
+• Items have a Telugu name, an English name and other names your customers use, and search finds any of them.
+
+FAST BILLING
+• Voice billing: tap Speak and say the items and quantities in Telugu. Uses your phone's speech recognition.
+• Barcode scanner with the phone camera. No camera? Type the number. An unknown barcode can be linked to an item once and is found directly after that.
+• Quick-sale tiles for the items you sell most.
+• Sell by piece, pack, strip, kg, gram, litre or ml. Change quantities with + and −.
+• Bill discount, and a void with a reason when a bill was wrong.
+
+THREE WAYS TO GET PAID
+• Cash: shows the change to give back.
+• UPI: shows your shop's own UPI QR with the bill amount filled in. The money goes straight to your bank account. Angadi never touches it.
+• Udhaar: the bill goes to the customer's account as dues.
+
+GST RECEIPTS
+• Prices include GST. Slabs 0%, 5%, 18% and 40%. Totals are rounded to the rupee.
+• With a GSTIN, bills are tax invoices with the GST split. Without one, they are bills of supply.
+• Receipt as a PDF, sent on WhatsApp or any app you choose. Bills of registered customers can go straight to their WhatsApp number.
+
+CUSTOMERS AND DUES (UDHAAR)
+• Each customer's dues, payments, promised pay date, previous bills and what they usually buy.
+• Dues reminders on WhatsApp or SMS: Angadi writes the message, you tap send.
+
+STOCK
+• Stock goes down with every bill. Record stock in (purchase), damage and count corrections.
+• Low-stock alerts at the level you set for each item.
+• Stock value at selling price, and a check that the stock matches every recorded change.
+
+REPORTS
+• Day end: sales, bills, cash, UPI, udhaar, discount, GST and voids.
+• GST summary for the month, top items and dues outstanding.
+• Shop insights worked out on your phone from your own sales: items that will run out soon, and items not sold in 30, 60 or 90 days.
+
+ALSO
+• Notes for the shop (for example "order 2 bags of rice").
+• Backup and restore: save a backup file to WhatsApp, Drive or anywhere you choose.
+• Works on phones and tablets. Bigger screens show the items and the bill side by side.
+
+YOUR DATA STAYS WITH YOU
+Bills, customers and stock are stored only on your device. There is no Angadi server and no login. Data leaves the phone only when you share a receipt, send a reminder, or save a backup. If Android backup is on, Android also keeps a copy in your own Google account.
+
+PRICE
+50 bills free every month. Angadi Pro gives unlimited bills for ₹200 a month or ₹1,999 a year, paid through Google Play. Cancel any time in Google Play.
