@@ -75,6 +75,13 @@ public class MediumsTests : IDisposable
         Assert.Equal(new object[] { 50, 200 }, blocked.Error.Args);
     }
 
+    [Fact]
+    public async Task M15_CustomerWithBadPhone_IsRejected()
+    {
+        var r = await _h.Sender.Send(new SaveCustomerCommand(new Customer { Name = "రవి", Phone = "12345" }));
+        Assert.Equal(ErrorCodes.PhoneInvalid, r.Error.Code);
+    }
+
     // ---------- M7 caps ----------
 
     [Fact]

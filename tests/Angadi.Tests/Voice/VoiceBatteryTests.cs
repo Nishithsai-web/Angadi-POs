@@ -6,8 +6,8 @@ using Angadi.Infrastructure.Seed;
 namespace Angadi.Tests.Voice;
 
 /// <summary>
-/// NFR-12 unit battery: 30 realistic counter phrases against the 120 seed items.
-/// Target ≥ 27/30 correct. The Day 2 prototype scored 30/30 correct, 29/30 auto-added.
+/// NFR-12 / M15 battery: 40 realistic counter phrases against the 120 seed items — the voice exit gate.
+/// Target ≥ 36/40 correct and ≥ 35/40 auto-added (M15). Any parser or seed change that drops below fails CI.
 /// </summary>
 public class VoiceBatteryTests
 {
@@ -49,6 +49,17 @@ public class VoiceBatteryTests
         { "బియ్యమ్ ఐదు కేజీలు", "Rice (Sona Masoori)" },
         { "మినపప్పు అర కేజీ", "Urad dal" },
         { "గోధుమపిండి రెండు కేజీలు", "Wheat atta" },
+        // M15: ten more, spread across dairy, vegetables, staples and pharmacy.
+        { "నెయ్యి ఒకటి", "Ghee (500 ml)" },
+        { "పెరుగు రెండు ప్యాకెట్లు", "Curd (500 g)" },
+        { "బెల్లం అర కేజీ", "Jaggery" },
+        { "అల్లం వంద గ్రాములు", "Ginger" },
+        { "చింతపండు ఒక కేజీ", "Tamarind" },
+        { "అటుకులు అర కేజీ", "Poha" },
+        { "కొబ్బరికాయ రెండు", "Coconut" },
+        { "బ్రెడ్ ఒకటి", "Bread" },
+        { "సెటిరిజిన్ ఒక స్ట్రిప్", "Cetirizine 10 mg" },
+        { "శానిటైజర్ ఒకటి", "Hand sanitizer (100 ml)" },
     };
 
     private (MatchResult result, string? bestEnglish) Run(string phrase)
@@ -84,8 +95,9 @@ public class VoiceBatteryTests
                 if (result.Kind == MatchKind.AutoAdd) auto++;
             }
         }
-        Assert.True(correct >= 27, $"correct {correct}/30");
-        Assert.True(auto >= 25, $"auto-added {auto}/30");
+        Assert.Equal(40, Battery.Count);
+        Assert.True(correct >= 36, $"correct {correct}/40");
+        Assert.True(auto >= 35, $"auto-added {auto}/40");
     }
 
     [Fact]
