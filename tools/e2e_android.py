@@ -84,9 +84,37 @@ def find(pattern, exact=False, cls=None):
     return None
 
 
+SYSTEM_POPUPS = ("isn't responding", "keeps stopping", "has stopped")
+
+
+APP_FREEZES = []
+
+
+def dismiss_system_popups():
+    """Android's own 'X isn't responding' dialogs (common right after an emulator boots) cover the app: tap Wait.
+    If the dialog is about Angadi itself, that is a real freeze: it is recorded and fails the run at the end."""
+    for _ in range(3):
+        texts = screen_texts()
+        if not any(p in texts for p in SYSTEM_POPUPS):
+            return
+        if "Angadi" in texts or "అంగడి" in texts:
+            APP_FREEZES.append(texts[:300])
+            print(f"::error::the app showed a system 'not responding' dialog: {texts[:300]}", flush=True)
+        for button in ("Wait", "Close app", "OK"):
+            n = find(button, exact=True)
+            if n is not None:
+                x, y = center(n)
+                adb("shell", "input", "tap", str(x), str(y))
+                time.sleep(1.5)
+                break
+        else:
+            return
+
+
 def wait_for(pattern, timeout=40, exact=False, scroll=False, cls=None):
     end = time.time() + timeout
     while time.time() < end:
+        dismiss_system_popups()
         n = find(pattern, exact=exact, cls=cls)
         if n is not None:
             return n
@@ -337,11 +365,18 @@ def main():
     apk = sys.argv[1]
     os.makedirs(OUT, exist_ok=True)
     adb("wait-for-device")
+    for _ in range(60):   # the runner says "booted" before the launcher settles; give it time
+        if adb("shell", "getprop", "sys.boot_completed", check=False).strip() == "1":
+            break
+        time.sleep(2)
+    time.sleep(20)
+    dismiss_system_popups()
     adb("uninstall", PKG, check=False)
     adb("install", "-r", "-g", apk, timeout=600)   # -g: grant runtime permissions (camera, mic)
     adb("logcat", "-c", check=False)
     adb("shell", "monkey", "-p", PKG, "-c", "android.intent.category.LAUNCHER", "1")
     time.sleep(8)
+    dismiss_system_popups()
 
     for name, fn in [
         ("first-run-language", first_run),
@@ -361,6 +396,8 @@ def main():
 
     with open(os.path.join(OUT, "logcat.txt"), "w", encoding="utf-8") as f:
         f.write(adb("logcat", "-d", check=False))
+    if APP_FREEZES:
+        FAILURES.append("app-not-responding")
     if FAILURES:
         print(f"::error::E2E failed steps: {', '.join(FAILURES)}")
         sys.exit(1)

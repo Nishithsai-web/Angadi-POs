@@ -6,7 +6,7 @@ namespace Angadi.Tests.Infrastructure;
 public class MigrationSafetyTests
 {
     [Fact]
-    public void OlderSchema_IsCopiedToPreUpdate_BeforeMigrating_CurrentSchemaIsNot()
+    public async Task OlderSchema_IsCopiedToPreUpdate_BeforeMigrating_CurrentSchemaIsNot()
     {
         var folder = Path.Combine(Path.GetTempPath(), "angadi-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(folder);
@@ -14,12 +14,12 @@ public class MigrationSafetyTests
         try
         {
             using (var db = new AngadiDb(path))
-                db.RunAsync(c => c.Execute("UPDATE Meta SET Value = '1' WHERE Key = 'schema_version'")).GetAwaiter().GetResult();
+                await db.RunAsync(c => c.Execute("UPDATE Meta SET Value = '1' WHERE Key = 'schema_version'"));
 
             using (var reopened = new AngadiDb(path))
             {
                 Assert.True(File.Exists(path + ".pre-update"));
-                var version = reopened.RunAsync(c => c.ExecuteScalar<string>("SELECT Value FROM Meta WHERE Key = 'schema_version'")).GetAwaiter().GetResult();
+                var version = await reopened.RunAsync(c => c.ExecuteScalar<string>("SELECT Value FROM Meta WHERE Key = 'schema_version'"));
                 Assert.Equal(AngadiDb.SchemaVersion.ToString(System.Globalization.CultureInfo.InvariantCulture), version);
             }
 
