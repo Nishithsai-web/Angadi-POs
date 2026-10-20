@@ -151,6 +151,15 @@ public sealed partial class PosViewModel : ViewModelBase
             foreach (var i in results) SearchResults.Add(Tile(i));
         }
         catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            // FIX(UI-3, 2026-10-20, FIX-3): Flaw: SearchAsync is fire-and-forget from OnSearchTextChanged and
+            // caught only cancellation — a sender failure faulted an unobserved task and search silently
+            // returned nothing. Fix: report it (tagged "search") so support logs show it; no toast, because
+            // typing must never nag the shopkeeper. Why: silent-but-logged beats invisible. Logged in
+            // docs/AGENT_FIX_LOG.md.
+            GlobalExceptions.Report(ex, "search");
+        }
     }
 
     public void Add(ItemTile tile, LineSource source = LineSource.Manual)
@@ -270,8 +279,12 @@ public sealed partial class PosViewModel : ViewModelBase
         if (line is not null) _draft.SetQty(row.Id, line.Qty - Qty.Whole(1));
     }
 
+    // FIX(UI-2, 2026-10-20, FIX-3): Flaw: EditLine was the only POS command not routed through SafeAsync —
+    // a prompt/parse exception faulted the command task instead of showing the friendly toast. Fix: route
+    // through SafeAsync like its 9 siblings. Why: one unwrapped command is all it takes to reintroduce the
+    // "tap does nothing" failure at the counter. Logged in docs/AGENT_FIX_LOG.md.
     [RelayCommand]
-    private Task EditLine(LineRow row) => EditLineAsync(row.Id);
+    private Task EditLine(LineRow row) => SafeAsync(() => EditLineAsync(row.Id));
 
     private async Task EditLineAsync(Guid lineId)
     {
