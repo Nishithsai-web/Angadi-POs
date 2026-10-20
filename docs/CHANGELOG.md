@@ -1,6 +1,15 @@
 # CHANGELOG.md — Angadi POS v1
 Every meaningful change: date, what, the issue it addresses, and the one-line why. Newest first.
 
+## 2026-10-20 (Claude Code) — the counter freeze, barcodes, reminders, release readiness
+- **Fixed: the counter froze after the first payment.** The subscription status was fetched from Google Play inside the bill's database transaction. Without Play services (emulator, some phones) the transaction never ended, so every later action waited forever. Now status comes from the on-device cache; Play is checked in the background, every Play call has a time limit, and the database lock wait is bounded. Why: billing must never depend on the network.
+- **Never-fail UI:** every button and event goes through one safety net (logged, a message on screen, double taps ignored). Tapping a payment button on an empty bill now says so. Why: a button must never look dead.
+- **Barcodes:** UPC/EAN normalization and check digits, two-frame confirm, torch, attach an unknown code to an existing item, scan-to-find on Items. Why: wrong-item bills from misreads are unacceptable.
+- **Reminders:** the WhatsApp/SMS message lists each unpaid udhaar with its date, to the customer's registered number. "Send to <customer> on WhatsApp" after a bill. A due banner on the bill screen. Why: owner requirement.
+- **Emulator end-to-end test in CI** drives the real app through setup, cash, UPI, udhaar, barcode, reports and the language switch. Why: "works" is observed on the app, every push.
+- **Release:** signed AAB workflow (`release.yml`), `docs/RELEASE.md`, a pre-update database copy before migrations, Release trimming roots, logcat error tag. Why: production readiness.
+- **How-to-use presentation** (20 slides): who, where, when and every feature.
+
 ## 2026-10-19 (late night, Claude Code) — customer accounts
 - **Customer accounts:** address, notes, every bill (any tender), their own report, udhaar/appu aging, promised-to-pay date, "Due for reminder" list, reminders by WhatsApp or SMS. Why: owner requirement. A customer-side app with push notifications needs a server (out of v1).
 

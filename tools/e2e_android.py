@@ -212,13 +212,32 @@ def step(name, fn):
         recover()
 
 
+def on_tab_bar():
+    return find("Items", exact=True) is not None and find("Customers", exact=True) is not None
+
+
+def relaunch_if_backgrounded():
+    if find("అంగడి", exact=True) is not None and find("Cash", exact=True) is None and not on_tab_bar():
+        adb("shell", "monkey", "-p", PKG, "-c", "android.intent.category.LAUNCHER", "1")
+        time.sleep(4)
+
+
 def recover():
-    """Back out of dialogs and pushed pages to the tab bar, so one failure doesn't fail every later step."""
+    """Back out of dialogs and pushed pages to the tab bar, so one failure doesn't fail every later step.
+    Never presses Back on a tab root (that would leave the app)."""
     for _ in range(4):
-        if find("Reports", exact=True) is not None and find("Items", exact=True) is not None:
+        if on_tab_bar():
             return
         adb("shell", "input", "keyevent", "4")
         time.sleep(1.2)
+    relaunch_if_backgrounded()
+
+
+def goto_tab(name):
+    """Phones show 5 tabs; the 6th (and on narrow screens more) sit under 'More'."""
+    if find(name, exact=True) is None and find("More", exact=True) is not None:
+        tap("More", exact=True, timeout=10)
+    tap(name, exact=True, timeout=30)
 
 
 # ------------------------------------------------------------------ the shopkeeper's morning
@@ -323,18 +342,18 @@ def empty_bill_says_so():
 
 
 def reports():
-    tap("Reports", exact=True, timeout=30)
+    goto_tab("Reports")
     wait_for("Stock matches the ledger", scroll=True, timeout=60)
 
 
 def customer_account():
-    tap("Customers", exact=True, timeout=30)
+    goto_tab("Customers")
     tap("Ravi", timeout=30)
     wait_for("Previous bills", scroll=True, timeout=40)
 
 
 def language_switch():
-    tap("Bill", exact=True, timeout=30)
+    goto_tab("Bill")
     tap("తెలుగు", exact=True, timeout=30)               # top bar: switch the whole app
     wait_for("నగదు", timeout=60)                        # "Cash" in Telugu
     tap("English", exact=True, timeout=30)

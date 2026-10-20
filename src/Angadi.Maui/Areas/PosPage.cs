@@ -17,6 +17,9 @@ public sealed class PosPage : PageBase
     private readonly Grid _root = new() { Padding = new Thickness(12), ColumnSpacing = 12, RowSpacing = 12 };
     private readonly View _left;
     private readonly View _right;
+    private CollectionView? _results;
+    private CollectionView? _quick;
+    private View? _totals;
     private bool? _wide;
 
     public PosPage(PosViewModel vm) : base(vm)
@@ -33,6 +36,9 @@ public sealed class PosPage : PageBase
         var wide = width >= 900;
         if (_wide == wide) return;
         _wide = wide;
+        if (_quick is not null) _quick.HeightRequest = wide ? -1 : 128;            // 2 rows of tiles on a phone
+        if (_results is not null) _results.MaximumHeightRequest = wide ? 240 : 150;
+        if (_totals is not null) _totals.IsVisible = wide;                          // phone: the total alone
         _root.Children.Clear();
         _root.ColumnDefinitions.Clear();
         _root.RowDefinitions.Clear();
@@ -45,14 +51,15 @@ public sealed class PosPage : PageBase
         }
         else
         {
+            // Phone: the catalogue takes only what it needs (2 rows of tiles); the bill gets the rest.
+            _root.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
             _root.RowDefinitions.Add(new RowDefinition(new GridLength(1, GridUnitType.Star)));
-            _root.RowDefinitions.Add(new RowDefinition(new GridLength(1.3, GridUnitType.Star)));
             _root.Add(_left, 0, 0);
             _root.Add(_right, 0, 1);
         }
     }
 
-    private static View BuildCatalogue(PosViewModel vm)
+    private View BuildCatalogue(PosViewModel vm)
     {
         var mic = new Button
         {
@@ -72,11 +79,11 @@ public sealed class PosPage : PageBase
         var search = Ui.Entry(vm.Text["pos.search"]);
         search.SetBinding(Entry.TextProperty, nameof(PosViewModel.SearchText));
 
-        var results = new CollectionView { SelectionMode = SelectionMode.Single, ItemTemplate = TileTemplate(), MaximumHeightRequest = 240 };
+        var results = _results = new CollectionView { SelectionMode = SelectionMode.Single, ItemTemplate = TileTemplate(), MaximumHeightRequest = 240 };
         results.SetBinding(ItemsView.ItemsSourceProperty, nameof(PosViewModel.SearchResults));
         results.SelectionChanged += (_, e) => Pick(vm, results, e);
 
-        var quick = new CollectionView
+        var quick = _quick = new CollectionView
         {
             SelectionMode = SelectionMode.Single,
             ItemTemplate = TileTemplate(),
@@ -120,13 +127,15 @@ public sealed class PosPage : PageBase
         return Ui.Card(new VerticalStackLayout { Spacing = 2, Children = { name, price } }, 10);
     });
 
-    private static View BuildBill(PosViewModel vm)
+    private View BuildBill(PosViewModel vm)
     {
-        var lines = new CollectionView { ItemTemplate = LineTemplate(vm), SelectionMode = SelectionMode.None };
+        // The bill lines always keep room: on a phone the other rows used to squeeze them to zero height,
+        // so items were added but invisible (found by the CI emulator test).
+        var lines = new CollectionView { ItemTemplate = LineTemplate(vm), SelectionMode = SelectionMode.None, MinimumHeightRequest = 150 };
         lines.SetBinding(ItemsView.ItemsSourceProperty, nameof(PosViewModel.Lines));
         lines.EmptyView = Ui.StateLine(nameof(PosViewModel.EmptyText));
 
-        var totals = new VerticalStackLayout
+        var totals = _totals = new VerticalStackLayout
         {
             Spacing = 2,
             Children =
