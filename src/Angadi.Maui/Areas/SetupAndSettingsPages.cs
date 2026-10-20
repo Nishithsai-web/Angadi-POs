@@ -1,6 +1,7 @@
 using Angadi.Application.Billing;
 using Angadi.Application.Catalog;
 using Angadi.Application.Common;
+using Angadi.Application.Persistence;
 using Angadi.Application.Platform;
 using Angadi.Domain.Shop;
 using Angadi.Maui.Core;
@@ -89,9 +90,14 @@ public sealed class ShopSetupPage : ContentPage
 
     private static View Labeled(CheckBox box, string label) => new HorizontalStackLayout { Spacing = 8, Children = { box, new Label { Text = label, VerticalTextAlignment = TextAlignment.Center } } };
 
-    protected override async void OnAppearing()
+    protected override void OnAppearing()
     {
         base.OnAppearing();
+        _ = SafeUi.Run(LoadAsync);   // A1-03: a failed load toasts instead of vanishing in async void
+    }
+
+    private async Task LoadAsync()
+    {
         _existing = await _sender.Send(new GetShopProfileQuery());
         _seedBox.IsVisible = _existing is null;
         if (_existing is null) return;
@@ -143,7 +149,11 @@ public sealed class ShopSetupPage : ContentPage
         if (saved.IsFailure) { await _dialogs.ToastAsync(_text.Error(saved.Error) + (saved.Error.Detail is { } d ? " (" + d + ")" : "")); return; }
 
         if (firstRun && (_kirana.IsChecked || _pharmacy.IsChecked))
-            await _sender.Send(new SeedItemsCommand(_kirana.IsChecked, _pharmacy.IsChecked));
+        {
+            // A1-09: the shop is saved either way; a failed sample-item load is said, not swallowed.
+            var seeded = await _sender.Send(new SeedItemsCommand(_kirana.IsChecked, _pharmacy.IsChecked));
+            if (seeded.IsFailure) await _dialogs.ToastAsync(_text.Error(seeded.Error));
+        }
 
         _existing = profile;
         if (firstRun || oldLanguage != profile.Language) _restart.Restart();
@@ -178,11 +188,18 @@ public sealed class SubscriptionPage : ContentPage
         Content = Ui.Scroll(Ui.Title(text["settings.subscription"]), _status, Ui.Caption(text["sub.included"]), monthly, yearly, restore);
     }
 
-    protected override async void OnAppearing()
+    protected override void OnAppearing()
     {
         base.OnAppearing();
+        _ = SafeUi.Run(RefreshAsync);   // A1-03
+    }
+
+    private async Task RefreshAsync()
+    {
         var q = await _sender.Send(new GetBillQuotaQuery());
-        _status.Text = q.IsPro ? _text["sub.pro"] : _text.Format("sub.free", q.UsedThisMonth, q.FreeLimit);
+        _status.Text = !q.IsPro ? _text.Format("sub.free", q.UsedThisMonth, q.FreeLimit)
+            : q.NeedsReconfirm ? _text["sub.pro"] + "\n" + _text["sub.reconfirm"]
+            : _text["sub.pro"];
     }
 
     private async Task BuyAsync(SubscriptionPlan plan) => await ShowAsync(await _subscription.PurchaseAsync(plan));
@@ -190,7 +207,7 @@ public sealed class SubscriptionPage : ContentPage
     private async Task ShowAsync(Result<SubscriptionStatus> r)
     {
         if (r.IsFailure) { await _dialogs.ToastAsync(_text.Error(r.Error)); return; }
-        OnAppearing();
+        await RefreshAsync();
     }
 }
 
@@ -202,6 +219,7 @@ public sealed class SettingsPage : ContentPage
     private readonly IDialogService _dialogs;
     private readonly ILocalizer _text;
     private readonly IAppRestart _restart;
+    private readonly Label _backupStatus = Ui.Caption();
 
     public SettingsPage(ISender sender, IReceiptShare share, IDialogService dialogs, ILocalizer text, IAppRestart restart)
     {
@@ -225,17 +243,35 @@ public sealed class SettingsPage : ContentPage
             Item("settings.subscription", () => Shell.Current.GoToAsync(Routes.Subscription)),
             Item("settings.notes", () => Shell.Current.GoToAsync(Routes.Notes)),
             Item("settings.backup", BackupAsync),
+            _backupStatus,
             Item("settings.restore", RestoreAsync, danger: true),
             Item("settings.logs", ExportLogsAsync),
             Ui.Caption(text["settings.backup.tip"]),
             Ui.Caption("v" + AppInfo.Current.VersionString));
     }
 
+    protected override void OnAppearing()
+    {
+        base.OnAppearing();
+        _ = SafeUi.Run(RefreshBackupStatusAsync);
+    }
+
+    /// <summary>A2-03: "Data size: 3.4 MB · Last backup: 12 Oct" — Android's own backup stops past 25 MB.</summary>
+    private async Task RefreshBackupStatusAsync()
+    {
+        var s = await _sender.Send(new GetBackupStatusQuery());
+        var mb = (s.DatabaseBytes / 1024d / 1024d).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " MB";
+        _backupStatus.Text = _text.Format("backup.status", mb, s.LastManualBackup is { } at ? _text.Short(at) : _text["backup.never"]);
+        _backupStatus.TextColor = s.IsLarge ? Theme.Warning : Theme.TextSecondary;
+    }
+
     private async Task BackupAsync()
     {
         var r = await _sender.Send(new ExportBackupCommand());
         if (r.IsFailure) { await _dialogs.ToastAsync(_text.Error(r.Error)); return; }
-        await _share.ShareFileAsync(r.Value, _text["settings.backup"]);
+        await RefreshBackupStatusAsync();
+        var shared = await _share.ShareFileAsync(r.Value, _text["settings.backup"]);
+        if (shared.IsFailure) await _dialogs.ToastAsync(_text.Error(shared.Error));   // A1-09
     }
 
     private async Task RestoreAsync()
@@ -245,13 +281,30 @@ public sealed class SettingsPage : ContentPage
         if (!await _dialogs.ConfirmAsync(_text["settings.restore"], _text["settings.restore.warn"], _text["common.yes"], _text["common.no"])) return;
 
         // H3: stage the picked (content-URI) file locally first, then restore from the staged copy.
+        // A1-13: the staged copy holds customer data — always deleted; a full phone says so instead of "unexpected".
         var staged = Path.Combine(FileSystem.CacheDirectory, "restore-staged.db");
-        await using (var source = await picked.OpenReadAsync())
-        await using (var target = File.Create(staged))
-            await source.CopyToAsync(target);
+        try
+        {
+            try
+            {
+                await using var source = await picked.OpenReadAsync();
+                await using var target = File.Create(staged);
+                await source.CopyToAsync(target);
+            }
+            catch (IOException ex) when (StorageFailures.IsDiskFull(ex))
+            {
+                await _dialogs.ToastAsync(_text.Error(new Error(ErrorCodes.StorageFull)));
+                return;
+            }
 
-        var r = await _sender.Send(new RestoreBackupCommand(staged));
-        if (r.IsFailure) { await _dialogs.ToastAsync(_text.Error(r.Error)); return; }
+            var r = await _sender.Send(new RestoreBackupCommand(staged));
+            if (r.IsFailure) { await _dialogs.ToastAsync(_text.Error(r.Error)); return; }
+        }
+        finally
+        {
+            try { if (File.Exists(staged)) File.Delete(staged); }
+            catch (IOException ex) { GlobalExceptions.Report(ex, "restore-staged-delete"); }
+        }
         _restart.Restart();
     }
 
@@ -260,6 +313,7 @@ public sealed class SettingsPage : ContentPage
         // H11: through the dispatcher — logged, Result-shaped, and a full disk shows a Telugu message instead of crashing.
         var zip = await _sender.Send(new ExportLogsCommand());
         if (zip.IsFailure) { await _dialogs.ToastAsync(_text.Error(zip.Error)); return; }
-        await _share.ShareFileAsync(zip.Value, _text["settings.logs"]);
+        var shared = await _share.ShareFileAsync(zip.Value, _text["settings.logs"]);
+        if (shared.IsFailure) await _dialogs.ToastAsync(_text.Error(shared.Error));   // A1-09
     }
 }

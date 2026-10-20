@@ -67,11 +67,14 @@ public sealed class BillsPage : ContentPage
         Content = grid;
     }
 
-    protected override async void OnAppearing()
+    protected override void OnAppearing()
     {
         base.OnAppearing();
-        if (_day.Date == DateTime.MinValue || _rows.Count == 0) _day.Date = _clock.Today.ToDateTime(TimeOnly.MinValue);
-        await LoadAsync();
+        _ = SafeUi.Run(async () =>   // A1-03: a failed load is logged and toasted, not lost in async void
+        {
+            if (_day.Date == DateTime.MinValue || _rows.Count == 0) _day.Date = _clock.Today.ToDateTime(TimeOnly.MinValue);
+            await LoadAsync();
+        });
     }
 
     private async Task LoadAsync()
@@ -106,7 +109,7 @@ public sealed class BillDetailPage : ContentPage, IQueryAttributable
 
     public void ApplyQueryAttributes(IDictionary<string, object> query)
     {
-        if (query.TryGetValue("billId", out var id) && Guid.TryParse(id?.ToString(), out var billId)) { _billId = billId; _ = LoadAsync(); }
+        if (query.TryGetValue("billId", out var id) && Guid.TryParse(id?.ToString(), out var billId)) { _billId = billId; _ = SafeUi.Run(LoadAsync); }
     }
 
     private async Task LoadAsync()
@@ -183,11 +186,14 @@ public sealed class ReportsPage : ContentPage
         Content = new ScrollView { Content = new VerticalStackLayout { Children = { new ContentView { Padding = new Thickness(16, 8, 16, 0), Content = _day }, _body } } };
     }
 
-    protected override async void OnAppearing()
+    protected override void OnAppearing()
     {
         base.OnAppearing();
-        if (_day.Date == DateTime.MinValue || _body.Children.Count == 0) _day.Date = _clock.Today.ToDateTime(TimeOnly.MinValue);
-        await LoadAsync();
+        _ = SafeUi.Run(async () =>   // A1-03: a failed load is logged and toasted, not lost in async void
+        {
+            if (_day.Date == DateTime.MinValue || _body.Children.Count == 0) _day.Date = _clock.Today.ToDateTime(TimeOnly.MinValue);
+            await LoadAsync();
+        });
     }
 
     private async Task LoadAsync()

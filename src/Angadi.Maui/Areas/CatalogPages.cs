@@ -73,17 +73,20 @@ public sealed class ItemsPage : ContentPage
         Content = grid;
     }
 
-    protected override async void OnAppearing()
+    protected override void OnAppearing()
     {
         base.OnAppearing();
-        _all = await _sender.Send(new GetAllItemsQuery());
-        var low = _all.Count(i => i.IsLowStock);
-        _summary.Text = low > 0 ? $"{_text["stock.low.title"]}: {low}" : "";
-        // H8: 12%/28% items cannot be billed under GST 2.0 — say so here, before the counter finds out.
-        var legacy = await _sender.Send(new GetLegacySlabItemsQuery());
-        _legacy.IsVisible = legacy.Count > 0;
-        _legacy.Text = legacy.Count > 0 ? _text.Format("items.legacy.notice", legacy.Count) : "";
-        Filter();
+        _ = SafeUi.Run(async () =>   // A1-03: a failed load is logged and toasted, not lost in async void
+        {
+            _all = await _sender.Send(new GetAllItemsQuery());
+            var low = _all.Count(i => i.IsLowStock);
+            _summary.Text = low > 0 ? $"{_text["stock.low.title"]}: {low}" : "";
+            // H8: 12%/28% items cannot be billed under GST 2.0 — say so here, before the counter finds out.
+            var legacy = await _sender.Send(new GetLegacySlabItemsQuery());
+            _legacy.IsVisible = legacy.Count > 0;
+            _legacy.Text = legacy.Count > 0 ? _text.Format("items.legacy.notice", legacy.Count) : "";
+            Filter();
+        });
     }
 
     private void Filter()
@@ -212,7 +215,7 @@ public sealed class ItemEditPage : ContentPage, IQueryAttributable
     public void ApplyQueryAttributes(IDictionary<string, object> query)
     {
         if (query.TryGetValue("barcode", out var code)) _barcode.Text = code?.ToString();
-        if (query.TryGetValue("itemId", out var id) && Guid.TryParse(id?.ToString(), out var itemId)) _ = LoadAsync(itemId);
+        if (query.TryGetValue("itemId", out var id) && Guid.TryParse(id?.ToString(), out var itemId)) _ = SafeUi.Run(() => LoadAsync(itemId));
         else Show();
     }
 

@@ -56,10 +56,13 @@ public sealed class NotesPage : ContentPage
             send);
     }
 
-    protected override async void OnAppearing()
+    protected override void OnAppearing()
     {
         base.OnAppearing();
-        await ReloadAsync();
+        _ = SafeUi.Run(async () =>   // A1-03: a failed load is logged and toasted, not lost in async void
+        {
+            await ReloadAsync();
+        });
     }
 
     private async Task ReloadAsync()

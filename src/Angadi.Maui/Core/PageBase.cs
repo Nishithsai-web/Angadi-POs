@@ -17,11 +17,10 @@ public class PageBase : ContentPage
         BindingContext = viewModel;
     }
 
-    protected override async void OnAppearing()
+    protected override void OnAppearing()
     {
         base.OnAppearing();
         if (_viewModel is null) return;
-        try { await _viewModel.OnAppearingAsync(); }
-        catch (Exception ex) { GlobalExceptions.Report(ex, GetType().Name); }
+        _ = SafeUi.Run(_viewModel.OnAppearingAsync);   // A1-04: a failed load is logged AND toasted, never silent
     }
 }

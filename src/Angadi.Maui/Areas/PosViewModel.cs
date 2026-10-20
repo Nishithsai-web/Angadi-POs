@@ -24,7 +24,6 @@ public sealed partial class PosViewModel : ViewModelBase
 {
     private readonly ISpeechToText _speech;
     private readonly IVoiceBillingPipeline _voice;
-    private readonly IAliasLearner _aliases;
     private readonly IBarcodeScanner _scanner;
     private readonly VoiceOptions _voiceOptions;
     private BillDraft _draft;
@@ -34,12 +33,11 @@ public sealed partial class PosViewModel : ViewModelBase
     private CancellationTokenSource? _searchCts;
 
     public PosViewModel(ISender sender, ILocalizer text, INavigationService nav, IDialogService dialogs,
-        ISpeechToText speech, IVoiceBillingPipeline voice, IAliasLearner aliases, IBarcodeScanner scanner, IOptions<VoiceOptions> voiceOptions)
+        ISpeechToText speech, IVoiceBillingPipeline voice, IBarcodeScanner scanner, IOptions<VoiceOptions> voiceOptions)
         : base(sender, text, nav, dialogs)
     {
         _speech = speech;
         _voice = voice;
-        _aliases = aliases;
         _scanner = scanner;
         _voiceOptions = voiceOptions.Value;
         UseDraft(new BillDraft(shopHasGstin: false));
@@ -88,6 +86,8 @@ public sealed partial class PosViewModel : ViewModelBase
     [ObservableProperty] private string _quotaText = "";
     /// <summary>"3 customers are due a dues reminder — tap" (empty = hidden).</summary>
     [ObservableProperty] private string _dueBanner = "";
+    /// <summary>A2-03: "no backup for 7 days" (empty = hidden). Tap → Settings; ✕ hides it until tomorrow.</summary>
+    [ObservableProperty] private string _backupBanner = "";
     /// <summary>The customer whose account this bill goes to (any tender); "+ Customer" when none.</summary>
     [ObservableProperty] private string _customerLabel = "";
     private Customer? _customer;
@@ -95,34 +95,38 @@ public sealed partial class PosViewModel : ViewModelBase
 
     public override async Task OnAppearingAsync()
     {
+        // Startup found the data file damaged and repaired it: shown here, on the first screen that is fully up
+        // (an alert raised from the shell while it is still being attached is dropped on Android). A1-04: shown the
+        // moment it is taken — the report is handed out once, so a later failing query must not lose it.
+        if (await Sender.Send(new GetDataRecoveryQuery()) is { } recovery) await ShowRecoveryNoticeAsync(recovery);
+
         _shop = await Sender.Send(new GetShopProfileQuery());
         var gst = !string.IsNullOrWhiteSpace(_shop?.Gstin);
         var restored = false;
-        Angadi.Application.Platform.DataRecoveryReport? recovery = null;
         if (!_draftChecked)
         {
-            // Startup found the data file damaged and repaired it: shown here, on the first screen that is fully up
-            // (an alert raised from the shell while it is still being attached is dropped on Android).
-            recovery = await Sender.Send(new GetDataRecoveryQuery());
             // The bill that was on screen when the app was closed (phone call, Android memory, crash) comes back.
-            _draftChecked = true;
             if (_draft.IsEmpty && await Sender.Send(new GetBillDraftQuery()) is { } saved)
             {
                 UseDraft(BillDraft.Restore(saved, gst));
                 _customer = saved.CustomerId is { } cid ? await Sender.Send(new GetCustomerQuery(cid)) : null;
                 restored = !_draft.IsEmpty;
             }
+            _draftChecked = true;   // A1-04: only once the restore succeeded; a failure retries on the next visit
         }
         if (_draft.IsEmpty) UseDraft(new BillDraft(gst));
         SetCustomer(_customer);   // label text, and keeps an attached customer on a fresh draft
         QuickSale.Clear();
         foreach (var i in await Sender.Send(new GetQuickSaleItemsQuery())) QuickSale.Add(Tile(i));
         var quota = await Sender.Send(new GetBillQuotaQuery());
-        QuotaText = quota.IsPro ? "" : Text.Format("sub.limit.left", Math.Max(0, quota.FreeLimit - quota.UsedThisMonth));
+        // A2-11: a Pro shop offline for over 7 days keeps billing; it is only asked to connect.
+        QuotaText = !quota.IsPro ? Text.Format("sub.limit.left", Math.Max(0, quota.FreeLimit - quota.UsedThisMonth))
+            : quota.NeedsReconfirm ? Text["sub.reconfirm"] : "";
         var due = await Sender.Send(new Angadi.Application.Customers.GetDueRemindersQuery());
         DueBanner = due.Count > 0 ? Text.Format("pos.due.banner", due.Count) : "";
+        var backup = await Sender.Send(new GetBackupStatusQuery());
+        BackupBanner = !backup.ShowReminder ? "" : Text[backup.IsLarge ? "backup.reminder.large" : "backup.reminder"];
         Refresh();
-        if (recovery is not null) await ShowRecoveryNoticeAsync(recovery);
         if (restored) await Dialogs.ToastAsync(Text["pos.draft.restored"]);
     }
 
@@ -136,7 +140,7 @@ public sealed partial class PosViewModel : ViewModelBase
 
     private ItemTile Tile(Item i) => new(i.Id, Text.Name(i), IndianFormat.Rupees(i.Price) + " / " + Text.UnitLabel(i.Unit), i);
 
-    partial void OnSearchTextChanged(string value) => _ = SearchAsync(value);
+    partial void OnSearchTextChanged(string value) => _ = SafeAsync(() => SearchAsync(value));   // A1-03
 
     private async Task SearchAsync(string value)
     {
@@ -173,6 +177,13 @@ public sealed partial class PosViewModel : ViewModelBase
             if (heard.IsFailure)
             {
                 if (heard.Error.Detail == "manual") { await Dialogs.ToastAsync(Text["pos.voice.offline"]); return; }
+                if (heard.Error.Detail == Angadi.Maui.Platform.AndroidSpeechToText.PermissionDeniedPermanently)
+                {
+                    // A2-18: Android won't ask again; Settings is the only way back — one tap there.
+                    if (await Dialogs.ConfirmAsync(Text["perm.title"], Text["perm.mic.off"], Text["perm.open.settings"], Text["common.cancel"]))
+                        AppInfo.Current.ShowSettingsUI();
+                    return;
+                }
                 if (heard.Error.Detail != "cancelled") await ShowIfFailedAsync(heard);
                 return;
             }
@@ -198,7 +209,7 @@ public sealed partial class PosViewModel : ViewModelBase
             if (candidate is not null)
             {
                 chosen = candidate.ItemId;
-                await _aliases.LearnAsync(candidate.ItemId, m.Line.Name);
+                await Sender.Send(new LearnAliasCommand(candidate.ItemId, m.Line.Name));   // A1-11: through the pipeline
             }
         }
 
@@ -256,22 +267,31 @@ public sealed partial class PosViewModel : ViewModelBase
         _draft.Add(target, source: LineSource.Barcode);
     }
 
+    // A1-03: every line button goes through SafeAsync (an exception in a command is logged and toasted, never lost).
     [RelayCommand]
-    private void IncLine(LineRow row)
+    private Task IncLine(LineRow row) => SafeAsync(() => StepLine(row, +1));
+
+    [RelayCommand]
+    private Task DecLine(LineRow row) => SafeAsync(() => StepLine(row, -1));
+
+    private Task StepLine(LineRow row, int by)
     {
         var line = _draft.Lines.FirstOrDefault(l => l.Id == row.Id);
-        if (line is not null) _draft.SetQty(row.Id, line.Qty + Qty.Whole(1));
+        if (line is not null) _draft.SetQty(row.Id, by > 0 ? line.Qty + Qty.Whole(1) : line.Qty - Qty.Whole(1));
+        return Task.CompletedTask;
     }
 
     [RelayCommand]
-    private void DecLine(LineRow row)
-    {
-        var line = _draft.Lines.FirstOrDefault(l => l.Id == row.Id);
-        if (line is not null) _draft.SetQty(row.Id, line.Qty - Qty.Whole(1));
-    }
+    private Task EditLine(LineRow row) => SafeAsync(() => EditLineAsync(row.Id));
 
     [RelayCommand]
-    private Task EditLine(LineRow row) => EditLineAsync(row.Id);
+    private Task BackupNow() => SafeAsync(() => Nav.GoToAsync("//" + Routes.Settings));
+
+    [RelayCommand]
+    private Task HideBackupBanner() => SafeAsync(async () =>
+    {
+        if (!await ShowIfFailedAsync(await Sender.Send(new DismissBackupReminderCommand()))) BackupBanner = "";
+    });
 
     private async Task EditLineAsync(Guid lineId)
     {

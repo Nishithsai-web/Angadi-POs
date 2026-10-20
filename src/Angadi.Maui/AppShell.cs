@@ -65,24 +65,20 @@ public sealed class AppShell : Shell
         return item;
     }
 
+    /// <summary>A1-15: runs inside SafeUi.On, so an unexpected failure is logged AND toasted (no swallowing catch).</summary>
     private async Task SetLanguageAsync(UiLanguage language)
     {
-        try
+        _text.Language = language;
+        Preferences.Default.Set(LanguageKey, language.ToString());
+        var sender = _services.GetRequiredService<ISender>();
+        if (await sender.Send(new GetShopProfileQuery()) is { } profile && profile.Language != language)
         {
-            _text.Language = language;
-            Preferences.Default.Set(LanguageKey, language.ToString());
-            var sender = _services.GetRequiredService<ISender>();
-            if (await sender.Send(new GetShopProfileQuery()) is { } profile && profile.Language != language)
-            {
-                profile.Language = language;
-                await sender.Send(new SaveShopProfileCommand(profile));
-            }
-            _services.GetRequiredService<IAppRestart>().Restart();   // pages read their text when built
+            profile.Language = language;
+            var saved = await sender.Send(new SaveShopProfileCommand(profile));
+            if (saved.IsFailure)   // A1-09: the switch still applies now; say that it may not survive a restart
+                await _services.GetRequiredService<IDialogService>().ToastAsync(_text.Error(saved.Error));
         }
-        catch (Exception ex)
-        {
-            GlobalExceptions.Report(ex, "language-switch");
-        }
+        _services.GetRequiredService<IAppRestart>().Restart();   // pages read their text when built
     }
 
     protected override async void OnAppearing()
