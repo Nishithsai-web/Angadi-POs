@@ -34,6 +34,7 @@ public sealed class AngadiDb : IUnitOfWork, IDisposable
             SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.Create | SQLiteOpenFlags.FullMutex);
         conn.ExecuteScalar<string>("PRAGMA journal_mode=WAL");
         conn.Execute("PRAGMA foreign_keys=ON");
+        conn.BusyTimeout = TimeSpan.FromSeconds(5);   // LOW: a backup checkpoint racing a bill waits instead of failing
         Migrate(conn);
         return conn;
     }

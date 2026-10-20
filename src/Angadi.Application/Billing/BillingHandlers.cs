@@ -27,7 +27,7 @@ internal sealed class FinalizeBillValidator : IValidator<FinalizeBillCommand>
         // M7: 1,00,000 units per line is far past any counter sale; beyond it is a typo, and it bounds the maths.
         if (bill.Lines.Any(l => l.Qty.Milli <= 0 || l.Qty.Milli > MaxLineQtyMilli)) return new Error(ErrorCodes.BillQtyInvalid);
         if (bill.Lines.Any(l => l.UnitPrice.Value < 0)) return new Error(ErrorCodes.ValidationFailed, "negative price");
-        if (bill.Tender is null) return new Error(ErrorCodes.BillTenderMissing);
+        if (bill.Tender is null || !Enum.IsDefined(bill.Tender.Value)) return new Error(ErrorCodes.BillTenderMissing);   // LOW: no cast-in tenders
         if (bill.Tender == TenderType.Udhaar && bill.CustomerId is null) return new Error(ErrorCodes.BillUdhaarNeedsCustomer);
         if (bill.Status != BillStatus.Draft) return new Error(ErrorCodes.ValidationFailed, "bill already finalized");
         // B1: only a cash tender may carry cash received.

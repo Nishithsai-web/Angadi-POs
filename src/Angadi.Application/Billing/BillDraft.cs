@@ -68,7 +68,10 @@ public sealed class BillDraft
         needsConfirm = false;
         Qty qty;
         if (parsed.Amount is { } amount)
+        {
             qty = UnitConversion.FromAmount(amount, item.Price);
+            needsConfirm = item.Price.Value <= 0;   // "₹10 of" a zero-priced item has no quantity: ask
+        }
         else if (parsed.Qty is { } spoken)
         {
             qty = UnitConversion.ToItemUnit(spoken, parsed.Unit, item.Unit, out var exact);
@@ -77,7 +80,9 @@ public sealed class BillDraft
         else
             qty = Qty.Whole(1);
 
-        if (qty.Milli <= 0) qty = Qty.Whole(1);
+        // LOW (audit): never silently turn a nonsense quantity into 1 — keep 1 as a placeholder but make the
+        // shopkeeper confirm it, so a mishearing can't slip onto the bill.
+        if (qty.Milli <= 0) { qty = Qty.Whole(1); needsConfirm = true; }
         return Add(item, qty, LineSource.Voice);
     }
 
