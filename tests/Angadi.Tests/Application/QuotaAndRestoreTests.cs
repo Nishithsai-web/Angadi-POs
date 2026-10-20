@@ -197,6 +197,46 @@ public class QuotaAndRestoreTests
         Assert.Equal(1, await quota.UsedThisMonthAsync(t.Clock.Now));
     }
 
+    [Fact]
+    public async Task SEC6_Export_StampsMetadataAndHmac_TamperBreaksHmac()
+    {
+        using var t = new TempDb();
+        var rice = new Item { TeluguName = "బియ్యం", EnglishName = "Rice", Unit = Unit.Kilogram, Price = new Paise(6200) };
+        await t.Items.SaveAsync(rice);
+        var backup = new BackupService(t.Db, t.Clock, Path.Combine(t.Folder, "exports"), TempDb.Log<BackupService>());
+        var path = (await backup.ExportAsync()).Value;
+
+        var meta = await backup.ReadMetadataAsync(path);
+        Assert.NotNull(meta);
+        Assert.Equal(t.Clock.Now, meta!.CreatedAt);
+        Assert.Equal(1, meta.ItemCount);
+        Assert.True(meta.HasHmac);
+        Assert.True(meta.HmacValid);
+
+        Tamper(path, "UPDATE Item SET PricePaise = 999999");   // the books are edited after export
+        var after = await backup.ReadMetadataAsync(path);
+        Assert.NotNull(after);
+        Assert.False(after!.HmacValid);
+    }
+
+    [Fact]
+    public async Task SEC6_LegacyBackupWithoutStamp_ReportsCountsAndNoHmac()
+    {
+        using var t = new TempDb();
+        var rice = new Item { TeluguName = "బియ్యం", EnglishName = "Rice", Unit = Unit.Kilogram, Price = new Paise(6200) };
+        await t.Items.SaveAsync(rice);
+        var backup = new BackupService(t.Db, t.Clock, Path.Combine(t.Folder, "exports"), TempDb.Log<BackupService>());
+        var path = (await backup.ExportAsync()).Value;
+
+        Tamper(path, "DELETE FROM Meta WHERE Key IN ('backup.hmac', 'backup.created_ms')");   // a pre-SEC-6 backup
+        var meta = await backup.ReadMetadataAsync(path);
+        Assert.NotNull(meta);
+        Assert.Null(meta!.CreatedAt);
+        Assert.Equal(1, meta.ItemCount);
+        Assert.False(meta.HasHmac);
+        Assert.False(meta.HmacValid);
+    }
+
     private static void Tamper(string backupPath, string sql)
     {
         using var c = new SQLiteConnection(backupPath);

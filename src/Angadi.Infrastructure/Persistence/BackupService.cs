@@ -1,4 +1,7 @@
 using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 using Angadi.Application.Common;
 using Angadi.Application.Platform;
 using Angadi.Domain.Billing;
@@ -27,10 +30,21 @@ internal sealed class BackupService(AngadiDb db, IClock clock, string exportDire
         {
             Directory.CreateDirectory(exportDirectory);
             var path = Path.Combine(exportDirectory, $"angadi-backup-{clock.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid().ToString("N")[..8]}.db");
+            // SEC-6: the device HMAC key lives in the live DB's Meta (created once); exports inherit it
+            // through the file copy, and ReadMetadataAsync verifies against the LIVE key.
+            await db.RunAsync(c =>
+            {
+                if (c.Find<MetaRow>(HmacKeyMeta) is null)
+                    c.InsertOrReplace(new MetaRow { Key = HmacKeyMeta, Value = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)) });
+            }, ct);
             await db.CheckpointAsync(ct);
             await db.RunAsync(_ => File.Copy(db.DatabasePath, path, overwrite), ct);
             // Make the copy self-contained: a WAL-mode file can't always be opened read-only on its own.
-            using (var copy = new SQLiteConnection(path)) copy.ExecuteScalar<string>("PRAGMA journal_mode=DELETE");
+            using (var copy = new SQLiteConnection(path))
+            {
+                copy.ExecuteScalar<string>("PRAGMA journal_mode=DELETE");
+                StampBackup(copy);   // SEC-6: created-at + integrity HMAC, written into the copy's Meta
+            }
             log.LogInformation("Backup exported ({Bytes} bytes)", new FileInfo(path).Length);
             return Result.Success(path);
         }
@@ -38,6 +52,82 @@ internal sealed class BackupService(AngadiDb db, IClock clock, string exportDire
         {
             log.LogError(ex, "Backup export failed");
             return Result.Failure<string>(ErrorCodes.BackupFailed, ex.Message);
+        }
+    }
+
+    // FIX(SEC-6, 2026-10-20, FIX-2): Flaw: a backup carried no provenance — before a restore swap the
+    // shopkeeper could not see when it was made or how much data it held, and nothing detected a backup
+    // whose contents were edited after export. Fix: every export stamps the copy's Meta with
+    // backup.created_ms and backup.hmac (HMAC-SHA256 over a canonical dump of every table, keyed by a
+    // device-local key kept in Meta), and ReadMetadataAsync exposes created-at + bill/customer/item
+    // counts + HMAC validity for the pre-restore confirmation (the dialog itself is FIX-3's). Restore
+    // deliberately does NOT reject on HMAC: a backup restored on a new phone legitimately fails it
+    // (different device key) — the signature informs, the shopkeeper decides. Logged in docs/AGENT_FIX_LOG.md.
+    private const string HmacKeyMeta = "backup.hmac_key";
+    private const string HmacMeta = "backup.hmac";
+    private const string CreatedMeta = "backup.created_ms";
+
+    private void StampBackup(SQLiteConnection copy)
+    {
+        copy.InsertOrReplace(new MetaRow { Key = CreatedMeta, Value = clock.Now.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture) });
+        var key = Convert.FromBase64String(copy.Find<MetaRow>(HmacKeyMeta)!.Value);
+        copy.InsertOrReplace(new MetaRow { Key = HmacMeta, Value = ComputeHmac(copy, key) });
+    }
+
+    private static string ComputeHmac(SQLiteConnection c, byte[] key)
+    {
+        using var hmac = new HMACSHA256(key);
+        return Convert.ToBase64String(hmac.ComputeHash(Encoding.UTF8.GetBytes(CanonicalDump(c))));
+    }
+
+    /// <summary>Deterministic dump of every table (Meta minus the HMAC row itself), rows ordered by
+    /// their JSON, so the same logical database always produces the same MAC input.</summary>
+    private static string CanonicalDump(SQLiteConnection c)
+    {
+        var sb = new StringBuilder();
+        Append<ItemRow>(c, sb); Append<BillRow>(c, sb); Append<BillLineRow>(c, sb); Append<CustomerRow>(c, sb);
+        Append<DuesEntryRow>(c, sb); Append<StockMoveRow>(c, sb); Append<OutboxRow>(c, sb); Append<ShopProfileRow>(c, sb);
+        Append<NoteRow>(c, sb);
+        sb.Append("MetaRow\n");
+        foreach (var row in c.Table<MetaRow>().Where(m => m.Key != HmacMeta).ToList().OrderBy(r => JsonSerializer.Serialize(r)))
+            sb.Append(JsonSerializer.Serialize(row)).Append('\n');
+        return sb.ToString();
+
+        static void Append<T>(SQLiteConnection conn, StringBuilder b) where T : new()
+        {
+            b.Append(typeof(T).Name).Append('\n');
+            foreach (var row in conn.Table<T>().ToList().OrderBy(r => JsonSerializer.Serialize(r)))
+                b.Append(JsonSerializer.Serialize(row)).Append('\n');
+        }
+    }
+
+    public async Task<BackupMetadata?> ReadMetadataAsync(string filePath, CancellationToken ct = default)
+    {
+        if (!File.Exists(filePath)) return null;
+        try
+        {
+            using var c = new SQLiteConnection(filePath, SQLiteOpenFlags.ReadOnly);
+            if (c.ExecuteScalar<string>("SELECT Value FROM Meta WHERE Key = 'app'") != AngadiDb.AppMarker) return null;
+            var createdRow = c.Find<MetaRow>(CreatedMeta);
+            var created = createdRow is not null && long.TryParse(createdRow.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var ms)
+                ? (DateTimeOffset?)DateTimeOffset.FromUnixTimeMilliseconds(ms) : null;
+            var storedHmac = c.Find<MetaRow>(HmacMeta)?.Value;
+            var valid = false;
+            if (storedHmac is not null)
+            {
+                var deviceKey = await db.RunAsync(cc => cc.Find<MetaRow>(HmacKeyMeta)?.Value, ct);
+                if (deviceKey is not null)
+                    valid = string.Equals(ComputeHmac(c, Convert.FromBase64String(deviceKey)), storedHmac, StringComparison.Ordinal);
+            }
+            return new BackupMetadata(created,
+                c.ExecuteScalar<int>("SELECT COUNT(*) FROM Bill"),
+                c.ExecuteScalar<int>("SELECT COUNT(*) FROM Customer"),
+                c.ExecuteScalar<int>("SELECT COUNT(*) FROM Item"),
+                storedHmac is not null, valid);
+        }
+        catch (SQLiteException)
+        {
+            return null;
         }
     }
 

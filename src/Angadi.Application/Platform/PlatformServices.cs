@@ -60,7 +60,16 @@ public interface IBackupService
 {
     Task<Result<string>> ExportAsync(CancellationToken ct = default);   // returns file path to share
     Task<Result> RestoreAsync(string filePath, CancellationToken ct = default);
+    /// <summary>SEC-6: what the pre-restore confirmation shows BEFORE any swap — when the backup was
+    /// made, how much data it holds, and whether its integrity HMAC checks out on THIS device.
+    /// Null when the file is missing or not a readable Angadi backup.</summary>
+    Task<BackupMetadata?> ReadMetadataAsync(string filePath, CancellationToken ct = default);
 }
+
+/// <summary>SEC-6. <see cref="HmacValid"/> is only meaningful when <see cref="HasHmac"/> is true;
+/// a backup from another phone legitimately fails it (different device key) — the confirmation
+/// dialog informs, the shopkeeper decides; restore itself never rejects on HMAC alone.</summary>
+public sealed record BackupMetadata(DateTimeOffset? CreatedAt, int BillCount, int CustomerCount, int ItemCount, bool HasHmac, bool HmacValid);
 
 /// <summary>What a backup file holds, read WITHOUT opening it as the live database (SEC-6).</summary>
 public sealed record BackupInfo(DateTimeOffset? NewestBillAt, int BillCount, int CustomerCount, int ItemCount);
