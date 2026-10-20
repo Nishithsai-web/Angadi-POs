@@ -24,11 +24,13 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- v1 avoids CommunityToolkit.Maui, the camera barcode library and the Play Billing plugin (ARCHITECT_CORRECTIONS cut list). -->
+    <!-- Camera scanning (on-device ML Kit) and Google Play Billing. CommunityToolkit.Maui stays out. -->
     <PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.0" />
+    <PackageReference Include="BarcodeScanning.Native.Maui" Version="2.2.1" />
+    <PackageReference Include="Plugin.InAppBilling" Version="8.0.5" />
   </ItemGroup>
 
   <ItemGroup>

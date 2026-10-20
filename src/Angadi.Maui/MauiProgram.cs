@@ -8,6 +8,7 @@ using Angadi.Infrastructure.Receipts;
 using Angadi.Maui.Areas;
 using Angadi.Maui.Core;
 using Angadi.Maui.Platform;
+using BarcodeScanning;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -24,6 +25,7 @@ public static class MauiProgram
         var builder = MauiApp.CreateBuilder();
         builder
             .UseMauiApp<App>()
+            .UseBarcodeScanning()
             .ConfigureFonts(fonts =>
             {
                 fonts.AddFont("NotoSansTelugu-Regular.ttf", Theme.Font);

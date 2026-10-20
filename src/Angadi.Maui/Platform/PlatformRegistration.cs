@@ -14,7 +14,10 @@ public static class PlatformRegistration
         s.AddSingleton<AndroidSpeechToText>();
         s.AddSingleton<ISpeechToText, FallbackSpeechToText>();
         s.AddSingleton<IReceiptShare, ReceiptShare>();
-        s.AddSingleton<IBarcodeScanner, ManualBarcodeScanner>();
+        s.AddSingleton<ManualBarcodeScanner>();
+        s.AddSingleton<IBarcodeScanner, CameraBarcodeScanner>();
+        // Registered after AddAngadiInfrastructure, so it replaces the C2 stub (last registration wins).
+        s.AddSingleton<ISubscriptionService, PlaySubscriptionService>();
         return s;
     }
 }
@@ -89,8 +92,7 @@ internal sealed class ReceiptShare(ILogger<ReceiptShare> log) : IReceiptShare
 }
 
 /// <summary>
-/// FR-09 manual entry. v1 ships typed/USB-scanner entry (a USB or Bluetooth barcode gun types into this box);
-/// the camera scanner returns in v1.1 (ARCHITECT_CORRECTIONS cut list).
+/// FR-09 manual entry: the camera scanner's fallback, and what a USB or Bluetooth barcode gun types into.
 /// </summary>
 internal sealed class ManualBarcodeScanner(IDialogService dialogs, ILocalizer text) : IBarcodeScanner
 {
