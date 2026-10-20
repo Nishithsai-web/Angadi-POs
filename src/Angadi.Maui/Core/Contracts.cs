@@ -44,6 +44,8 @@ public interface IDialogService
 {
     Task ToastAsync(string message);
     Task<bool> ConfirmAsync(string title, string message, string accept, string cancel);
+    /// <summary>A message with one button; completes when the shopkeeper taps it.</summary>
+    Task AlertAsync(string title, string message, string ok);
     Task<string?> PromptAsync(string title, string message, string accept, string cancel, string? initial = null, Keyboard? keyboard = null);
     /// <summary>Action sheet; returns the chosen option or null.</summary>
     Task<string?> ChooseAsync(string title, string cancel, params string[] options);

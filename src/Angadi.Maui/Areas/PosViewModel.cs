@@ -98,8 +98,12 @@ public sealed partial class PosViewModel : ViewModelBase
         _shop = await Sender.Send(new GetShopProfileQuery());
         var gst = !string.IsNullOrWhiteSpace(_shop?.Gstin);
         var restored = false;
+        Angadi.Application.Platform.DataRecoveryReport? recovery = null;
         if (!_draftChecked)
         {
+            // Startup found the data file damaged and repaired it: shown here, on the first screen that is fully up
+            // (an alert raised from the shell while it is still being attached is dropped on Android).
+            recovery = await Sender.Send(new GetDataRecoveryQuery());
             // The bill that was on screen when the app was closed (phone call, Android memory, crash) comes back.
             _draftChecked = true;
             if (_draft.IsEmpty && await Sender.Send(new GetBillDraftQuery()) is { } saved)
@@ -118,7 +122,16 @@ public sealed partial class PosViewModel : ViewModelBase
         var due = await Sender.Send(new Angadi.Application.Customers.GetDueRemindersQuery());
         DueBanner = due.Count > 0 ? Text.Format("pos.due.banner", due.Count) : "";
         Refresh();
+        if (recovery is not null) await ShowRecoveryNoticeAsync(recovery);
         if (restored) await Dialogs.ToastAsync(Text["pos.draft.restored"]);
+    }
+
+    private Task ShowRecoveryNoticeAsync(Angadi.Application.Platform.DataRecoveryReport report)
+    {
+        var message = report.RestoredFrom is { } at
+            ? Text.Format("data.recovered", Text.Short(at), at.ToLocalTime().ToString("h:mm tt", System.Globalization.CultureInfo.InvariantCulture))
+            : Text["data.recovered.none"];
+        return Dialogs.AlertAsync(Text["data.recovered.title"], message, Text["common.ok"]);
     }
 
     private ItemTile Tile(Item i) => new(i.Id, Text.Name(i), IndianFormat.Rupees(i.Price) + " / " + Text.UnitLabel(i.Unit), i);

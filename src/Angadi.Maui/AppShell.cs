@@ -85,16 +85,6 @@ public sealed class AppShell : Shell
         }
     }
 
-    /// <summary>Startup found the data file damaged and repaired it: say so plainly, once.</summary>
-    private async Task ShowRecoveryNoticeAsync(ISender sender)
-    {
-        if (await sender.Send(new GetDataRecoveryQuery()) is not { } report) return;
-        var message = report.RestoredFrom is { } at
-            ? _text.Format("data.recovered", _text.Short(at), at.ToLocalTime().ToString("h:mm tt", System.Globalization.CultureInfo.InvariantCulture))
-            : _text["data.recovered.none"];
-        await DisplayAlert(_text["data.recovered.title"], message, _text["common.ok"]);
-    }
-
     protected override async void OnAppearing()
     {
         base.OnAppearing();
@@ -102,9 +92,7 @@ public sealed class AppShell : Shell
         _checkedFirstRun = true;
         try
         {
-            var sender = _services.GetRequiredService<ISender>();
-            await ShowRecoveryNoticeAsync(sender);
-            var profile = await sender.Send(new GetShopProfileQuery());
+            var profile = await _services.GetRequiredService<ISender>().Send(new GetShopProfileQuery());
             if (profile is not null) return;
 
             // First run: language first, in both scripts, before any other screen is built.

@@ -61,6 +61,9 @@ internal sealed class DialogService : IDialogService
     public Task<bool> ConfirmAsync(string title, string message, string accept, string cancel) =>
         MainThread.InvokeOnMainThreadAsync(() => Top?.DisplayAlert(title, message, accept, cancel) ?? Task.FromResult(false));
 
+    public Task AlertAsync(string title, string message, string ok) =>
+        MainThread.InvokeOnMainThreadAsync(() => Top?.DisplayAlert(title, message, ok) ?? Task.CompletedTask);
+
     public Task<string?> PromptAsync(string title, string message, string accept, string cancel, string? initial = null, Keyboard? keyboard = null) =>
         MainThread.InvokeOnMainThreadAsync(async () =>
         {
