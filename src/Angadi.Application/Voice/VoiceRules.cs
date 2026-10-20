@@ -11,6 +11,13 @@ public sealed class VoiceRules
 {
     public required IReadOnlyDictionary<string, long> Numbers { get; init; }          // units + tens + hundreds + fractions, in milli
     public required IReadOnlySet<string> HundredMultipliers { get; init; }
+    /// <summary>
+    /// FIX(VOICE-3/VOICE-4, 2026-10-20, FIX-1): scale words and their factors (వంద ×100, వెయ్యి ×1000,
+    /// లక్ష ×100000, కోటి ×10⁷). A scale word multiplies the number spoken before it. Loaded from
+    /// numbers.te.json "scaleMultipliers"; when that section is absent, derived from hundredMultipliers ×100.
+    /// Logged in docs/AGENT_FIX_LOG.md.
+    /// </summary>
+    public IReadOnlyDictionary<string, long> ScaleMultipliers { get; init; } = new Dictionary<string, long>();
     public required string HalfSuffix { get; init; }
     public required IReadOnlyDictionary<string, Unit> Units { get; init; }
     public required IReadOnlyDictionary<string, int> Multipliers { get; init; }
@@ -56,10 +63,19 @@ public sealed class VoiceRules
         static HashSet<string> Set(JsonElement e) =>
             e.EnumerateArray().Select(x => TeluguText.Normalize(x.GetString())).Where(x => x.Length > 0).ToHashSet(StringComparer.Ordinal);
 
+        var hundredMultipliers = Set(numbers.GetProperty("hundredMultipliers"));
+        var scaleMultipliers = new Dictionary<string, long>(StringComparer.Ordinal);
+        if (numbers.TryGetProperty("scaleMultipliers", out var scaleJson))
+            foreach (var p in scaleJson.EnumerateObject())
+                scaleMultipliers[TeluguText.Normalize(p.Name)] = p.Value.GetInt64();
+        else
+            foreach (var w in hundredMultipliers) scaleMultipliers[w] = 100;   // older rules files: వంద treatment only
+
         return new VoiceRules
         {
             Numbers = numberMap,
-            HundredMultipliers = Set(numbers.GetProperty("hundredMultipliers")),
+            HundredMultipliers = hundredMultipliers,
+            ScaleMultipliers = scaleMultipliers,
             HalfSuffix = numbers.GetProperty("halfSuffix").GetString()!,
             Units = unitMap,
             Multipliers = multipliers,

@@ -113,10 +113,18 @@ public sealed partial class TeluguParser(VoiceRules rules) : ITeluguParser
             if (rules.Fillers.Contains(t)) continue;
             if (nameDigits.Contains(i)) { name.Add(t); continue; }
 
-            if (sawNumber && rules.HundredMultipliers.Contains(t))
+            if (sawNumber && ScaleFactor(t) is { } factor)
             {
-                number = (number == 0 ? 1000 : number) * 100;
-                lastPlace = 100_000;
+                // FIX(VOICE-3/VOICE-4, 2026-10-20, FIX-1): Flaw: only వంద had multiplier treatment.
+                // వెయ్యి sat in the plain number map, so "ఐదు వెయ్యి" tripped the range rule below
+                // (5,000,000 ≥ lastPlace) and the amount came out ₹5, flagged ambiguous; లక్ష/కోటి
+                // were not numbers at all and fell into the item name.
+                // Fix: every scale word multiplies the number before it, exactly like వంద always did
+                // (ఐదు వెయ్యి = 5000, రెండు లక్షలు = 200000); standalone, the word still reads as a
+                // plain number from the map. Why: "ఐదు వెయ్యి రూపాయలు" is how a ₹5,000 order is spoken.
+                // Logged in docs/AGENT_FIX_LOG.md.
+                number = (number == 0 ? 1000 : number) * factor;
+                lastPlace = factor * 1000;
                 continue;
             }
 
@@ -232,6 +240,12 @@ public sealed partial class TeluguParser(VoiceRules rules) : ITeluguParser
         }
         return [token];
     }
+
+    /// <summary>The factor a scale word applies to the number before it (వంద 100, వెయ్యి 1000, లక్ష 100000, కోటి 10⁷).</summary>
+    private long? ScaleFactor(string token) =>
+        rules.ScaleMultipliers.TryGetValue(token, out var f) ? f
+        : rules.HundredMultipliers.Contains(token) ? 100L
+        : null;
 
     internal bool TryNumber(string token, out long milli)
     {

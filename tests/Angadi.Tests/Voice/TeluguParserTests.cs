@@ -71,6 +71,32 @@ public class TeluguParserTests
     }
 
     [Fact]
+    public void T2_NumberPlusVeyyi_IsCompoundNotRange()
+    {
+        // VOICE-3 regression: "ఐదు వెయ్యి" used to trip the range rule — the amount came out
+        // as ₹5 (500 paise) and flagged ambiguous. The candidate was wrong by 1000x.
+        var line = Assert.Single(_parser.Parse("ఐదు వెయ్యి రూపాయల బియ్యం"));
+        Assert.Equal("బియ్యం", line.Name);
+        Assert.Equal(500_000L, line.Amount?.Value);   // ₹5,000
+        Assert.False(line.IsAmbiguous);
+    }
+
+    [Theory]
+    [InlineData("ఐదు వేల రూపాయల బియ్యం", 500_000L)]        // oblique వేల, same compound
+    [InlineData("ఒక లక్ష రూపాయల బియ్యం", 10_000_000L)]      // ₹1,00,000
+    [InlineData("రెండు లక్షల రూపాయల బియ్యం", 20_000_000L)]  // ₹2,00,000
+    [InlineData("లక్ష రూపాయల బియ్యం", 10_000_000L)]         // standalone లక్ష = 100000
+    [InlineData("ఒక కోటి రూపాయల బియ్యం", 1_000_000_000L)]  // ₹1,00,00,000
+    public void T2_LakhAndCrore_AreMultipliers(string phrase, long amountPaise)
+    {
+        // VOICE-4: లక్ష/కోటి were not number words at all — they fell into the item name (NoMatch).
+        var line = Assert.Single(_parser.Parse(phrase));
+        Assert.Equal("బియ్యం", line.Name);
+        Assert.Equal(amountPaise, line.Amount?.Value);
+        Assert.False(line.IsAmbiguous);
+    }
+
+    [Fact]
     public void V1_Thousand_IsANumber_NotAFiller()
     {
         var line = Assert.Single(_parser.Parse("వెయ్యి రూపాయల బియ్యం"));
