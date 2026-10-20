@@ -27,6 +27,15 @@ for path in glob.glob(f"{root}/**/*.trx", recursive=True):
         failed.append(f"{r.get('testName')}{where} :: {text}")
 
 summary = f"tests: {passed}/{total} passed, {len(failed)} failed"
+# No TRX results or no failures found but the step failed: surface the tail of the console log instead.
+if (total == 0 or not failed) and len(sys.argv) > 2:
+    try:
+        tail = [l.rstrip() for l in open(sys.argv[2], encoding="utf-8", errors="replace")][-60:]
+        keep = [l for l in tail if l.strip()]
+        if total == 0 or any("error" in l.lower() or "crash" in l.lower() or "aborted" in l.lower() for l in keep):
+            print("::error title=test log tail::" + "%0A".join(l.replace("%", "%25") for l in keep))
+    except OSError:
+        pass
 print(summary, file=sys.stderr)
 if failed:
     body = summary + "%0A" + "%0A".join(f.replace("%", "%25") for f in failed[:80])

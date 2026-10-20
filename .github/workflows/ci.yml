@@ -44,16 +44,19 @@ jobs:
 
       - name: Test with coverage
         shell: bash
-        run: >
-          dotnet test tests/Angadi.Tests/Angadi.Tests.csproj -c Release --no-build
-          --logger "trx;LogFileName=results.trx" --logger "console;verbosity=normal"
-          --collect:"XPlat Code Coverage" --results-directory TestResults
-          -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
-             DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Include="[Angadi.Domain]*,[Angadi.Application]*,[Angadi.Infrastructure]*"
+        run: |
+          set +e
+          dotnet test tests/Angadi.Tests/Angadi.Tests.csproj -c Release --no-build --blame-crash --blame-hang-timeout 5m \
+            --logger "trx;LogFileName=results.trx" --logger "console;verbosity=normal" \
+            --collect:"XPlat Code Coverage" --results-directory TestResults \
+            -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura \
+               DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Include="[Angadi.Domain]*,[Angadi.Application]*,[Angadi.Infrastructure]*" \
+            2>&1 | tee test.log
+          exit ${PIPESTATUS[0]}
 
       - name: Report failed tests
         if: always()
-        run: python3 tools/ci_tests.py TestResults
+        run: python3 tools/ci_tests.py TestResults test.log
 
       - name: Coverage gate (NFR-10)
         run: python3 tools/coverage_gate.py TestResults

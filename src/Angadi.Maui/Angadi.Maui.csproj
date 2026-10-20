@@ -13,6 +13,9 @@
     <!-- Compiled bindings everywhere: every page and template declares x:DataType. -->
     <MauiEnableXamlCBindingWithSourceCompilation>true</MauiEnableXamlCBindingWithSourceCompilation>
     <AndroidPackageFormat Condition="'$(Configuration)' == 'Release'">aab</AndroidPackageFormat>
+    <!-- The MAUI head pins its own versions: Microsoft.Maui.Controls must follow the installed workload ($(MauiVersion)),
+         which central package management can't express. Core projects stay on Directory.Packages.props. -->
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
   </PropertyGroup>
 
   <ItemGroup>
@@ -21,12 +24,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Microsoft.Maui.Controls comes implicitly from UseMaui. v1 deliberately avoids CommunityToolkit.Maui, the camera
-         barcode library and the Play Billing plugin (ARCHITECT_CORRECTIONS cut list): manual barcode entry and the stub
-         subscription cover the golden path; the real adapters return in v1.1. -->
-    <PackageReference Include="CommunityToolkit.Mvvm" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" />
+    <!-- v1 avoids CommunityToolkit.Maui, the camera barcode library and the Play Billing plugin (ARCHITECT_CORRECTIONS cut list). -->
+    <PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.0" />
   </ItemGroup>
 
   <ItemGroup>
