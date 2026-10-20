@@ -267,8 +267,8 @@ public class HandlerTests : IDisposable
     public async Task FR01_ShopProfile_RejectsBadUpiAndGstin()
     {
         var badUpi = await _h.Sender.Send(new SaveShopProfileCommand(new Angadi.Domain.Shop.ShopProfile { Name = "x", UpiId = "not-a-vpa" }));
-        var badGstin = await _h.Sender.Send(new SaveShopProfileCommand(new Angadi.Domain.Shop.ShopProfile { Name = "x", UpiId = "a@okaxis", Gstin = "123" }));
-        var noName = await _h.Sender.Send(new SaveShopProfileCommand(new Angadi.Domain.Shop.ShopProfile { Name = " ", UpiId = "a@okaxis" }));
+        var badGstin = await _h.Sender.Send(new SaveShopProfileCommand(new Angadi.Domain.Shop.ShopProfile { Name = "x", UpiId = "ramu@okaxis", Gstin = "123" }));
+        var noName = await _h.Sender.Send(new SaveShopProfileCommand(new Angadi.Domain.Shop.ShopProfile { Name = " ", UpiId = "ramu@okaxis" }));
         Assert.Equal(ErrorCodes.UpiIdInvalid, badUpi.Error.Code);
         Assert.Equal(ErrorCodes.GstinInvalid, badGstin.Error.Code);
         Assert.Equal(ErrorCodes.ShopNameRequired, noName.Error.Code);
