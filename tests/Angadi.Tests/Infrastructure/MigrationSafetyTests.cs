@@ -34,6 +34,23 @@ public class MigrationSafetyTests
     }
 
     [Fact]
+    public async Task Connection_RunsSynchronousFull_SoCommitsSurvivePowerLoss()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "angadi-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+        try
+        {
+            using var db = new AngadiDb(Path.Combine(folder, "angadi.db"));
+            var synchronous = await db.RunAsync(c => c.ExecuteScalar<int>("PRAGMA synchronous"));
+            Assert.Equal(2, synchronous);   // 2 = FULL (DATA-2)
+        }
+        finally
+        {
+            try { Directory.Delete(folder, recursive: true); } catch (IOException) { }
+        }
+    }
+
+    [Fact]
     public async Task UnparseableSchemaVersion_RecoversInsteadOfCrashing()
     {
         var folder = Path.Combine(Path.GetTempPath(), "angadi-tests", Guid.NewGuid().ToString("N"));

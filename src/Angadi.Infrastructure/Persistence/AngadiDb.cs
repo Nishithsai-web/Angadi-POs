@@ -84,6 +84,13 @@ public sealed class AngadiDb : IUnitOfWork, IDisposable
         try
         {
             conn.ExecuteScalar<string>("PRAGMA journal_mode=WAL");
+            // FIX(DATA-2, 2026-10-20, FIX-2): Flaw: synchronous was never set — WAL's default NORMAL can
+            // lose the last committed transactions in a power cut or OS crash (it survives an app crash,
+            // not a dead battery), on exactly the cheap-phone, frequent-power-cut profile this app targets.
+            // Fix: synchronous=FULL — every commit is durable. Why: a kirana counter cannot re-create a
+            // lost bill from memory; the cost at this workload (a few commits per sale) is negligible.
+            // Logged in docs/AGENT_FIX_LOG.md.
+            conn.Execute("PRAGMA synchronous=FULL");
             conn.Execute("PRAGMA foreign_keys=ON");
             conn.BusyTimeout = TimeSpan.FromSeconds(5);   // LOW: a backup checkpoint racing a bill waits instead of failing
             Migrate(conn);
