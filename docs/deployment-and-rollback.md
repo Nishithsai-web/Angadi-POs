@@ -6,7 +6,7 @@ Google Play **closed test track** first (Play policy: new accounts need a 14-day
 ## Pre-release checklist
 - [ ] `dotnet build` green, all tests green, coverage gates pass (CI observed, not assumed)
 - [ ] `docs/CHANGELOG.md` updated with the release's changes and whys
-- [ ] Version bumped (`Major.Minor.Patch+build`); version shown in Settings → About
+- [ ] `version.json` bumped (`versionName` + `versionCode`; the code must exceed every code already on Play); version shown in Settings → About
 - [ ] Signed Android APK/AAB built from the release branch (Release config)
 - [ ] Fresh-install test on a 7" and a 10" tablet (Telugu locale, offline)
 - [ ] Upgrade test: install over the previous build — bills, stock, dues, and settings survive

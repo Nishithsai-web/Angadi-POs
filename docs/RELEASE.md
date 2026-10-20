@@ -51,7 +51,7 @@ Play Console → **Setup → API access** → create a service account with "Rel
 3. **Upload.** Play Console → the testing track → **Create release** → upload the `.aab` (or it is already there, if step A4 is set up) → release notes from `CHANGELOG.md` → **Start rollout**.
 4. **Promote.** After the closed test passes (and 14 days for a new account): **Promote release → Production**, staged rollout 20% → 50% → 100% while watching **Android vitals** and the **pre-launch report**. Production needs the owner's explicit go-ahead.
 
-Version numbers: the tag sets what users see (`1.0.0`). The build number Play needs is `100 + the workflow run number`, so it always goes up.
+Version numbers: **`version.json` at the repo root is the single source of truth** — `versionName` (what users see, e.g. `1.0.0`) and `versionCode` (the integer Play requires to always go up). Before tagging: bump both in `version.json` (versionCode must be higher than any code already uploaded to Play), then tag `v<versionName>` — the release workflow refuses to build if the tag and `version.json` disagree. One manual sync point: `Angadi.Maui.csproj` still carries `ApplicationDisplayVersion`/`ApplicationVersion` for local builds; `release.yml` overrides both from `version.json`, so the shipped bundle is always right, but bump the csproj's display version too so a locally built app shows the same number.
 
 ## C. Before the very first production release
 - [ ] `PRIVACY_POLICY.md` fields filled in and hosted at a public URL
