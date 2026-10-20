@@ -131,4 +131,24 @@ public class QuotaAndRestoreTests
         Assert.True((await backup.RestoreAsync(snapshot)).IsSuccess);
         Assert.Equal(-2000, (await t.Items.GetAsync(rice.Id))!.Stock.Milli);
     }
+
+    [Fact]
+    public async Task Restore_NewerBillsExist_SequenceAndQuotaDoNotRewind()
+    {
+        using var h = new AppHost();
+        var item = await ReadyAsync(h);
+        Assert.Equal("A-000001", (await SellAsync(h, item)).Value.Number);
+
+        var backupPath = (await h.Sender.Send(new ExportBackupCommand())).Value;   // snapshot at 1 bill
+
+        for (var i = 0; i < 5; i++) Assert.True((await SellAsync(h, item)).IsSuccess);   // 6 bills total
+        Assert.Equal(6, (await h.Sender.Send(new GetBillQuotaQuery())).UsedThisMonth);
+
+        Assert.True((await h.Sender.Send(new RestoreBackupCommand(backupPath))).IsSuccess);
+
+        // The books rolled back to the 1-bill snapshot — numbering and quota must not: the next bill is
+        // A-000007 (never a duplicate of an already-printed number) and the month count includes all 7.
+        Assert.Equal("A-000007", (await SellAsync(h, item)).Value.Number);
+        Assert.Equal(7, (await h.Sender.Send(new GetBillQuotaQuery())).UsedThisMonth);
+    }
 }

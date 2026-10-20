@@ -233,8 +233,21 @@ public sealed class AngadiDb : IUnitOfWork, IDisposable
         }
         finally
         {
-            _conn = Open(DatabasePath);
-            _gate.Release();
+            try
+            {
+                // FIX(F6, 2026-10-20, FIX-2): Flaw: the swapped-in file was reopened with a plain Open() —
+                // a torn copy would limp on as a damaged live DB until something crashed far from the cause.
+                // Fix: reopen verified (PRAGMA quick_check); on damage, run the constructor's recovery,
+                // which adopts the .pre-restore file (the pre-swap live DB) when usable. Why: the swap is
+                // the one moment damage can be caught exactly where it happened. Logged in docs/AGENT_FIX_LOG.md.
+                try { _conn = OpenVerified(DatabasePath); }
+                catch (DamagedDatabaseException)
+                {
+                    RecoverIfNeeded(DatabasePath);
+                    _conn = OpenVerified(DatabasePath);
+                }
+            }
+            finally { _gate.Release(); }
         }
     }
 

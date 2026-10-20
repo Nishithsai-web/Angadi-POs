@@ -1,3 +1,4 @@
+using System.Globalization;
 using Angadi.Application.Common;
 using Angadi.Application.Platform;
 using Microsoft.Extensions.Logging;
@@ -49,7 +50,42 @@ internal sealed class BackupService(AngadiDb db, IClock clock, string exportDire
             var safety = await ExportAsync(ct);
             if (safety.IsFailure) return Result.Failure(safety.Error);
 
+            // FIX(RESTORE-1, 2026-10-20, FIX-2): Flaw: the swap replaced NextBillSequence and the quota
+            // counters with the backup's older values. Restoring yesterday's backup after today's sales
+            // made the next bills REUSE already-printed numbers (UNIQUE violation -> finalize fails, the
+            // counter frozen) and reopened spent free quota. Fix: snapshot the live sequence + quota Meta
+            // before the swap; after it, write back the element-wise maximum. Books roll back; numbering
+            // and quota never do. Why: bill numbers are printed on paper in customers' hands — a duplicate
+            // is two different sales claiming to be the same bill. Logged in docs/AGENT_FIX_LOG.md.
+            long liveSequence = 1;
+            var liveQuota = new Dictionary<string, long>();
+            await db.RunAsync(c =>
+            {
+                liveSequence = c.Table<ShopProfileRow>().FirstOrDefault()?.NextBillSequence ?? 1;
+                foreach (var m in c.Table<MetaRow>())
+                    if (m.Key.StartsWith("quota.", StringComparison.Ordinal)
+                        && long.TryParse(m.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var v))
+                        liveQuota[m.Key] = v;
+            });
+
             await db.ReplaceWithAsync(staged, ct);
+            await db.RunAsync(c =>
+            {
+                var shop = c.Table<ShopProfileRow>().FirstOrDefault();
+                if (shop is not null && liveSequence > shop.NextBillSequence)
+                {
+                    shop.NextBillSequence = liveSequence;
+                    c.Update(shop);
+                }
+                foreach (var (key, value) in liveQuota)
+                {
+                    var row = c.Find<MetaRow>(key);
+                    var current = row is not null
+                        && long.TryParse(row.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var cv) ? cv : long.MinValue;
+                    if (value > current)
+                        c.InsertOrReplace(new MetaRow { Key = key, Value = value.ToString(CultureInfo.InvariantCulture) });
+                }
+            });
             log.LogInformation("Restore completed; previous data kept at {Path}", Path.GetFileName(safety.Value));
             return Result.Success();
         }
