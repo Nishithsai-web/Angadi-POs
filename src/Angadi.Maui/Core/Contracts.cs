@@ -62,7 +62,13 @@ public static class GlobalExceptions
     public static string Report(Exception ex, string source)
     {
         var correlationId = Guid.NewGuid().ToString("N")[..8];
-        Logger?.LogError(ex, "Unhandled in {Source} [{CorrelationId}]", source, correlationId);
+        // FIX(LOG-3b, 2026-10-20, FIX-3): Flaw: the correlation id was only interpolated into the message
+        // text, so the file template's {CorrelationId} property rendered BLANK on unhandled-exception lines —
+        // the very lines support searches by. Fix: carry it as a log-scope property (the request pipeline's
+        // pattern) so the template renders it, and keep the message clean. Why: an id that exists in prose
+        // but not in the structured property can't be filtered on. Logged in docs/AGENT_FIX_LOG.md.
+        using (Logger?.BeginScope(new Dictionary<string, object> { ["CorrelationId"] = correlationId }))
+            Logger?.LogError(ex, "Unhandled in {Source}", source);
 #if ANDROID
         // Also to logcat (tag "Angadi"): visible in adb/Play pre-launch reports and the CI emulator test,
         // including Release builds whose private log files can't be read from outside.

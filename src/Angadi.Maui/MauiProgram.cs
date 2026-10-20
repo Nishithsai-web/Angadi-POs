@@ -46,10 +46,17 @@ public static class MauiProgram
         // NFR-07/FR-36: rolling file logs on the device, exported from Settings.
         var logs = new LogFiles(Path.Combine(FileSystem.AppDataDirectory, "logs"));
 #if DEBUG
-        builder.Logging.AddProvider(logs.CreateProvider(debug: true));
+        var logProvider = logs.CreateProvider(debug: true);
 #else
-        builder.Logging.AddProvider(logs.CreateProvider(debug: false));
+        var logProvider = logs.CreateProvider(debug: false);
 #endif
+        builder.Logging.AddProvider(logProvider);
+        // FIX(LOG-3b, 2026-10-20, FIX-3): Flaw: GlobalExceptions.Logger was only assigned AFTER builder.Build(),
+        // so anything reported during startup (e.g. a malformed appsettings.json, LOG-2) never reached the file
+        // log. Fix: a bootstrap logger over the SAME provider instance (one file writer) is assigned now and
+        // replaced by the app's factory logger after Build. The factory is intentionally not disposed — it
+        // shares the provider, whose lifetime is the app's. Logged in docs/AGENT_FIX_LOG.md.
+        GlobalExceptions.Logger = new LoggerFactory([logProvider]).CreateLogger("Angadi.Unhandled");
 
         builder.Services.AddAngadiApplication();
         builder.Services.AddAngadiInfrastructure(new InfrastructureOptions
@@ -76,6 +83,9 @@ public static class MauiProgram
         return app;
     }
 
+    /// <summary>Why appsettings.json was not used (exception type name), when it wasn't. Warned once logging exists.</summary>
+    private static string? _configProblem;
+
     private static IConfiguration LoadConfiguration()
     {
         var builder = new ConfigurationBuilder();
@@ -87,9 +97,16 @@ public static class MauiProgram
             copy.Position = 0;
             builder.AddJsonStream(new MemoryStream(copy.ToArray()));
         }
-        catch (Exception ex) when (ex is FileNotFoundException or IOException)
+        // FIX(LOG-2, 2026-10-20, FIX-3): Flaw: the filter caught only FileNotFound/IOException, so a MALFORMED
+        // appsettings.json threw FormatException out of the config provider — an uncaught hard startup crash
+        // with nothing in the file log. Fix: FormatException joins the filter (scoped to this settings load),
+        // the app falls back to the built-in defaults, and the reason is remembered so CreateMauiApp can log a
+        // startup warning once the bootstrap logger exists. Why: a settings typo must degrade to defaults,
+        // never brick the shop's tablet at opening time. Logged in docs/AGENT_FIX_LOG.md.
+        catch (Exception ex) when (ex is FileNotFoundException or IOException or FormatException)
         {
-            // Missing settings must never stop the app: the Options defaults match the SRS.
+            // Missing or malformed settings must never stop the app: the Options defaults match the SRS.
+            _configProblem = ex.GetType().Name;
         }
         return builder.Build();
     }
