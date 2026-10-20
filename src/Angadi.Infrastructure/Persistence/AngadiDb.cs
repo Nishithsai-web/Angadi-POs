@@ -126,11 +126,24 @@ public sealed class AngadiDb : IUnitOfWork, IDisposable
         c.CreateTable<ShopProfileRow>();
         c.CreateTable<MetaRow>();
         c.CreateTable<NoteRow>();
+        DropUnusedIndexes(c);
 
         c.InsertOrReplace(new MetaRow { Key = "app", Value = AppMarker });
         var current = c.Find<MetaRow>("schema_version");
         if (current is null || int.Parse(current.Value, System.Globalization.CultureInfo.InvariantCulture) < SchemaVersion)
             c.InsertOrReplace(new MetaRow { Key = "schema_version", Value = SchemaVersion.ToString(System.Globalization.CultureInfo.InvariantCulture) });
+    }
+
+    /// <summary>
+    /// D2 (scale): indexes that no query uses, or that a covering index replaced. sqlite-net only ever adds indexes, so
+    /// databases created by older builds drop them here. Each one cost ~11 MB per busy-shop year and slowed every bill
+    /// insert. Idempotent; no schema version bump: the tables are unchanged and an older build simply re-creates them.
+    /// </summary>
+    internal static readonly string[] RetiredIndexes = ["BillLine_ItemId", "StockMove_BillId", "StockMove_ItemId"];
+
+    private static void DropUnusedIndexes(SQLiteConnection c)
+    {
+        foreach (var name in RetiredIndexes) c.Execute($"DROP INDEX IF EXISTS \"{name}\"");
     }
 
     /// <summary>Runs a read or write; joins the open transaction when called inside ExecuteAsync.</summary>

@@ -67,12 +67,16 @@ internal sealed class CustomerAccountHandlers(
         var o = options.Value;
         var today = clock.Today;
         var due = new List<DueReminder>();
-        foreach (var c in await customers.GetWithDuesAsync(ct))
+        var candidates = (await customers.GetWithDuesAsync(ct))
+            .Where(c => c.DuesBalance.Value > 0)
+            .Where(c => c.LastRemindedAt is not { } last || (clock.Now - last).TotalDays >= o.RemindAgainAfterDays)
+            .ToList();
+        if (candidates.Count == 0) return due;
+        // D2: every owing customer's ledger in one query, not one query per customer (this runs as the counter opens).
+        var ledgers = await customers.GetOwingLedgersAsync(ct);
+        foreach (var c in candidates)
         {
-            if (c.DuesBalance.Value <= 0) continue;
-            if (c.LastRemindedAt is { } last && (clock.Now - last).TotalDays < o.RemindAgainAfterDays) continue;
-
-            var age = DuesAging.OldestUnpaidDays(await customers.GetLedgerAsync(c.Id, ct), today) ?? 0;
+            var age = DuesAging.OldestUnpaidDays(ledgers.TryGetValue(c.Id, out var ledger) ? ledger : [], today) ?? 0;
             DueReason? reason = c.PromisedPayDate is { } promised
                 ? (promised <= today ? DueReason.PromiseDatePassed : null)     // a promise not yet due wins over age
                 : (age >= o.RemindAfterDays ? DueReason.UnpaidTooLong : null);

@@ -172,6 +172,12 @@ internal sealed class CustomerRepository(AngadiDb db, IClock clock) : ICustomerR
                 "SELECT * FROM DuesEntry WHERE CustomerId = ? ORDER BY CreatedAtMs DESC", customerId)
             .Select(ToDomain).ToList(), ct);
 
+    public Task<IReadOnlyDictionary<Guid, IReadOnlyList<DuesEntry>>> GetOwingLedgersAsync(CancellationToken ct = default)
+        => db.RunAsync<IReadOnlyDictionary<Guid, IReadOnlyList<DuesEntry>>>(c => c.Query<DuesEntryRow>(
+                "SELECT * FROM DuesEntry WHERE CustomerId IN (SELECT Id FROM Customer WHERE DuesBalancePaise > 0) ORDER BY CreatedAtMs DESC")
+            .GroupBy(r => r.CustomerId)
+            .ToDictionary(g => g.Key, g => (IReadOnlyList<DuesEntry>)g.Select(ToDomain).ToList()), ct);
+
     public Task SaveAsync(Customer customer, CancellationToken ct = default)
     {
         var now = clock.Now;
@@ -234,6 +240,14 @@ internal sealed class StockLedger(AngadiDb db, IClock clock) : IStockLedger
                 "SELECT ItemId, Day, -SUM(DeltaMilli) AS SoldMilli FROM StockMove WHERE Reason IN (?, ?) AND Day >= ? AND Day <= ? GROUP BY ItemId, Day",
                 (int)StockMoveReason.Sale, (int)StockMoveReason.VoidRestore, Day(from), Day(to))
             .Select(r => new DailySales(r.ItemId, FromDay(r.Day), new Qty(r.SoldMilli))).ToList(), ct);
+
+    public Task<IReadOnlyDictionary<Guid, DateOnly>> LastSoldDaysAsync(DateOnly from, DateOnly to, CancellationToken ct = default)
+        => db.RunAsync<IReadOnlyDictionary<Guid, DateOnly>>(c => c.Query<DailySalesRow>(
+                "SELECT ItemId, MAX(Day) AS Day, 0 AS SoldMilli FROM (" +
+                "SELECT ItemId, Day FROM StockMove WHERE Reason IN (?, ?) AND Day >= ? AND Day <= ? GROUP BY ItemId, Day HAVING SUM(DeltaMilli) < 0" +
+                ") GROUP BY ItemId",
+                (int)StockMoveReason.Sale, (int)StockMoveReason.VoidRestore, Day(from), Day(to))
+            .ToDictionary(r => r.ItemId, r => FromDay(r.Day)), ct);
 
     public Task<IReadOnlyList<StockMove>> ListMovesAsync(DateOnly from, DateOnly to, CancellationToken ct = default)
         => db.RunAsync<IReadOnlyList<StockMove>>(c => c.Query<StockMoveRow>(

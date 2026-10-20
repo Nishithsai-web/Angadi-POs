@@ -62,7 +62,7 @@ internal sealed class BillLineRow
     [PrimaryKey] public Guid Id { get; set; }
     [Indexed] public Guid BillId { get; set; }
     public int Position { get; set; }
-    [Indexed] public Guid ItemId { get; set; }
+    public Guid ItemId { get; set; }   // D2: not indexed — no query filters lines by item (index dropped in AngadiDb.Migrate)
     public string TeluguName { get; set; } = "";
     public string EnglishName { get; set; } = "";
     public int Unit { get; set; }
@@ -108,11 +108,15 @@ internal sealed class DuesEntryRow
 [Table("StockMove")]
 internal sealed class StockMoveRow
 {
+    internal const string StockMoveItemDeltaIndex = "IX_StockMove_ItemId_DeltaMilli";
+
     [PrimaryKey] public Guid Id { get; set; }
-    [Indexed] public Guid ItemId { get; set; }
-    public long DeltaMilli { get; set; }
+    // D2: (ItemId, DeltaMilli) covers the ledger totals (inventory report, backup check) without touching the table,
+    // and still serves "history of one item". Replaces the plain ItemId index; BillId is not indexed (never queried).
+    [Indexed(Name = StockMoveItemDeltaIndex, Order = 1)] public Guid ItemId { get; set; }
+    [Indexed(Name = StockMoveItemDeltaIndex, Order = 2)] public long DeltaMilli { get; set; }
     public int Reason { get; set; }
-    [Indexed] public Guid? BillId { get; set; }
+    public Guid? BillId { get; set; }
     public string? Note { get; set; }
     [Indexed] public int Day { get; set; }
     public long CreatedAtMs { get; set; }

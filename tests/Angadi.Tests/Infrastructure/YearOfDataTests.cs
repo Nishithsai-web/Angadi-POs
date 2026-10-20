@@ -56,6 +56,37 @@ public sealed class YearOfDataTests(ITestOutputHelper output) : IDisposable
     public void Dispose() => _h.Dispose();
 
     [Fact]
+    public async Task OlderDatabase_DropsRetiredIndexes_AndLedgerTotalsUseTheCoveringIndex()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "angadi-tests", Guid.NewGuid().ToString("N"));
+        var path = Path.Combine(folder, "angadi.db");
+        try
+        {
+            using (var old = new AngadiDb(path))   // a database as older builds left it
+                await old.RunAsync(c =>
+                {
+                    c.Execute("CREATE INDEX IF NOT EXISTS \"BillLine_ItemId\" ON \"BillLine\"(\"ItemId\")");
+                    c.Execute("CREATE INDEX IF NOT EXISTS \"StockMove_BillId\" ON \"StockMove\"(\"BillId\")");
+                    c.Execute("CREATE INDEX IF NOT EXISTS \"StockMove_ItemId\" ON \"StockMove\"(\"ItemId\")");
+                });
+
+            using var db = new AngadiDb(path);
+            var names = await db.RunAsync(c => c.QueryScalars<string>("SELECT name FROM sqlite_master WHERE type = 'index'"));
+            foreach (var retired in AngadiDb.RetiredIndexes) Assert.DoesNotContain(retired, names);
+            Assert.Contains(StockMoveRow.StockMoveItemDeltaIndex, names);
+            Assert.Contains("BillLine_BillId", names);   // bill loading still indexed
+
+            var plan = await db.RunAsync(c => string.Join(" | ", c.Query<PlanRow>(
+                "EXPLAIN QUERY PLAN SELECT ItemId, SUM(DeltaMilli) FROM StockMove GROUP BY ItemId").Select(r => r.Detail)));
+            Assert.Contains("COVERING INDEX", plan, StringComparison.Ordinal);
+        }
+        finally
+        {
+            try { Directory.Delete(folder, recursive: true); } catch (IOException) { }
+        }
+    }
+
+    [Fact]
     public async Task BusyShopYear_CounterAndReports_StayWithinBudget()
     {
         _h.Subscription.IsPro = true;   // the quota is not under test; a year of bills is far past 50 a month
@@ -170,6 +201,11 @@ public sealed class YearOfDataTests(ITestOutputHelper output) : IDisposable
     {
         _rows.Add(line);
         output.WriteLine(line);
+    }
+
+    private sealed class PlanRow
+    {
+        [SQLite.Column("detail")] public string Detail { get; set; } = "";
     }
 
     private sealed class SizeRow

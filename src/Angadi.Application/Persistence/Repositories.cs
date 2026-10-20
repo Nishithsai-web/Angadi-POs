@@ -64,6 +64,11 @@ public interface ICustomerRepository
     Task<IReadOnlyList<Customer>> SearchAsync(string text, CancellationToken ct = default);
     Task<IReadOnlyList<Customer>> GetWithDuesAsync(CancellationToken ct = default);   // FR-30
     Task<IReadOnlyList<DuesEntry>> GetLedgerAsync(Guid customerId, CancellationToken ct = default);
+    /// <summary>
+    /// D2: the udhaar ledger of every customer who owes (balance &gt; 0), newest first per customer, in ONE query.
+    /// The counter's dues banner needs them all; one query per customer took 70 ms on CI for a busy shop's year.
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, IReadOnlyList<DuesEntry>>> GetOwingLedgersAsync(CancellationToken ct = default);
     Task SaveAsync(Customer customer, CancellationToken ct = default);
     Task AddDuesEntryAsync(DuesEntry entry, CancellationToken ct = default);
 }
@@ -78,6 +83,11 @@ public interface IStockLedger
     Task<IReadOnlyList<StockMove>> GetHistoryAsync(Guid itemId, CancellationToken ct = default);   // FR-26
     /// <summary>Σ sold qty per item per day, for insights (FR-31/32).</summary>
     Task<IReadOnlyList<DailySales>> GetDailySalesAsync(DateOnly from, DateOnly to, CancellationToken ct = default);
+    /// <summary>
+    /// D2: per item, the last day in [from, to] whose net sales (Sale + VoidRestore) were above zero — what dead stock
+    /// needs, aggregated in SQL instead of loading a year of daily rows (~200k for a busy shop).
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, DateOnly>> LastSoldDaysAsync(DateOnly from, DateOnly to, CancellationToken ct = default);
     /// <summary>Every move in the date range, newest first (inventory movement report).</summary>
     Task<IReadOnlyList<StockMove>> ListMovesAsync(DateOnly from, DateOnly to, CancellationToken ct = default);
     /// <summary>Σ Delta per item over the whole ledger — the source of truth Item.Stock must equal.</summary>
