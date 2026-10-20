@@ -202,6 +202,9 @@ public sealed class CustomerDetailPage : ContentPage, IQueryAttributable
 
         var pay = Ui.Button(text["customers.pay"], Theme.Success);
         pay.Clicked += SafeUi.On(async () => await PayAsync());
+        // SEC-5: bad debt is forgiven as a write-off (reason required), never disguised as a payment.
+        var writeOff = Ui.Secondary(text["customers.writeoff"]);
+        writeOff.Clicked += SafeUi.On(async () => await WriteOffAsync());
         var wa = Ui.Secondary(text["customers.remind.whatsapp"]);
         wa.Clicked += SafeUi.On(async () => await RemindAsync(ReminderChannel.WhatsApp));
         var sms = Ui.Secondary(text["customers.remind.sms"]);
@@ -215,7 +218,7 @@ public sealed class CustomerDetailPage : ContentPage, IQueryAttributable
             Ui.Card(new VerticalStackLayout
             {
                 Spacing = 8,
-                Children = { Ui.Caption(text["customers.balance"]), _balance, _oldest, promiseRow, pay, remindRow },
+                Children = { Ui.Caption(text["customers.balance"]), _balance, _oldest, promiseRow, pay, writeOff, remindRow },
             }),
             Ui.Card(new VerticalStackLayout { Spacing = 4, Children = { Header(text["customers.report"]), _report } }),
             Ui.Card(new VerticalStackLayout { Spacing = 4, Children = { Header(text["customers.receipts"]), _receipts } }),
@@ -277,6 +280,9 @@ public sealed class CustomerDetailPage : ContentPage, IQueryAttributable
             Row(_report, _text["tender.upi"], IndianFormat.Rupees(report.PaidUpi));
             Row(_report, _text["tender.udhaar"], IndianFormat.Rupees(report.OnUdhaar));
             Row(_report, _text["customers.report.paidsofar"], IndianFormat.Rupees(report.DuesPaidSoFar));
+            // SEC-5: written-off dues are their own line, never folded into "paid so far" (collections).
+            if (report.DuesWrittenOffSoFar.Value > 0)
+                Row(_report, _text["customers.report.writtenoff"], IndianFormat.Rupees(report.DuesWrittenOffSoFar));
             if (report.TopItems.Count > 0)
             {
                 _report.Add(Ui.Caption(_text["customers.report.usual"]));
@@ -309,6 +315,8 @@ public sealed class CustomerDetailPage : ContentPage, IQueryAttributable
             {
                 DuesEntryKind.Charge => (_text["customers.charge"], "+"),
                 DuesEntryKind.Payment => (_text["customers.payment"], "−"),
+                // SEC-5: a write-off shows as itself in the ledger — not as a payment, not as a reversal.
+                DuesEntryKind.WriteOff => (_text["customers.writeoff"], "−"),
                 _ => (_text["customers.reversal"], "−"),
             };
             Row(_ledger, $"{label} · {e.CreatedAt.ToLocalTime():dd MMM, h:mm tt}", sign + IndianFormat.Rupees(e.Amount));
@@ -356,6 +364,30 @@ public sealed class CustomerDetailPage : ContentPage, IQueryAttributable
         if (_customer is null) return;
         var r = await _sender.Send(new SendDuesReminderCommand(_customer.Id, channel));
         if (r.IsFailure) await _dialogs.ToastAsync(_text.Error(r.Error));
+        await LoadAsync();
+    }
+
+    /// <summary>
+    /// FIX(SEC-5, 2026-10-20, FIX-3): the UI half of the dues write-off (command layer: FIX-4, commit
+    /// 0711c94b). Flaw: forgiving bad debt was only possible as a FAKE payment, which corrupted the
+    /// collections reports and hid genuine payment fraud in the same bucket. Fix: a Write-off action on
+    /// the customer's account — PIN-gated (SEC-4: write-off is on the sensitive list), amount prompt,
+    /// then a MANDATORY reason prompt — sending RecordDuesWriteOffCommand. Ledger rows and the customer
+    /// report show write-offs as their own line (DuesWrittenOffSoFar), never as payments. Why: forgiven
+    /// debt and collected cash are different facts; the books must say which is which. Logged in
+    /// docs/AGENT_FIX_LOG.md.
+    /// </summary>
+    private async Task WriteOffAsync()
+    {
+        if (_customer is null) return;
+        if (!await PinGate.CheckAsync(_pin, _dialogs, _text)) return;
+        var value = await _dialogs.PromptAsync(_text["customers.writeoff"], _text["customers.writeoff.amount"], _text["common.ok"], _text["common.cancel"],
+            IndianFormat.Rupees(_customer.DuesBalance).Replace("₹", "", StringComparison.Ordinal).Replace(",", "", StringComparison.Ordinal), Keyboard.Numeric);
+        if (value is null || !PosInput.TryParseRupees(value, out var amount) || amount.Value <= 0) return;
+        var reason = await _dialogs.PromptAsync(_text["customers.writeoff"], _text["customers.writeoff.reason"], _text["common.ok"], _text["common.cancel"]);
+        if (string.IsNullOrWhiteSpace(reason)) return;   // a reason is mandatory — an empty one cancels the write-off
+        var r = await _sender.Send(new RecordDuesWriteOffCommand(_customer.Id, amount, reason.Trim()));
+        await _dialogs.ToastAsync(r.IsFailure ? _text.Error(r.Error) : _text.Format("customers.writeoff.done", IndianFormat.Rupees(amount)));
         await LoadAsync();
     }
 }

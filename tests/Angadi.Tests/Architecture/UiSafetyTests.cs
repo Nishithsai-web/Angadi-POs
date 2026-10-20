@@ -112,4 +112,20 @@ public class UiSafetyTests
         Assert.Contains("PinGate.SetPinAsync", settings, StringComparison.Ordinal);   // set-PIN entry + pharmacy prompt
         Assert.Contains("settings.pin.nudge", settings, StringComparison.Ordinal);   // persistent no-PIN nudge
     }
+
+    /// <summary>
+    /// SEC-5 (UI half): the write-off action exists on the customer account, is PIN-gated, sends the
+    /// dedicated command (never a payment), and the ledger renders WriteOff entries distinctly.
+    /// </summary>
+    [Fact]
+    public void DuesWriteOff_IsGatedDistinctAndNeverAPayment()
+    {
+        var customers = MauiFile(Path.Combine("Areas", "CustomerPages.cs"));
+        Assert.Contains("RecordDuesWriteOffCommand", customers, StringComparison.Ordinal);
+        Assert.Contains("DuesEntryKind.WriteOff", customers, StringComparison.Ordinal);   // distinct ledger label
+        Assert.Contains("DuesWrittenOffSoFar", customers, StringComparison.Ordinal);     // distinct report line
+        // The write-off path passes the gate before it prompts (gate appears in PayAsync AND WriteOffAsync).
+        Assert.True(customers.Split("PinGate.CheckAsync").Length - 1 >= 2,
+            "dues payment and dues write-off must both be PIN-gated");
+    }
 }
