@@ -1,6 +1,12 @@
 # CHANGELOG.md — Angadi POS v1
 Every meaningful change: date, what, the issue it addresses, and the one-line why. Newest first.
 
+## 2026-10-19 (late night, Claude Code)
+- **One app-wide language switch** (తెలుగు ⇄ English): asked on first launch, one tap in every tab's top bar; item names, reports, insights and voice choices follow it. Why: owner requirement.
+- **Inventory report + ledger check, stock movement log.** Why: the owner must see stock value, low/out items and proof that every stock change was recorded.
+- **Shop notes and in-app feedback** (Settings → Notes & feedback). Why: owner requirement.
+- **Local build:** fonts committed, SDK pinned by global.json, `docs/BUILD_LOCALLY.md` (VS 2026, or VS 2022 + .NET 10 command line). `main` fast-forwarded to the green branch. Why: owner's VS 2022 pull failed on an old main / .NET 9.
+
 ## 2026-10-19 (night, Claude Code)
 - **Camera barcode scanning** (on-device, no network), with the typed/USB-gun box as fallback. Why: locked scope; fastest way to bill packaged goods.
 - **Google Play subscription client** replaces the never-Pro stub on devices. Why: ₹200/month must be payable; status is cached so billing never waits on the network.
