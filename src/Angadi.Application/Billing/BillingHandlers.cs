@@ -86,7 +86,8 @@ internal sealed class FinalizeBillHandler(
     IQuotaStore quota,
     IBillDraftStore drafts,
     IClock clock,
-    IOptions<BillingOptions> options) : IRequestHandler<FinalizeBillCommand, Result<FinalizedBill>>
+    IOptions<BillingOptions> options,
+    ILogger<FinalizeBillHandler> log) : IRequestHandler<FinalizeBillCommand, Result<FinalizedBill>>
 {
     public async Task<Result<FinalizedBill>> Handle(FinalizeBillCommand command, CancellationToken ct)
     {
@@ -105,7 +106,7 @@ internal sealed class FinalizeBillHandler(
 
         // FR-34 free-tier quota. Defence in depth: a status that doesn't answer at once counts as free (fail closed),
         // so billing can never hang on the subscription service while this transaction holds the database.
-        var status = await SubscriptionGuard.StatusAsync(subscription, ct);
+        var status = await SubscriptionGuard.StatusAsync(subscription, ct, log);
         if (!status.IsPro && await quota.UsedThisMonthAsync(now, ct) >= options.Value.FreeBillsPerMonth)
             return Result.Failure<FinalizedBill>(Error.With(ErrorCodes.FreeLimitReached,
                 options.Value.FreeBillsPerMonth, options.Value.MonthlyPriceRupees));
@@ -335,13 +336,13 @@ internal sealed class AdjustStockHandler(IItemRepository items, IStockLedger led
     }
 }
 
-internal sealed class GetBillQuotaHandler(IQuotaStore quota, ISubscriptionService subscription, IClock clock, IOptions<BillingOptions> options)
+internal sealed class GetBillQuotaHandler(IQuotaStore quota, ISubscriptionService subscription, IClock clock, IOptions<BillingOptions> options, ILogger<GetBillQuotaHandler> log)
     : IRequestHandler<GetBillQuotaQuery, BillQuota>
 {
     public async Task<BillQuota> Handle(GetBillQuotaQuery query, CancellationToken ct)
     {
         var now = clock.Now;
-        var status = await SubscriptionGuard.StatusAsync(subscription, ct);
+        var status = await SubscriptionGuard.StatusAsync(subscription, ct, log);
         var used = await quota.UsedThisMonthAsync(now, ct);
         return new BillQuota(status.IsPro, used, options.Value.FreeBillsPerMonth);
     }
@@ -353,10 +354,28 @@ internal static class SubscriptionGuard
     public static readonly TimeSpan Timeout = TimeSpan.FromSeconds(2);
     private static readonly SubscriptionStatus Free = new(false, null, null);
 
-    public static async Task<SubscriptionStatus> StatusAsync(ISubscriptionService subscription, CancellationToken ct)
+    public static async Task<SubscriptionStatus> StatusAsync(ISubscriptionService subscription, CancellationToken ct, ILogger? log = null)
     {
         try { return await subscription.GetStatusAsync(ct).WaitAsync(Timeout, ct); }
-        catch (TimeoutException) { return Free; }
+        // FIX(LOG-3a, 2026-10-20, FIX-2): Flaw: the timeout fallback was silent — a genuinely hanging Play
+        // service (the counter-freeze scenario) left no trace in the logs support asks for. Fix: log a warning.
+        // Why: the fallback is correct behaviour, but it must be visible when it happens in a real shop.
+        // Logged in docs/AGENT_FIX_LOG.md.
+        catch (TimeoutException)
+        {
+            log?.LogWarning("Subscription status did not answer within {TimeoutSeconds} s; billing continues on the free tier", Timeout.TotalSeconds);
+            return Free;
+        }
+        // FIX(MONEY-2, 2026-10-20, FIX-2): Flaw: only TimeoutException was caught, so any other exception from
+        // an ISubscriptionService implementation propagated and failed EVERY finalize as UNEXPECTED — the
+        // counter-freeze failure class, one layer up. Fix: any non-cancellation failure also falls back to
+        // free tier, logged. Why: billing must never depend on the subscription service answering cleanly.
+        // Logged in docs/AGENT_FIX_LOG.md.
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            log?.LogWarning(ex, "Subscription status failed; billing continues on the free tier");
+            return Free;
+        }
     }
 }
 
