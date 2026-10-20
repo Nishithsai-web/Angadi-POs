@@ -12,6 +12,7 @@ using Angadi.Maui.Areas.Pos;
 using Angadi.Maui.Core;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Angadi.Maui.Areas;
