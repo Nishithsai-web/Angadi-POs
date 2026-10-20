@@ -10,7 +10,8 @@ namespace Angadi.Infrastructure.Persistence;
 /// </summary>
 public sealed class AngadiDb : IUnitOfWork, IDisposable
 {
-    public const int SchemaVersion = 1;
+    /// <summary>2: customer account columns + Note table (additive). Bump on every schema change.</summary>
+    public const int SchemaVersion = 2;
     public const string AppMarker = "angadi";
 
     private readonly SemaphoreSlim _gate = new(1, 1);
@@ -29,6 +30,7 @@ public sealed class AngadiDb : IUnitOfWork, IDisposable
     {
         var dir = Path.GetDirectoryName(path);
         if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+        BackupBeforeMigration(path);
 
         var conn = new SQLiteConnection(path,
             SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.Create | SQLiteOpenFlags.FullMutex);
@@ -37,6 +39,24 @@ public sealed class AngadiDb : IUnitOfWork, IDisposable
         conn.BusyTimeout = TimeSpan.FromSeconds(5);   // LOW: a backup checkpoint racing a bill waits instead of failing
         Migrate(conn);
         return conn;
+    }
+
+    /// <summary>
+    /// Release safety (deployment-and-rollback.md): before an app update migrates an existing database to a newer
+    /// schema, keep a full copy as "&lt;db&gt;.pre-update". A failed or bad migration can then be rolled back by hand.
+    /// </summary>
+    private static void BackupBeforeMigration(string path)
+    {
+        if (!File.Exists(path)) return;
+        using (var probe = new SQLiteConnection(path, SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.FullMutex))
+        {
+            int stored;
+            try { stored = probe.ExecuteScalar<int>("SELECT CAST(Value AS INTEGER) FROM Meta WHERE Key = 'schema_version'"); }
+            catch (SQLiteException) { return; }   // not an Angadi database yet
+            if (stored >= SchemaVersion) return;
+            probe.ExecuteScalar<int>("PRAGMA wal_checkpoint(TRUNCATE)");   // everything into the main file
+        }
+        File.Copy(path, path + ".pre-update", overwrite: true);
     }
 
     /// <summary>sqlite-net CreateTable adds missing columns, so additive migrations are automatic.</summary>

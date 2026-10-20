@@ -17,7 +17,7 @@ import time
 import xml.etree.ElementTree as ET
 
 PKG = "com.angadi.pos"
-OUT = "e2e-out"
+OUT = os.path.join(os.environ.get("GITHUB_WORKSPACE", "."), "e2e-out")
 STEP = [0]
 FAILURES = []
 
@@ -94,7 +94,7 @@ def wait_for(pattern, timeout=40, exact=False, scroll=False, cls=None):
             swipe_up()
         time.sleep(1)
         alive()
-    raise AssertionError(f"'{pattern}' did not appear within {timeout}s")
+    raise AssertionError(f"'{pattern}' did not appear within {timeout}s; on screen: {screen_texts()}")
 
 
 def tap(pattern, timeout=40, exact=False, scroll=False, cls=None):
@@ -103,6 +103,16 @@ def tap(pattern, timeout=40, exact=False, scroll=False, cls=None):
     adb("shell", "input", "tap", str(x), str(y))
     time.sleep(1.2)
     return n
+
+
+def screen_texts():
+    seen = []
+    for n in nodes():
+        for value in (n.get("text") or "", n.get("content-desc") or ""):
+            v = value.strip()
+            if v and v not in seen:
+                seen.append(v)
+    return " | ".join(seen)[:700]
 
 
 def edit_texts():
@@ -171,6 +181,16 @@ def step(name, fn):
         FAILURES.append(name)
         if not adb("shell", "pidof", PKG, check=False).strip():
             raise SystemExit(1)
+        recover()
+
+
+def recover():
+    """Back out of dialogs and pushed pages to the tab bar, so one failure doesn't fail every later step."""
+    for _ in range(4):
+        if find("Reports", exact=True) is not None and find("Items", exact=True) is not None:
+            return
+        adb("shell", "input", "keyevent", "4")
+        time.sleep(1.2)
 
 
 # ------------------------------------------------------------------ the shopkeeper's morning
@@ -294,7 +314,13 @@ def language_switch():
 
 
 def app_log_has_no_errors():
-    log = adb("shell", "run-as", PKG, "sh", "-c", "cat files/logs/*.log", check=False)
+    errors_tagged = [l for l in adb("logcat", "-d", "-s", "Angadi:E", check=False).splitlines() if " E Angadi" in l or "E/Angadi" in l]
+    for line in errors_tagged[:20]:
+        print(f"::error::logcat: {line[:500]}")
+    if errors_tagged:
+        raise AssertionError(f"{len(errors_tagged)} unhandled error(s) in logcat")
+    # One string: adb joins arguments with spaces, so a separate 'sh -c' would run a bare 'cat' that waits forever.
+    log = adb("shell", f"run-as {PKG} sh -c 'cat files/logs/*.log'", check=False, timeout=60)
     if not log.strip():
         print("::warning::app log not readable (non-debuggable build?)")
         return

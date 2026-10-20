@@ -18,6 +18,14 @@
     <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
   </PropertyGroup>
 
+  <!-- Release safety: our assemblies and sqlite-net build rows and JSON by reflection; the trimmer must keep them whole. -->
+  <ItemGroup Condition="'$(Configuration)' == 'Release'">
+    <TrimmerRootAssembly Include="Angadi.Domain" />
+    <TrimmerRootAssembly Include="Angadi.Application" />
+    <TrimmerRootAssembly Include="Angadi.Infrastructure" />
+    <TrimmerRootAssembly Include="SQLite-net" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Angadi.Application\Angadi.Application.csproj" />
     <ProjectReference Include="..\Angadi.Infrastructure\Angadi.Infrastructure.csproj" />

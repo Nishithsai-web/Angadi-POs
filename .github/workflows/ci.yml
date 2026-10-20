@@ -144,23 +144,28 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back emulated
           script: python3 tools/e2e_android.py "$(ls apk/*-Signed.apk | head -1)"
 
-      - name: Publish screenshots for review
-        if: always()
-        run: |
-          [ -d e2e-out ] || exit 0
-          sha=$(git rev-parse --short HEAD)
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          mkdir -p /tmp/e2e && cp -r e2e-out/. /tmp/e2e/
-          git fetch origin ci-e2e:ci-e2e 2>/dev/null && git checkout ci-e2e || git checkout --orphan ci-e2e
-          git rm -rqf . 2>/dev/null || true
-          rm -rf ./* && cp -r /tmp/e2e/. .
-          echo "E2E run for $sha" > README.md
-          git add -A
-          git commit -qm "E2E screenshots for $sha" && git push origin ci-e2e || echo "nothing to publish"
-
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: e2e-results
           path: e2e-out/**
+
+      - name: Publish screenshots for review
+        if: always()
+        run: |
+          [ -d "$GITHUB_WORKSPACE/e2e-out" ] || { echo "no e2e output"; exit 0; }
+          sha=$(git rev-parse --short HEAD)
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          work="$RUNNER_TEMP/ci-e2e"
+          # A separate worktree: the main checkout (and e2e-out) stays untouched for the artifact upload.
+          if git ls-remote --exit-code --heads origin ci-e2e >/dev/null 2>&1; then
+            git fetch -q origin ci-e2e && git worktree add -q "$work" FETCH_HEAD && git -C "$work" checkout -q -B ci-e2e
+          else
+            git worktree add -q --orphan -b ci-e2e "$work"
+          fi
+          find "$work" -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -r "$GITHUB_WORKSPACE/e2e-out/." "$work/"
+          echo "E2E run for $sha" > "$work/README.md"
+          git -C "$work" add -A
+          git -C "$work" commit -qm "E2E screenshots for $sha" && git -C "$work" push -q origin ci-e2e || echo "nothing to publish"

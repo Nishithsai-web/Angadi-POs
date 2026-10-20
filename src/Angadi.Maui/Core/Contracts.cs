@@ -61,6 +61,11 @@ public static class GlobalExceptions
     {
         var correlationId = Guid.NewGuid().ToString("N")[..8];
         Logger?.LogError(ex, "Unhandled in {Source} [{CorrelationId}]", source, correlationId);
+#if ANDROID
+        // Also to logcat (tag "Angadi"): visible in adb/Play pre-launch reports and the CI emulator test,
+        // including Release builds whose private log files can't be read from outside.
+        Android.Util.Log.Error("Angadi", $"Unhandled in {source} [{correlationId}] {ex}");
+#endif
         return correlationId;
     }
 }
