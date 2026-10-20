@@ -87,46 +87,67 @@ internal sealed class CustomerAccountHandlers(
 /// <summary>How long the oldest still-unpaid udhaar has been outstanding.</summary>
 public static class DuesAging
 {
-    /// <summary>
-    /// Reversals cancel their own bill's charge; payments then settle the oldest charges first (FIFO).
-    /// Returns the age in days of the first charge not fully paid, or null when nothing is owed.
-    /// </summary>
     /// <summary>The udhaar still unpaid, oldest first: (when it was taken, the bill, what is left of it).</summary>
     public static IReadOnlyList<(DateTimeOffset At, Guid? BillId, Paise Remaining)> UnpaidCharges(IEnumerable<DuesEntry> ledger)
-    {
-        var entries = ledger.ToList();
-        var reversed = entries.Where(e => e.Kind == DuesEntryKind.Reversal && e.BillId is not null).Select(e => e.BillId!.Value).ToHashSet();
-        var charges = entries.Where(e => e.Kind == DuesEntryKind.Charge && (e.BillId is null || !reversed.Contains(e.BillId.Value)))
-            .OrderBy(e => e.CreatedAt).ToList();
-        // SEC-5: a write-off settles charges exactly like a payment for aging — the debt is gone, just not paid.
-        var paid = entries.Where(e => e.Kind is DuesEntryKind.Payment or DuesEntryKind.WriteOff).Sum(e => e.Amount.Value)
-                 + entries.Where(e => e.Kind == DuesEntryKind.Reversal && e.BillId is null).Sum(e => e.Amount.Value);
-        var open = new List<(DateTimeOffset, Guid?, Paise)>();
-        foreach (var charge in charges)
-        {
-            if (paid >= charge.Amount.Value) { paid -= charge.Amount.Value; continue; }
-            open.Add((charge.CreatedAt, charge.BillId, new Paise(charge.Amount.Value - paid)));
-            paid = 0;
-        }
-        return open;
-    }
+        => OpenCharges(ledger);
 
+    /// <summary>
+    /// Age in days of the first charge not fully settled, or null when nothing is owed.
+    /// (Settlement order is defined once, in OpenCharges.)
+    /// </summary>
     public static int? OldestUnpaidDays(IEnumerable<DuesEntry> ledger, DateOnly today)
     {
+        var open = OpenCharges(ledger);
+        return open.Count == 0
+            ? null
+            : Math.Max(0, today.DayNumber - DateOnly.FromDateTime(open[0].At.ToLocalTime().DateTime).DayNumber);
+    }
+
+    // FIX(DUES-1, 2026-10-20, FIX-4): Flaw: reversal handling was amount-blind — a Reversal carrying a BillId
+    // cancelled that bill's WHOLE charge whatever its Amount said (the amount was never read; the bill id
+    // went into a HashSet and the charge vanished). That is correct for today's only flow (void = full
+    // reversal) but a partial reversal would silently over-cancel, and the customer would be under-charged
+    // by the difference with no trace. Fix: a reversal cancels min(its amount, its own charge's remaining);
+    // any excess joins the settlement pool and settles other charges like a payment; a reversal naming a
+    // bill with no charge in this ledger joins the pool whole. Payments and write-offs (SEC-5) settle the
+    // remaining charges oldest first (FIFO). Why: the ledger's amounts must mean what they say — aging,
+    // reminders and the customer report are all computed from these numbers. Logged in docs/AGENT_FIX_LOG.md.
+    private static List<(DateTimeOffset At, Guid? BillId, Paise Remaining)> OpenCharges(IEnumerable<DuesEntry> ledger)
+    {
         var entries = ledger.ToList();
-        var reversed = entries.Where(e => e.Kind == DuesEntryKind.Reversal && e.BillId is not null).Select(e => e.BillId!.Value).ToHashSet();
-        var charges = entries.Where(e => e.Kind == DuesEntryKind.Charge && (e.BillId is null || !reversed.Contains(e.BillId.Value)))
-            .OrderBy(e => e.CreatedAt).ToList();
-        // SEC-5: write-offs settle charges like payments (see UnpaidCharges).
-        var paid = entries.Where(e => e.Kind is DuesEntryKind.Payment or DuesEntryKind.WriteOff).Sum(e => e.Amount.Value)
+        var charges = entries.Where(e => e.Kind == DuesEntryKind.Charge).OrderBy(e => e.CreatedAt).ToList();
+
+        var reversalByBill = entries.Where(e => e.Kind == DuesEntryKind.Reversal && e.BillId is not null)
+            .GroupBy(e => e.BillId!.Value).ToDictionary(g => g.Key, g => g.Sum(e => e.Amount.Value));
+
+        // The settlement pool: payments + write-offs + bill-less reversals (+ reversal excess, added below).
+        var pool = entries.Where(e => e.Kind is DuesEntryKind.Payment or DuesEntryKind.WriteOff).Sum(e => e.Amount.Value)
                  + entries.Where(e => e.Kind == DuesEntryKind.Reversal && e.BillId is null).Sum(e => e.Amount.Value);
 
+        var remaining = new List<(DuesEntry Charge, long Left)>(charges.Count);
         foreach (var charge in charges)
         {
-            if (paid >= charge.Amount.Value) { paid -= charge.Amount.Value; continue; }
-            return Math.Max(0, today.DayNumber - DateOnly.FromDateTime(charge.CreatedAt.ToLocalTime().DateTime).DayNumber);
+            var left = charge.Amount.Value;
+            if (charge.BillId is { } billId && reversalByBill.TryGetValue(billId, out var reversal))
+            {
+                var cancelled = Math.Min(reversal, left);
+                left -= cancelled;
+                pool += reversal - cancelled;   // excess reversal settles other charges, like a payment
+                reversalByBill.Remove(billId);
+            }
+            remaining.Add((charge, left));
         }
-        return null;
+        pool += reversalByBill.Values.Sum();   // reversals naming a bill with no charge here join the pool whole
+
+        var open = new List<(DateTimeOffset, Guid?, Paise)>();
+        foreach (var (charge, left) in remaining)
+        {
+            if (left <= 0) continue;
+            if (pool >= left) { pool -= left; continue; }
+            open.Add((charge.CreatedAt, charge.BillId, new Paise(left - pool)));
+            pool = 0;
+        }
+        return open;
     }
 }
 
