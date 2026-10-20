@@ -41,7 +41,7 @@ ALSO
 • Works on phones and tablets. Bigger screens show the items and the bill side by side.
 
 YOUR DATA STAYS WITH YOU
-Bills, customers and stock are stored only on your device. There is no Angadi server and no login. Data leaves the phone only when you share a receipt, send a reminder, or save a backup. If Android backup is on, Android also keeps a copy in your own Google account.
+Bills, customers and stock are stored only on your device. There is no Angadi server and no login. They leave the phone only when you share a receipt, send a reminder, or save a backup. If Android backup is on, Android also keeps a copy in your own Google account. The barcode scanner uses Google ML Kit, which sends Google technical diagnostics (such as phone model, app version and error codes), never your bills or customers.
 
 PRICE
 50 bills free every month. Angadi Pro gives unlimited bills for ₹200 a month or ₹1,999 a year, paid through Google Play. Cancel any time in Google Play.

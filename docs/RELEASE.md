@@ -31,7 +31,7 @@ GitHub → the repo → **Settings → Secrets and variables → Actions → New
 2. **App integrity → Play App Signing:** accept (Google manages the signing key).
 3. **Policy → App content:**
    - **Privacy policy:** the public URL of `docs/PRIVACY_POLICY.md` (fill in its two `[…]` fields first).
-   - **Data safety:** no data collected or shared by Angadi. Every answer, with the reason: `store/listing/DATA_SAFETY.md`.
+   - **Data safety:** Angadi shares nothing, but the barcode scanner's Google ML Kit collects diagnostics and device IDs, which must be declared. Every answer, with the reason: `store/listing/DATA_SAFETY.md`.
    - **Target API:** the app targets API 36 (Android 16), which Play requires for new apps and updates from 31 Aug 2026. CI's *Google Play policy gate* fails any build below that, any debuggable release, and any library-added sensitive permission (advertising ID, SMS, location, all-packages).
    - **Android backup:** only the database and settings go to the owner's own Google account (Android Auto Backup); this is not "collection" by Angadi.
    - **Ads:** no ads. **Target audience:** 18+ (business users). **Content rating:** answers in `store/listing/CONTENT_RATING.md`.
