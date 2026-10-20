@@ -28,21 +28,33 @@ internal static class DatabaseRecovery
         DeleteQuietly(path + "-shm");
         PruneDamaged(path);
 
+        // FIX(LOG-3e, 2026-10-20, FIX-3): Flaw: a candidate that failed to copy was skipped with NO record —
+        // support could not tell a skipped-because-corrupt copy from one never tried. Fix: every skip reason
+        // is collected into the recovery report's Reason, which DataSafety.TakeRecoveryReport logs as a
+        // warning. Why: recovery is the worst day in the shop's life with this app; it must explain itself.
+        // Logged in docs/AGENT_FIX_LOG.md.
+        var skipped = new List<string>();
         foreach (var candidate in Candidates(path, snapshotDirectory))
         {
             try
             {
                 File.Copy(candidate, path, overwrite: true);
                 if (IsGoodDatabase(path, out _))
-                    return new DataRecoveryReport(now, new DateTimeOffset(File.GetLastWriteTimeUtc(candidate), TimeSpan.Zero), reason);
+                    return new DataRecoveryReport(now, new DateTimeOffset(File.GetLastWriteTimeUtc(candidate), TimeSpan.Zero), WithSkips(reason, skipped));
             }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                skipped.Add(Path.GetFileName(candidate) + ": " + ex.GetType().Name);
+            }
             DeleteQuietly(path);
             DeleteQuietly(path + "-wal");
             DeleteQuietly(path + "-shm");
         }
-        return new DataRecoveryReport(now, null, reason);   // no good copy: start empty; Settings → Restore still works
+        return new DataRecoveryReport(now, null, WithSkips(reason, skipped));   // no good copy: start empty; Settings → Restore still works
     }
+
+    private static string WithSkips(string reason, List<string> skipped) =>
+        skipped.Count == 0 ? reason : reason + "; skipped: " + string.Join(", ", skipped);
 
     /// <summary>Newest safety copy first, then the copies kept by an app update and by the last restore.</summary>
     private static IEnumerable<string> Candidates(string path, string snapshotDirectory)

@@ -82,6 +82,11 @@ public sealed class AppShell : Shell
         catch (Exception ex)
         {
             GlobalExceptions.Report(ex, "language-switch");
+            // FIX(LOG-3h, 2026-10-20, FIX-3): Flaw: this failure was logged but never shown — the shopkeeper
+            // tapped the language switch, nothing visibly happened, and no message explained why. Fix: show
+            // the friendly UNEXPECTED toast as well. Why: a silent no-op on a visible tap reads as a broken
+            // app. Logged in docs/AGENT_FIX_LOG.md.
+            await SafeUi.ShowUnexpectedAsync();
         }
     }
 
@@ -113,6 +118,11 @@ public sealed class AppShell : Shell
         catch (Exception ex)
         {
             GlobalExceptions.Report(ex, "first-run");
+            // FIX(LOG-3h, 2026-10-20, FIX-3): Flaw: a first-run failure was logged but never shown — the
+            // shopkeeper could land on an empty POS with no setup prompt and no message. Fix: show the
+            // friendly UNEXPECTED toast as well. Why: first run is the app's first impression; silence here
+            // looks like abandonment. Logged in docs/AGENT_FIX_LOG.md.
+            await SafeUi.ShowUnexpectedAsync();
         }
     }
 }

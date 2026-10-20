@@ -6,8 +6,12 @@ using Serilog.Events;
 namespace Angadi.Infrastructure.Logging;
 
 /// <summary>
-/// The whole v1 crash-reporting system (blueprint §6): rolling daily log files, 7 days kept,
-/// 5 MB per file. Settings → Export logs zips them for WhatsApp (FR-36).
+/// The whole v1 crash-reporting system (blueprint §6): rolling daily log files, 5 MB per file.
+/// FIX(LOG-3i, 2026-10-20, FIX-3): the retention comment said "7 days" — Serilog's
+/// retainedFileCountLimit counts FILES, not days: at most <see cref="RetainedDays"/> files are kept
+/// (≈35 MB total), and a busy day that rolls several files shortens the real history below 7 days.
+/// The comment now says what the code does. Logged in docs/AGENT_FIX_LOG.md.
+/// Settings → Export logs zips them for WhatsApp (FR-36).
 /// </summary>
 public sealed class LogFiles(string directory)
 {
@@ -69,7 +73,12 @@ public sealed class LogExporter(LogFiles files, string outputDirectory, Angadi.A
         {
             return Task.FromResult(Angadi.Application.Common.Result.Success(files.ExportZip(outputDirectory, clock.Now)));
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        // FIX(LOG-3c, 2026-10-20, FIX-3): Flaw: the catch covered only IO/Unauthorized, so a corrupt zip
+        // (InvalidData) or an archive-state error (InvalidOperation) escaped as UNEXPECTED instead of the
+        // designed LOG_EXPORT_FAILED message. Fix: broaden the filter to the failure shapes a zip export
+        // can actually produce. Why: the shopkeeper should hear "logs could not be exported", not a generic
+        // crash message, when support asks for logs. Logged in docs/AGENT_FIX_LOG.md.
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or InvalidOperationException)
         {
             log.LogError(ex, "Log export failed");
             return Task.FromResult(Angadi.Application.Common.Result.Failure<string>(

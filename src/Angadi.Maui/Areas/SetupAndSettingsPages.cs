@@ -272,6 +272,11 @@ public sealed class SettingsPage : ContentPage
         // H11: through the dispatcher — logged, Result-shaped, and a full disk shows a Telugu message instead of crashing.
         var zip = await _sender.Send(new ExportLogsCommand());
         if (zip.IsFailure) { await _dialogs.ToastAsync(_text.Error(zip.Error)); return; }
-        await _share.ShareFileAsync(zip.Value, _text["settings.logs"]);
+        // FIX(LOG-3d, 2026-10-20, FIX-3): Flaw: the share Result was discarded — when the share itself failed,
+        // the shopkeeper got no feedback and believed the logs had been sent. Fix: a failed share shows its
+        // error toast. Why: "send us your logs" is the support path; a silent failure there strands the shop.
+        // Logged in docs/AGENT_FIX_LOG.md.
+        var shared = await _share.ShareFileAsync(zip.Value, _text["settings.logs"]);
+        if (shared.IsFailure) await _dialogs.ToastAsync(_text.Error(shared.Error));
     }
 }
