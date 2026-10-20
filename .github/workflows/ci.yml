@@ -164,7 +164,9 @@ jobs:
       - name: Run the app on an emulator (setup, cash, UPI, udhaar, barcode, reports, language)
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 34
+          # A2-08: the app targets API 36, so the emulator runs Android 16 too (edge-to-edge is enforced from 15,
+          # predictive back is on by default for target 36) — an API 34 emulator could not see either.
+          api-level: 36
           target: google_apis
           arch: x86_64
           profile: pixel_6
