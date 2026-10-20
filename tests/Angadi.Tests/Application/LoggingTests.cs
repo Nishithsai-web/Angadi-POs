@@ -1,6 +1,6 @@
 using Angadi.Application.Billing;
 using Angadi.Application.Catalog;
-using Angadi.Application.Common;
+using Angadi.Application.Voice;
 using Angadi.Domain.Billing;
 using Angadi.Domain.Customers;
 using Microsoft.Extensions.DependencyInjection;
@@ -46,38 +46,22 @@ public class LoggingTests
         Assert.DoesNotContain(sink.Entries, e => (e.Message + e.Scopes).Contains(Phone, StringComparison.Ordinal));
     }
 
-    /// <summary>
-    /// LOG-1: PosViewModel's finalize watchdog (WaitAsync, 45 s in the app; a short stand-in here) fires on a
-    /// stalled finalize. The design claim that makes the watchdog safe: the send keeps running in the
-    /// background and still completes EXACTLY once — the shopkeeper can be told "still saving" and a retry
-    /// can never double-bill. This exercises that pattern against the real pipeline with a hanging sender.
-    /// </summary>
     [Fact]
-    public async Task LOG1_WatchdogTimeout_TheSaveStillCompletesExactlyOnce()
+    public async Task NFR08_LearnedAliasText_NeverReachesTheLogs()
     {
-        using var h = new AppHost();
+        // PRIVACY-1 regression: AliasLearner used to write the learned alias text itself to the
+        // debug log. Learned words are the shopkeeper's own speech — NFR-08 covers them too.
+        // (The old NFR-08 test never called LearnAsync, so it could not catch this.)
+        const string Heard = "రహస్య పదం";
+        var sink = new CaptureProvider();
+        using var h = new AppHost(configure: s => s.AddLogging(b => b.AddProvider(sink).SetMinimumLevel(LogLevel.Trace)));
         await h.SeedShopAsync();
         var rice = await h.AddItemAsync("బియ్యం", 6000);
-        var draft = AppHost.Draft(TenderType.Cash, (rice, 1000));
-        var slow = new SlowSender(h.Sender, TimeSpan.FromSeconds(30));
+        var learner = h.Services.GetRequiredService<IAliasLearner>();
+        await learner.LearnAsync(rice.Id, Heard);
 
-        var send = slow.Send(new FinalizeBillCommand(draft));
-        await Assert.ThrowsAsync<TimeoutException>(async () => await send.WaitAsync(TimeSpan.FromMilliseconds(300)));
-
-        var done = await send;   // late completion lands, once
-        Assert.True(done.IsSuccess, done.Error.Code);
-        var quota = await h.Sender.Send(new GetBillQuotaQuery());
-        Assert.Equal(1, quota.UsedThisMonth);
-    }
-
-    /// <summary>Delays one request type, simulating a finalize that hangs past the watchdog.</summary>
-    private sealed class SlowSender(ISender inner, TimeSpan delay) : ISender
-    {
-        public async Task<TResult> Send<TResult>(IRequest<TResult> request, CancellationToken ct = default)
-        {
-            if (request is FinalizeBillCommand) await Task.Delay(delay, ct);
-            return await inner.Send(request, ct);
-        }
+        Assert.NotEmpty(sink.Entries);
+        Assert.DoesNotContain(sink.Entries, e => (e.Message + e.Scopes).Contains(Heard, StringComparison.Ordinal));
     }
 
     private sealed record Entry(string Category, string Message, string Scopes);

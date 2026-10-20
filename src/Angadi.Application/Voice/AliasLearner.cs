@@ -67,7 +67,13 @@ public sealed class AliasLearner(IItemRepository items, IClock clock, IOptions<V
 
         await items.SaveAsync(chosen, ct);
         log.LogInformation("Voice alias learned for item {ItemId}", itemId);
-        log.LogDebug("Learned alias text: {Alias}", alias);
+        // FIX(PRIVACY-1, 2026-10-20, FIX-1): Flaw: the next line used to write the learned alias
+        // TEXT itself to the debug log ("Learned alias text: {Alias}"). Learned words are the
+        // shopkeeper's own speech; logs are exported to support zips, so the heard words left the
+        // device — breaking the NFR-08 promise that utterance text is never logged.
+        // Fix: the line is deleted. Counts and item ids only, never alias text.
+        // Why: a privacy promise the code breaks at debug level is a broken promise.
+        // Logged in docs/AGENT_FIX_LOG.md.
     }
 
     private static HashSet<string> CuratedKeys(Item i) =>
