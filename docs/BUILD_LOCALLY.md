@@ -78,6 +78,9 @@ VS 2022 stops .NET 10 builds with `NETSDK1223` ("targeting .NET 10.0 or higher i
 
 Editing code in VS 2022 works (IntelliSense may be partial for .NET 10 APIs). Build and run with the two commands in step 4.
 
+## 4c. What CI already proves on every push
+Every push runs the full flow on an Android emulator: first-run language choice, shop setup, then cash, UPI and udhaar bills, scanning an unknown barcode and attaching it to an item, the reports and inventory ledger, the customer account and the language switch. Screenshots of each step go to the `ci-e2e` branch. If your own run differs from those screenshots, that difference is the bug to report.
+
 ## 5. The errors you saw, and what each one means
 
 | Message | Cause | Fix |

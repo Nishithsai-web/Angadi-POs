@@ -84,7 +84,7 @@ def find(pattern, exact=False, cls=None):
     return None
 
 
-SYSTEM_POPUPS = ("isn't responding", "keeps stopping", "has stopped")
+SYSTEM_POPUPS = ("isn't responding", "isn’t responding", "keeps stopping", "has stopped")
 
 
 APP_FREEZES = []
@@ -360,6 +360,15 @@ def language_switch():
     wait_for("Cash", exact=True, timeout=60)
 
 
+def app_never_froze():
+    anr = adb("shell", "dumpsys", "activity", "anr", check=False) + adb("logcat", "-d", "-s", "ActivityManager:E", check=False)
+    hits = [l for l in anr.splitlines() if "ANR in " + PKG in l]
+    for line in hits[:10]:
+        print(f"::error::{line[:500]}")
+    if hits:
+        raise AssertionError("Angadi was not responding (ANR) during the run")
+
+
 def app_log_has_no_errors():
     errors_tagged = [l for l in adb("logcat", "-d", "-s", "Angadi:E", check=False).splitlines() if " E Angadi" in l or "E/Angadi" in l]
     for line in errors_tagged[:20]:
@@ -388,6 +397,10 @@ def main():
         if adb("shell", "getprop", "sys.boot_completed", check=False).strip() == "1":
             break
         time.sleep(2)
+    # The test emulator's own launcher often ANRs right after boot and its dialog covers the app. Hide system
+    # error dialogs (Angadi's own freezes are still caught: the process check, logcat errors, our ANR watch).
+    adb("shell", "settings", "put", "global", "hide_error_dialogs", "1", check=False)
+    adb("shell", "am", "force-stop", "com.google.android.apps.nexuslauncher", check=False)
     time.sleep(20)
     dismiss_system_popups()
     adb("uninstall", PKG, check=False)
@@ -410,6 +423,7 @@ def main():
         ("customer-account", customer_account),
         ("language-switch", language_switch),
         ("app-log-clean", app_log_has_no_errors),
+        ("no-app-freezes", app_never_froze),
     ]:
         step(name, fn)
 

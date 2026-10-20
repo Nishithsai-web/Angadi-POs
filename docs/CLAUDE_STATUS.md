@@ -15,6 +15,20 @@ Raw Actions logs live on a host the sandbox can't reach, so CI posts its errors 
 - `tools/ci_report.py` collects every build error.
 - `tools/ci_tests.py` collects every failed test, plus the log tail when the test host crashes.
 
+## 2026-10-20 — owner-reported failures and production readiness
+
+| Item | Status | Evidence |
+|---|---|---|
+| Counter froze after first payment (cash/UPI/udhaar/scan "nothing works") | ✅ | Root cause: Play subscription call inside the bill transaction. Cache-only status + background refresh + timeouts + bounded DB lock + finalize watchdog. |
+| Never-fail UI | ✅ | 37 handlers through SafeUi; POS commands via SafeAsync; empty-bill message; navigation result leak fixed. |
+| Bill lines invisible on phones | ✅ | Found by the emulator test; phone layout fixed; screenshot 07 shows lines. |
+| Barcodes | ✅ | EAN/UPC normalization + check digits, two-frame confirm, torch, attach unknown code to an item, scan-to-find. Tests. |
+| Udhaar reminders | ✅ | To the registered number; lists each unpaid udhaar; bill-to-customer WhatsApp; due banner. Tests. |
+| Shop's own UPI QR | ✅ | Scan or upload; payments use the owner's payee + merchant code with the bill amount. Tests. |
+| **Emulator end-to-end test** | ✅ | CI job `e2e`: 12 real-app steps green; screenshots on branch `ci-e2e`. |
+| Release pipeline | ✅ | `release.yml` (signed AAB from secrets), `docs/RELEASE.md`, schema v3 with `.pre-update` copy, Release trimming roots, logcat error tag. |
+| Owner actions | ⏳ | Keystore + 4 secrets; Play Console setup; privacy-policy fields; support number; closed test; production go-ahead. |
+
 ## Fix status
 
 | ID | Status | Notes |
