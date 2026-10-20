@@ -217,7 +217,10 @@ public sealed partial class TeluguParser(VoiceRules rules) : ITeluguParser
         // "2" + ",500" — quantity 2 and a polluted name. Fix: a digit/comma group is one number with
         // the grouping commas stripped. Why: Indian-locale speech recognisers emit comma-grouped
         // digits ("2,500 రూపాయలు" is ₹2,500, not 2). Logged in docs/AGENT_FIX_LOG.md.
-        if (token.Contains(',') && GroupedDigits().IsMatch(token)) return [token.Replace(",", "")];
+        // Build fix (2026-10-20, FIX-1): CA1307 — the comparison-less Contains/Replace overloads are
+        // ERRORS under this repo's warnings-as-errors analyzers (break found by Muse main's local
+        // build of e657514); StringComparison.Ordinal overloads are the analyzer-clean forms.
+        if (token.Contains(",", StringComparison.Ordinal) && GroupedDigits().IsMatch(token)) return [token.Replace(",", "", StringComparison.Ordinal)];
 
         var m = DigitsThenWord().Match(token);
         if (m.Success) return [m.Groups[1].Value, m.Groups[2].Value];
