@@ -194,6 +194,13 @@ public sealed partial class TeluguParser(VoiceRules rules) : ITeluguParser
     /// <summary>Splits fused tokens: "2కేజీలు" → "2","కేజీలు"; "రెండుకేజీలు" → "రెండు","కేజీలు".</summary>
     internal IEnumerable<string> Explode(string token)
     {
+        // FIX(VOICE-1, 2026-10-20, FIX-1): Flaw: DigitsThenWord split "1/2" into "1" + "/2" before
+        // TryNumber could see it, so the fraction branch below was dead code — "1/2 కేజీ" billed 1 kg
+        // and "/2" fell into the item name. Fix: a digits/digits token stays whole.
+        // Why: "half a kilo" is a top counter phrase; billing double on it is a money error.
+        // Logged in docs/AGENT_FIX_LOG.md.
+        if (Fraction().IsMatch(token)) return [token];
+
         var m = DigitsThenWord().Match(token);
         if (m.Success) return [m.Groups[1].Value, m.Groups[2].Value];
 

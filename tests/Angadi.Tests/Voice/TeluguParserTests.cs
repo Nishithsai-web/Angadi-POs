@@ -57,6 +57,19 @@ public class TeluguParserTests
         Assert.Equal(new[] { "బియ్యం", "చక్కెర" }, lines.Select(l => l.Name));
     }
 
+    [Theory]
+    [InlineData("1/2 కేజీ బియ్యం", "బియ్యం", 500L)]
+    [InlineData("3/4 కేజీ చక్కెర", "చక్కెర", 750L)]
+    public void T2_Fraction_SlashQuantity_Parses(string phrase, string name, long qtyMilli)
+    {
+        // VOICE-1 regression: Explode used to split "1/2" into "1" + "/2", billing 1 kg and
+        // polluting the item name, so TryNumber's fraction branch could never fire.
+        var line = Assert.Single(_parser.Parse(phrase));
+        Assert.Equal(name, line.Name);
+        Assert.Equal(qtyMilli, line.Qty?.Milli);
+        Assert.Equal(Unit.Kilogram, line.Unit);
+    }
+
     [Fact]
     public void V1_Thousand_IsANumber_NotAFiller()
     {
