@@ -28,6 +28,7 @@ public sealed partial class PosViewModel : ViewModelBase
     private readonly IAliasLearner _aliases;
     private readonly IBarcodeScanner _scanner;
     private readonly VoiceOptions _voiceOptions;
+    private readonly ILogger<PosViewModel> _log;
     private BillDraft _draft;
     private bool _draftChecked;
     private readonly SemaphoreSlim _draftSave = new(1, 1);
@@ -35,7 +36,8 @@ public sealed partial class PosViewModel : ViewModelBase
     private CancellationTokenSource? _searchCts;
 
     public PosViewModel(ISender sender, ILocalizer text, INavigationService nav, IDialogService dialogs,
-        ISpeechToText speech, IVoiceBillingPipeline voice, IAliasLearner aliases, IBarcodeScanner scanner, IOptions<VoiceOptions> voiceOptions)
+        ISpeechToText speech, IVoiceBillingPipeline voice, IAliasLearner aliases, IBarcodeScanner scanner, IOptions<VoiceOptions> voiceOptions,
+        ILogger<PosViewModel> log)
         : base(sender, text, nav, dialogs)
     {
         _speech = speech;
@@ -43,6 +45,7 @@ public sealed partial class PosViewModel : ViewModelBase
         _aliases = aliases;
         _scanner = scanner;
         _voiceOptions = voiceOptions.Value;
+        _log = log;
         UseDraft(new BillDraft(shopHasGstin: false));
     }
 
@@ -412,10 +415,30 @@ public sealed partial class PosViewModel : ViewModelBase
         await RunBusyAsync(async () =>
         {
             // Watchdog: if anything ever stalls, the counter gets a message instead of a dead screen.
+            var bill = _draft.Bill;
+            var send = Sender.Send(new FinalizeBillCommand(bill));
             Result<FinalizedBill> result;
-            try { result = await Sender.Send(new FinalizeBillCommand(_draft.Bill)).WaitAsync(FinalizeTimeout); }
+            try { result = await send.WaitAsync(FinalizeTimeout); }
             catch (TimeoutException)
             {
+                // FIX(LOG-1, 2026-10-20, FIX-3): Flaw: the watchdog showed the BILL_SAVE_SLOW toast but logged
+                // NOTHING — the VM had no ILogger and the pipeline logs only on completion, so a true hang (the
+                // counter-freeze scenario this watchdog exists for) left zero evidence in the exported logs.
+                // Fix: report + log Error with the bill id and correlation id, and watch the still-running save:
+                // its late completion is logged at Information, a late fault is reported too. Why: a hang that
+                // leaves no trace can never be diagnosed from a shopkeeper's log export. Logged in
+                // docs/AGENT_FIX_LOG.md.
+                var correlation = GlobalExceptions.Report(
+                    new TimeoutException($"Finalize exceeded {FinalizeTimeout.TotalSeconds:0} s"), "finalize-watchdog");
+                _log.LogError("Finalize watchdog fired for bill {BillId} (correlation {CorrelationId}); the save continues in the background",
+                    bill.Id, correlation);
+                _ = send.ContinueWith(t =>
+                {
+                    if (t.IsCompletedSuccessfully)
+                        _log.LogInformation("Finalize for bill {BillId} completed after the watchdog fired (correlation {CorrelationId})", bill.Id, correlation);
+                    else if (t.IsFaulted)
+                        GlobalExceptions.Report(t.Exception!.GetBaseException(), "finalize-late");
+                }, TaskScheduler.Default);
                 // Still saving in the background. Paying again is safe: finalize returns the same bill if it saved.
                 await Dialogs.ToastAsync(Text.Error(new Error(ErrorCodes.BillSaveSlow)));
                 return;

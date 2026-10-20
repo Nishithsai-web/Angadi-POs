@@ -42,4 +42,20 @@ public class UiSafetyTests
         }
         Assert.True(offenders.Count == 0, "OnAppearing outside the SafeUi safety net: " + string.Join(", ", offenders));
     }
+
+    /// <summary>
+    /// LOG-1: the 45 s finalize watchdog must leave evidence. The VM cannot be instantiated in this test
+    /// project (no MAUI head), so the wiring is asserted at source level here and the watchdog's claim —
+    /// a timed-out finalize still completes exactly once in the background — is asserted behaviourally
+    /// in LoggingTests.LOG1_WatchdogTimeout_TheSaveStillCompletesExactlyOnce.
+    /// </summary>
+    [Fact]
+    public void FinalizeWatchdog_LeavesLogEvidence()
+    {
+        var vm = MauiFile(Path.Combine("Areas", "PosViewModel.cs"));
+        Assert.Contains("ILogger<PosViewModel>", vm, StringComparison.Ordinal);
+        Assert.Contains("\"finalize-watchdog\"", vm, StringComparison.Ordinal);
+        Assert.Contains("LogError", vm, StringComparison.Ordinal);
+        Assert.Contains("LogInformation", vm, StringComparison.Ordinal);   // late completion is logged too
+    }
 }
