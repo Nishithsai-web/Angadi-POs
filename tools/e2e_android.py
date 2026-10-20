@@ -397,7 +397,8 @@ def bill_survives_app_kill():
 
 
 def debuggable():
-    return "not debuggable" not in run_as("id") and "unknown package" not in run_as("id")
+    # run-as prints its refusal on stderr (adb() returns stdout only), so look for the positive answer instead.
+    return "uid=" in run_as("id")
 
 
 def damaged_data_recovers():
