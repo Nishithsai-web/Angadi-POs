@@ -41,7 +41,8 @@ public sealed record AdjustStockCommand(Guid ItemId, Qty Delta, StockMoveReason 
 
 /// <summary>FR-34. Called before finalize and to show the free-bills meter.</summary>
 public sealed record GetBillQuotaQuery : IQuery<BillQuota>;
-public sealed record BillQuota(bool IsPro, int UsedThisMonth, int FreeLimit)
+/// <param name="NeedsReconfirm">A2-11: Pro from the cache, but not confirmed with Play for over 7 days (offline).</param>
+public sealed record BillQuota(bool IsPro, int UsedThisMonth, int FreeLimit, bool NeedsReconfirm = false)
 {
     public bool CanFinalize => IsPro || UsedThisMonth < FreeLimit;
 }

@@ -337,7 +337,7 @@ internal sealed class GetBillQuotaHandler(IQuotaStore quota, ISubscriptionServic
         var now = clock.Now;
         var status = await SubscriptionGuard.StatusAsync(subscription, ct);
         var used = await quota.UsedThisMonthAsync(now, ct);
-        return new BillQuota(status.IsPro, used, options.Value.FreeBillsPerMonth);
+        return new BillQuota(status.IsPro, used, options.Value.FreeBillsPerMonth, status.NeedsReconfirm);
     }
 }
 
