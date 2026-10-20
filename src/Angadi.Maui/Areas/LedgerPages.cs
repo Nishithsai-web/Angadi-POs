@@ -122,7 +122,12 @@ public sealed class BillDetailPage : ContentPage, IQueryAttributable
         _body.Add(Line(_text["bill.subtotal"], IndianFormat.Rupees(bill.SubTotal)));
         _body.Add(Line(_text["bill.discount"], IndianFormat.Rupees(BillCalculator.TotalDiscount(bill))));
         foreach (var s in bill.TaxSplits)
-            _body.Add(Line($"GST {(int)s.Slab / 100}% ({_text["receipt.taxable"]} {IndianFormat.Rupees(s.Taxable)})", IndianFormat.Rupees(s.Tax)));
+        {
+            _body.Add(Line($"{_text["bill.tax"]} {Rate((int)s.Slab)} ({_text["receipt.taxable"]} {IndianFormat.Rupees(s.Taxable)})", IndianFormat.Rupees(s.Tax)));
+            if (s.Tax.Value == 0) continue;
+            _body.Add(Line($"   {_text["receipt.cgst"]} {Rate(s.HalfRateBasisPoints)}", IndianFormat.Rupees(s.Cgst)));   // A2-02
+            _body.Add(Line($"   {_text["receipt.sgst"]} {Rate(s.HalfRateBasisPoints)}", IndianFormat.Rupees(s.Sgst)));
+        }
         if (bill.RoundingAdjustment.Value != 0) _body.Add(Line(_text["bill.rounding"], IndianFormat.Rupees(bill.RoundingAdjustment)));
         var total = Ui.Amount(IndianFormat.Rupees(bill.GrandTotal));
         _body.Add(total);
@@ -143,6 +148,10 @@ public sealed class BillDetailPage : ContentPage, IQueryAttributable
         }
     }
 
+    /// <summary>500 → "5%", 250 → "2.5%".</summary>
+    internal static string Rate(int basisPoints) =>
+        (basisPoints / 100m).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + "%";
+
     private static Grid Line(string label, string value)
     {
         var g = new Grid { ColumnDefinitions = { new(GridLength.Star), new(GridLength.Auto) } };
@@ -156,6 +165,12 @@ public sealed class BillDetailPage : ContentPage, IQueryAttributable
         var reason = await _dialogs.PromptAsync(_text["bill.void"], _text["bill.void.reason"], _text["common.ok"], _text["common.cancel"]);
         if (string.IsNullOrWhiteSpace(reason)) return;
         var r = await _sender.Send(new VoidBillCommand(_billId, reason));
+        // A2-14: a bill from an earlier month changes that month's (maybe filed) GST summary: ask, then confirm.
+        if (r.IsFailure && r.Error.Code == ErrorCodes.BillVoidPastMonth)
+        {
+            if (!await _dialogs.ConfirmAsync(_text["bill.void"], _text["bill.void.pastmonth"], _text["common.ok"], _text["common.cancel"])) return;
+            r = await _sender.Send(new VoidBillCommand(_billId, reason, ConfirmPastMonth: true));
+        }
         if (r.IsFailure) { await _dialogs.ToastAsync(_text.Error(r.Error)); return; }
         await LoadAsync();
     }
@@ -223,7 +238,15 @@ public sealed class ReportsPage : ContentPage
         _body.Add(Card(_text["inventory.moves"], moves.Take(15).Select(m => (
             $"{m.Name} · {_text["stock.move." + m.Reason]}",
             (m.Delta.Milli > 0 ? "+" : "") + IndianFormat.Quantity(m.Delta) + " " + _text.UnitLabel(m.Unit))).ToArray()));
-        _body.Add(Card(_text["reports.gst"], gst.Select(s => ($"GST {(int)s.Slab / 100}% · {_text["receipt.taxable"]} {IndianFormat.Rupees(s.Taxable)}", IndianFormat.Rupees(s.Tax))).ToArray()));
+        // A2-02: each slab with its CGST and SGST halves (intra-state), as the shop files them.
+        _body.Add(Card(_text["reports.gst"], gst.SelectMany(s => s.Tax.Value == 0
+            ? new[] { ($"{_text["bill.tax"]} {BillDetailPage.Rate((int)s.Slab)} · {_text["receipt.taxable"]} {IndianFormat.Rupees(s.Taxable)}", IndianFormat.Rupees(s.Tax)) }
+            : new[]
+            {
+                ($"{_text["bill.tax"]} {BillDetailPage.Rate((int)s.Slab)} · {_text["receipt.taxable"]} {IndianFormat.Rupees(s.Taxable)}", IndianFormat.Rupees(s.Tax)),
+                ($"   {_text["receipt.cgst"]} {BillDetailPage.Rate(s.HalfRateBasisPoints)}", IndianFormat.Rupees(s.Cgst)),
+                ($"   {_text["receipt.sgst"]} {BillDetailPage.Rate(s.HalfRateBasisPoints)}", IndianFormat.Rupees(s.Sgst)),
+            }).ToArray()));
         _body.Add(Card(_text["reports.top"], top.Select(t => ($"{t.DisplayName} · {IndianFormat.Quantity(t.QtySold)} {_text.UnitLabel(t.Unit)}", IndianFormat.Rupees(t.Value))).ToArray()));
         _body.Add(Card(_text["insights.title"],
             (_text.Format("insights.morning", IndianFormat.Rupees(morning.YesterdaySales), IndianFormat.Rupees(morning.SevenDayAverage)), ""),

@@ -284,7 +284,7 @@ public sealed class InventoryLedgerTests : IDisposable
         Assert.True((await _h.Sender.Send(new GetInventoryReportQuery())).LedgerMatches);
     }
 
-    [Fact(Skip = "BUG T2-04: a new Item whose Stock is already set is inserted with that stock and no StockMove; the ledger check then fails")]
+    [Fact]
     public async Task NewItem_WithStockPreset_NeverBypassesTheLedger()
     {
         // e.g. a page that copies an existing item ("duplicate this item") or re-saves a restored object as new.

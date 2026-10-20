@@ -3,7 +3,7 @@
   "pos.optional": "optional — leave empty for exact cash",
   "pos.upi.paid": "Payment received ✓",
   "receipt.title": "Bill done",
-  "setup.gstin.note": "Without a GSTIN, bills print as a 'Bill of Supply' (no tax split)",
+  "setup.gstin.note": "Without a GSTIN, or under the composition scheme, bills print as a 'Bill of Supply' (no tax split)",
   "setup.prefix": "Bill number prefix",
   "sub.monthly.price": "₹{0} / month",
   "sub.yearly.price": "₹{0} / year (2 months free)",

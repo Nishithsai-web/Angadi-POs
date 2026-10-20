@@ -49,7 +49,11 @@ internal sealed class BackupService(AngadiDb db, IClock clock, string exportDire
             var safety = await ExportAsync(ct);
             if (safety.IsFailure) return Result.Failure(safety.Error);
 
+            // A2-07: what the live data has already used. Bill numbers already handed out (and this month's free
+            // bills already spent) must stay spent after an older backup comes back.
+            var live = await db.RunAsync(ReadCounters, ct);
             await db.ReplaceWithAsync(staged, ct);
+            await db.RunAsync(c => CarryForward(c, live), ct);
             log.LogInformation("Restore completed; previous data kept at {Path}", Path.GetFileName(safety.Value));
             return Result.Success();
         }
@@ -62,6 +66,50 @@ internal sealed class BackupService(AngadiDb db, IClock clock, string exportDire
         {
             if (File.Exists(staged)) File.Delete(staged);
         }
+    }
+
+    internal sealed record Counters(long NextBillSequence, IReadOnlyDictionary<string, string> Quota);
+
+    /// <summary>The bill sequence and every "quota.*" counter (per-month counts and last-seen time).</summary>
+    internal static Counters ReadCounters(SQLiteConnection c)
+    {
+        var seq = c.ExecuteScalar<long>("SELECT COALESCE(MAX(NextBillSequence), 0) FROM ShopProfile");
+        var quota = c.Query<MetaRow>("SELECT * FROM Meta WHERE Key LIKE 'quota.%'").ToDictionary(r => r.Key, r => r.Value, StringComparer.Ordinal);
+        return new Counters(seq, quota);
+    }
+
+    /// <summary>
+    /// A2-07 / A2-13: after a restore, the bill sequence is max(live, backup), so no bill number is ever issued twice,
+    /// and each quota counter is max(live, backup), so restoring an early-month backup can't refill the free bills.
+    /// </summary>
+    internal static void CarryForward(SQLiteConnection c, Counters live)
+    {
+        c.RunInTransaction(() =>
+        {
+            c.Execute("UPDATE ShopProfile SET NextBillSequence = ? WHERE NextBillSequence < ?", live.NextBillSequence, live.NextBillSequence);
+            foreach (var (key, value) in live.Quota)
+            {
+                if (!long.TryParse(value, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var liveValue)) continue;
+                var restored = c.Find<MetaRow>(key);
+                long restoredValue;
+                if (restored is not null && long.TryParse(restored.Value, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var r))
+                    restoredValue = r;
+                else
+                    restoredValue = SeededCount(c, key);
+                if (liveValue > restoredValue) c.InsertOrReplace(new MetaRow { Key = key, Value = value });
+            }
+        });
+    }
+
+    /// <summary>What QuotaStore would seed a missing "quota.count.YYYYMM" from (that month's bills); 0 for other keys.</summary>
+    private static long SeededCount(SQLiteConnection c, string key)
+    {
+        const string prefix = "quota.count.";
+        if (!key.StartsWith(prefix, StringComparison.Ordinal)
+            || !int.TryParse(key[prefix.Length..], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var ym)) return 0;
+        var y = ym / 100;
+        var m = ym % 100;
+        return c.ExecuteScalar<int>("SELECT COUNT(*) FROM Bill WHERE Day >= ? AND Day <= ? AND Status <> 0", y * 10000 + m * 100 + 1, y * 10000 + m * 100 + 31);
     }
 
     /// <summary>

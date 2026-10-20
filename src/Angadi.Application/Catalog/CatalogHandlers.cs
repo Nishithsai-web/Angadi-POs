@@ -53,6 +53,11 @@ internal sealed partial class SaveShopProfileValidator : IValidator<SaveShopProf
     [GeneratedRegex(@"^[A-Za-z0-9.\-_]{2,256}@[A-Za-z]{2,64}$")]
     private static partial Regex Vpa();
 
+    // A2-16 (CGST Rule 46(b)): the invoice number is ≤ 16 characters of letters, digits, '/' and '-'.
+    // Prefix (≤ 8) + '-' + 6-digit sequence = at most 15.
+    [GeneratedRegex("^[A-Za-z0-9/-]{1,8}$")]
+    private static partial Regex BillPrefix();
+
     public Error? Validate(SaveShopProfileCommand c)
     {
         var p = c.Profile;
@@ -62,6 +67,7 @@ internal sealed partial class SaveShopProfileValidator : IValidator<SaveShopProf
         if (p.UpiQrImage is { Length: > UpiQr.MaxImageBytes }) return new Error(ErrorCodes.UpiQrImageTooLarge);
         if (!string.IsNullOrWhiteSpace(p.Gstin) && !Gstin().IsMatch(p.Gstin.Trim().ToUpperInvariant()))
             return new Error(ErrorCodes.GstinInvalid);
+        if (string.IsNullOrWhiteSpace(p.BillPrefix) || !BillPrefix().IsMatch(p.BillPrefix.Trim())) return new Error(ErrorCodes.BillPrefixInvalid);
         return null;
     }
 }

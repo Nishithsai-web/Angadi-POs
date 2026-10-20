@@ -57,7 +57,15 @@ internal sealed class ItemRepository(AngadiDb db, IClock clock) : IItemRepositor
         return db.RunAsync(c =>
         {
             var existing = c.Find<ItemRow>(row.Id);
-            if (existing is null) { c.Insert(row); return; }
+            if (existing is null)
+            {
+                // T2-04: a new item starts at zero; opening stock is a StockMove (SaveItemCommand.OpeningStock).
+                // A preset Stock (a copied or re-saved object) would otherwise bypass the ledger.
+                row.StockMilli = 0;
+                c.Insert(row);
+                item.Stock = Qty.Zero;
+                return;
+            }
             row.StockMilli = existing.StockMilli;
             c.Update(row);
             item.Stock = new Qty(existing.StockMilli);
@@ -117,6 +125,13 @@ internal sealed class BillRepository(AngadiDb db, IClock clock) : IBillRepositor
             }
         }
         return rows.Select(r => ToDomain(r, lines.TryGetValue(r.Id, out var l) ? l : [])).ToList();
+    }
+
+    public Task<int> CountVoidedAsync(DateTimeOffset from, DateTimeOffset to, CancellationToken ct = default)
+    {
+        var a = Ms(from);
+        var b = Ms(to);
+        return db.RunAsync(c => c.ExecuteScalar<int>("SELECT COUNT(*) FROM Bill WHERE Status = 2 AND VoidedAtMs >= ? AND VoidedAtMs < ?", a, b), ct);
     }
 
     public Task<int> CountFinalizedInMonthAsync(int year, int month, CancellationToken ct = default)

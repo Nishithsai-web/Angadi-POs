@@ -139,7 +139,7 @@ public sealed class ReportsTruthTests : IDisposable
         Assert.Equal(Paise.Zero, r.SalesTotal);
     }
 
-    [Fact(Skip = "BUG T2-01: voiding yesterday's bill rewrites yesterday's closed day-end totals, and today's report shows no void or refund")]
+    [Fact]
     public async Task DayEnd_VoidOnALaterDay_DoesNotRewriteTheClosedDay_AndShowsOnTheVoidDay()
     {
         await _h.SeedShopAsync();
