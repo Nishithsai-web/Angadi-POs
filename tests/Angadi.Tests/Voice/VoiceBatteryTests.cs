@@ -118,6 +118,22 @@ public class VoiceBatteryTests
         Assert.True(result.Candidates.Count >= 2);
     }
 
+    [Fact]
+    public void T2_GenericAlias_SingleOilCatalog_StillAsks()
+    {
+        // VOICE-6 regression: with ONE oil in the shop whose curated alias is exactly the generic
+        // word "నూనె", the alias used to score 1.0 and auto-add — in the full catalog only the
+        // multi-item tie made generic words ask. The generic-alias cap must hold at any size.
+        var singleOil = new[]
+        {
+            new Item { TeluguName = "పల్లి నూనె", EnglishName = "Groundnut oil", Aliases = ["నూనె"], Unit = Unit.Litre },
+        };
+        var line = Assert.Single(_parser.Parse("నూనె ఒక లీటరు"));
+        var result = ItemMatcher.Match(line, singleOil, Options);
+        Assert.Equal(MatchKind.Confirm, result.Kind);
+        Assert.Equal(singleOil[0].Id, result.Best?.ItemId);
+    }
+
     [Theory]
     [InlineData("రైస్ రెండు కేజీలు", "Rice (Sona Masoori)")]
     [InlineData("షుగర్ ఒక కేజీ", "Sugar")]

@@ -24,6 +24,13 @@ public sealed class VoiceRules
     public required IReadOnlyList<string> Separators { get; init; }
     public required IReadOnlySet<string> Fillers { get; init; }
     public required IReadOnlySet<string> Currency { get; init; }
+    /// <summary>
+    /// FIX(VOICE-6, 2026-10-20, FIX-1): generic category words (నూనె, పప్పు, …) as MatchKeys, from
+    /// grammar.te.json "genericAliases". An item named/aliased with exactly one of these is capped
+    /// at ask-only by the matcher — a category word must never silently pick a product.
+    /// Logged in docs/AGENT_FIX_LOG.md.
+    /// </summary>
+    public IReadOnlySet<string> GenericAliases { get; init; } = new HashSet<string>();
 
     private static readonly Lazy<VoiceRules> Embedded = new(LoadEmbedded);
 
@@ -71,6 +78,16 @@ public sealed class VoiceRules
         else
             foreach (var w in hundredMultipliers) scaleMultipliers[w] = 100;   // older rules files: వంద treatment only
 
+        // FIX(VOICE-6, 2026-10-20, FIX-1): generic category words, stored as MatchKeys so the
+        // matcher compares like with like. Absent section = no generic words (older rules files).
+        var genericAliases = new HashSet<string>(StringComparer.Ordinal);
+        if (grammar.TryGetProperty("genericAliases", out var genericJson))
+            foreach (var x in genericJson.EnumerateArray())
+            {
+                var key = TeluguText.MatchKey(x.GetString());
+                if (key.Length > 0) genericAliases.Add(key);
+            }
+
         return new VoiceRules
         {
             Numbers = numberMap,
@@ -85,6 +102,7 @@ public sealed class VoiceRules
                 .OrderByDescending(x => x.Length).ToList(),
             Fillers = Set(grammar.GetProperty("fillers")),
             Currency = Set(grammar.GetProperty("currency")),
+            GenericAliases = genericAliases,
         };
     }
 }

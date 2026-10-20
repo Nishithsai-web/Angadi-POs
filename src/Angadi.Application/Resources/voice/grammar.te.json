@@ -45,6 +45,14 @@
     "ఇవ్వండమ్మా"
   ],
   "_fillerComment": "Do NOT add number words here: ఒక is one, వెయ్యి is a thousand (V1: 'వెయ్యి రూపాయల బియ్యం' lost its amount when it was a filler).",
+  "_genericComment": "Category words, not products: an item whose own name/alias IS one of these words can never be auto-added by voice — the matcher caps it at ask-only (VOICE-6, FIX-1 2026-10-20). 'నూనె' alone must always ask which oil.",
+  "genericAliases": [
+    "నూనె",
+    "పప్పు",
+    "సబ్బు",
+    "పిండి",
+    "పొడి"
+  ],
   "currency": [
     "రూపాయలు",
     "రూపాయల",
