@@ -153,6 +153,18 @@ public class QuotaAndRestoreTests
         Assert.Equal(7, (await h.Sender.Send(new GetBillQuotaQuery())).UsedThisMonth);
     }
 
+    [Fact]
+    public async Task DATA1_TwoExportsInTheSameSecond_ProduceTwoFiles()
+    {
+        using var t = new TempDb();
+        var backup = new BackupService(t.Db, t.Clock, Path.Combine(t.Folder, "exports"), TempDb.Log<BackupService>());
+        var first = (await backup.ExportAsync()).Value;
+        var second = (await backup.ExportAsync()).Value;   // same FakeClock instant — minute-precision names collided
+        Assert.NotEqual(first, second);
+        Assert.True(File.Exists(first));
+        Assert.True(File.Exists(second));
+    }
+
     private static void Tamper(string backupPath, string sql)
     {
         using var c = new SQLiteConnection(backupPath);

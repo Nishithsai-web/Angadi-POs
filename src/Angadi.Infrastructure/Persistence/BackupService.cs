@@ -13,14 +13,22 @@ namespace Angadi.Infrastructure.Persistence;
 /// </summary>
 internal sealed class BackupService(AngadiDb db, IClock clock, string exportDirectory, ILogger<BackupService> log) : IBackupService
 {
-    public async Task<Result<string>> ExportAsync(CancellationToken ct = default)
+    public Task<Result<string>> ExportAsync(CancellationToken ct = default) => ExportCoreAsync(overwrite: true, ct);
+
+    // FIX(DATA-1b, 2026-10-20, FIX-2): Flaw: export names had only minute precision and exports overwrote
+    // freely — two exports inside one minute (a manual one and the restore safety copy) silently replaced
+    // each other, so the "safety" copy could end up being the very file it was meant to protect against.
+    // Fix: names carry seconds plus a GUID suffix, and the restore safety copy is written with
+    // overwrite: false. Why: a backup that the next backup can silently replace is not a safety copy.
+    // Logged in docs/AGENT_FIX_LOG.md.
+    private async Task<Result<string>> ExportCoreAsync(bool overwrite, CancellationToken ct)
     {
         try
         {
             Directory.CreateDirectory(exportDirectory);
-            var path = Path.Combine(exportDirectory, $"angadi-backup-{clock.Now:yyyyMMdd-HHmm}.db");
+            var path = Path.Combine(exportDirectory, $"angadi-backup-{clock.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid().ToString("N")[..8]}.db");
             await db.CheckpointAsync(ct);
-            await db.RunAsync(_ => File.Copy(db.DatabasePath, path, overwrite: true), ct);
+            await db.RunAsync(_ => File.Copy(db.DatabasePath, path, overwrite), ct);
             // Make the copy self-contained: a WAL-mode file can't always be opened read-only on its own.
             using (var copy = new SQLiteConnection(path)) copy.ExecuteScalar<string>("PRAGMA journal_mode=DELETE");
             log.LogInformation("Backup exported ({Bytes} bytes)", new FileInfo(path).Length);
@@ -48,7 +56,8 @@ internal sealed class BackupService(AngadiDb db, IClock clock, string exportDire
             }
 
             // A safety copy the shopkeeper can share, besides the ".pre-restore" file the swap keeps.
-            var safety = await ExportAsync(ct);
+            // DATA-1b: overwrite: false — the safety copy must never replace (or be replaced by) another export.
+            var safety = await ExportCoreAsync(overwrite: false, ct);
             if (safety.IsFailure) return Result.Failure(safety.Error);
 
             // FIX(RESTORE-1, 2026-10-20, FIX-2): Flaw: the swap replaced NextBillSequence and the quota
