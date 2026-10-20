@@ -88,7 +88,8 @@ Every push runs the full flow on an Android emulator: first-run language choice,
 | `obj\Debug\net9.0\...Angadi.Infrastructure.dll could not be found` | Built with VS 2022 / .NET 9 | Steps 1 and 2 |
 | `namespace 'Receipts' does not exist in 'Angadi.Infrastructure'` | Follows from the line above: Infrastructure didn't compile, so nothing referencing it can | Same |
 | `CA1305 long.Parse`, `CA1307 string.Replace`, `Parameter 'customers' is unread`, `splash.svg does not exist` | Old code from before these were fixed (an old `main`) | Step 2: `main` now has the fixes |
-| `Detected package version outside of dependency constraint: Xamarin.AndroidX.Lifecycle...` (NU1608) | A warning from Android support libraries pulled in by MAUI; the newer version is compatible | Nothing to do; it is not an error |
+| `Detected package version outside of dependency constraint: Xamarin.AndroidX...Ktx` (NU1608) | Camera/ML Kit libraries pull older AndroidX "Ktx" wrappers than MAUI 10 uses ([dotnet/maui#32593](https://github.com/dotnet/maui/issues/32593)) | Fixed: the app now references the matching wrapper versions. Pull `main` again |
+| `Package 'SQLitePCLRaw.lib.e_sqlite3.android' 2.1.11 has a known high severity vulnerability` (NU1903) | The SQLite engine bundled in 2.1.11 has CVE-2025-6965 | Fixed: the app pins 2.1.12. Pull `main` again |
 
 Still stuck? Copy the **first** error from the Error List (later errors usually follow from it) and send it over.
 

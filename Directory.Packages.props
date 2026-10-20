@@ -14,6 +14,8 @@
     <!-- Infrastructure -->
     <PackageVersion Include="sqlite-net-pcl" Version="1.9.172" />
     <PackageVersion Include="SQLitePCLRaw.bundle_green" Version="2.1.10" />
+    <!-- CVE-2025-6965: native SQLite in lib.e_sqlite3 <= 2.1.11 is vulnerable; tests run on the desktop native lib. -->
+    <PackageVersion Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.12" />
     <PackageVersion Include="Serilog" Version="4.3.0" />
     <PackageVersion Include="Serilog.Extensions.Logging" Version="9.0.2" />
     <PackageVersion Include="Serilog.Sinks.File" Version="7.0.0" />
