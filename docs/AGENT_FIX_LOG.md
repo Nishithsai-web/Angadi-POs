@@ -229,7 +229,8 @@ Development no longer runs through one implementer. Muse's own dev/fix agents no
 - **Fix:** add the coverage step + a CI-conclusion check for `github.sha` to release.yml; single version source of truth — a committed `version.json` the workflow reads and bumps; align both docs.
 
 ### QUOTA-1 (MEDIUM) — Quota `last_seen` has no sanity bound: one accidental far-future clock jump poisons the quota for the whole jump
-- **Status:** OPEN · **Found by:** Flaw hunter, 2026-10-20
+- **Status:** FIXED-AWAITING-VERIFY · **Fixed by:** FIX-2, 2026-10-20 (48 h bound + repair-on-increment in QuotaStore; tests `QUOTA1_ClockJumpedAYearAhead_ThenCorrected_DoesNotPoisonTheQuota` + `T3_11_QuotaCountRowMissing_SeedsFromBills`; H2 rollback test adjusted to a sub-48 h cross-month rollback. **TRADEOFF for the verifier:** rollbacks longer than 48 h no longer pin by last_seen alone — the seed-from-bills count still protects months with real sales. UNVERIFIED-CI.)
+- **Found by:** Flaw hunter, 2026-10-20
 - **Evidence:** `QuotaStore` uses `Math.Max(nowMs, lastSeen)` uncapped, and Increment persists it. Tested case is a 2-month jump. The realistic accident — clock set +1 year, one bill sold, clock corrected — leaves the shop with **50 free bills total for a year**, then a hard paywall; any backup carries the poison to a new phone.
 - **Fix:** ignore `lastSeen` beyond `now + 48h` for month selection; clamp `quota.last_seen_ms` to now on restore (ties into RESTORE-1); add the +1-year test.
 - **Related (M-3, owner accept/document):** reinstall/clear-data fully resets the 50-free quota (counters live only in the DB). Cheap mitigation: a monotonic lifetime counter in Preferences (survives DB restore, not reinstall). At minimum record the limitation in BILLING_RULES.md as a chosen risk.

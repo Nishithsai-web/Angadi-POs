@@ -1,10 +1,12 @@
 using Angadi.Application.Billing;
+using Angadi.Application.Catalog;
 using Angadi.Application.Common;
 using Angadi.Domain.Billing;
 using Angadi.Domain.Common;
 using Angadi.Domain.Inventory;
 using Angadi.Domain.Items;
 using Angadi.Infrastructure.Persistence;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Angadi.Tests.Application;
 
@@ -26,11 +28,12 @@ public class QuotaAndRestoreTests
     public async Task H2_ClockRolledBack_DoesNotReopenSpentMonth()
     {
         using var h = new AppHost();
-        h.Clock.Now = new DateTimeOffset(2026, 11, 10, 10, 0, 0, Ist);
+        h.Clock.Now = new DateTimeOffset(2026, 11, 1, 0, 30, 0, Ist);
         var item = await ReadyAsync(h);
         for (var i = 0; i < 50; i++) Assert.True((await SellAsync(h, item)).IsSuccess);
 
-        h.Clock.Now = new DateTimeOffset(2026, 10, 15, 10, 0, 0, Ist);   // shopkeeper sets the phone back a month
+        // Back across the month boundary, inside QUOTA-1's 48 h sanity bound: the spent month stays pinned.
+        h.Clock.Now = new DateTimeOffset(2026, 10, 31, 12, 0, 0, Ist);
         Assert.Equal(ErrorCodes.FreeLimitReached, (await SellAsync(h, item)).Error.Code);
         Assert.Equal(50, (await h.Sender.Send(new GetBillQuotaQuery())).UsedThisMonth);
     }
@@ -48,7 +51,39 @@ public class QuotaAndRestoreTests
 
         h.Clock.Now = new DateTimeOffset(2026, 11, 12, 10, 0, 0, Ist);            // back to Nov
         var quota = await h.Sender.Send(new GetBillQuotaQuery());
-        Assert.Equal(1, quota.UsedThisMonth);                                     // effective month stays Jan, not a fresh 0
+        // QUOTA-1: last_seen (Jan) is >48 h ahead of now, so it no longer pins the read; November's own
+        // bucket governs — and it holds November's one real bill, so the count is still 1, not a fresh 0.
+        Assert.Equal(1, quota.UsedThisMonth);
+    }
+
+    [Fact]
+    public async Task QUOTA1_ClockJumpedAYearAhead_ThenCorrected_DoesNotPoisonTheQuota()
+    {
+        using var h = new AppHost();
+        h.Clock.Now = new DateTimeOffset(2026, 11, 10, 10, 0, 0, Ist);
+        var item = await ReadyAsync(h);
+        Assert.True((await SellAsync(h, item)).IsSuccess);                        // real November: 1
+
+        h.Clock.Now = new DateTimeOffset(2027, 11, 10, 10, 0, 0, Ist);            // the accident: +1 year
+        Assert.True((await SellAsync(h, item)).IsSuccess);                        // one bill in the wrong year
+
+        h.Clock.Now = new DateTimeOffset(2026, 11, 12, 10, 0, 0, Ist);            // clock corrected
+        Assert.Equal(1, (await h.Sender.Send(new GetBillQuotaQuery())).UsedThisMonth);   // real November governs
+        Assert.True((await SellAsync(h, item)).IsSuccess);
+        Assert.Equal(2, (await h.Sender.Send(new GetBillQuotaQuery())).UsedThisMonth);
+    }
+
+    [Fact]
+    public async Task T3_11_QuotaCountRowMissing_SeedsFromBills()
+    {
+        using var h = new AppHost();
+        var item = await ReadyAsync(h);
+        for (var i = 0; i < 3; i++) Assert.True((await SellAsync(h, item)).IsSuccess);
+
+        // The counter row vanishes (older build, partial restore, hand-repaired DB): the count must be
+        // rebuilt from the bills themselves, never silently reset to zero.
+        await h.Services.GetRequiredService<AngadiDb>().RunAsync(c => c.Execute("DELETE FROM Meta WHERE Key LIKE 'quota.count.%'"));
+        Assert.Equal(3, (await h.Sender.Send(new GetBillQuotaQuery())).UsedThisMonth);
     }
 
     [Fact]
