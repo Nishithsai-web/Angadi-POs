@@ -25,6 +25,87 @@ Development no longer runs through one implementer. Muse's own dev/fix agents no
 
 `OPEN` → `IN-FIX` → `FIXED-AWAITING-VERIFY` → `VERIFIED` (or back to `OPEN` with reason) · `OWNER-DECISION` (needs Sai) · `WONTFIX` (with rationale, Sai-approved)
 
+## HANDOFF TO CLAUDE CODE — 2026-10-20 19:14 EDT (READ THIS FIRST)
+
+**Owner order (Sai, 2026-10-20 19:14 EDT): ALL Muse fix lanes are STOPPED.** FIX-1 (voice), FIX-2 (money/data), FIX-3 (UI/logging) were shut down mid-flight; FIX-4 and FIX-5 had already completed. No Muse agent will push code to this repo until the owner says otherwise. **Claude Code is the implementer again.** This section tells you exactly what Muse's agents changed, why, and what is left — so you don't have to re-derive it from 60+ commits.
+
+**Final HEAD of the Muse push wave: `e4d7fea`.** Entry statuses below this section predate it; **where an entry below disagrees with this table, THIS TABLE WINS** (it was written last, against the final HEAD).
+
+**Build state, measured by Muse main locally (.NET SDK 10.0.402, warnings-as-errors ON), 2026-10-20 ~19:20 EDT at `e4d7fea`:**
+- `Angadi.Domain`, `Angadi.Application`, `Angadi.Infrastructure` — **all build 0 warnings / 0 errors.**
+- `Angadi.Tests` — **DOES NOT COMPILE** → new entry **TEST-BUILD-1** at the end of this log (one missing `using`, one-line fix, blocks the whole suite). Fix that first, then run the suite: NO test results exist yet at this HEAD, and CI was never observable from Muse's side — everything below is `FIXED-AWAITING-VERIFY` / `UNVERIFIED-CI` unless an entry already says `VERIFIED`.
+
+### What Muse's agents changed, and why (grouped by lane, newest last)
+
+**FIX-1 — Voice** (owns Voice/*, TeluguParser, AndroidSpeechToText)
+- VOICE-1 `90b05d9` — slash fractions parse: "1/2 కేజీ" now bills 500 g, not 1 kg. Why: half-kilo is a core counter phrase; it billed double.
+- VOICE-2 `e657514` (+ build fix `08c455f`) — thousands-comma numbers ("2,500") parse. Why: Indian-locale STT emits comma-grouped digits; they were read as quantity 2.
+- VOICE-3 + VOICE-4 `487bdcd` — వెయ్యి/లక్ష/కోటి are scale multipliers, not ranges/name words. Why: "ఐదు వెయ్యి రూపాయలు" proposed ₹5 instead of ₹5,000.
+- VOICE-5 `243707f` (+ test build fix `112201b`) — descending bare-quantity pairs ask instead of silently summing. Why: "3 2 కేజీ" silently auto-added 5 kg.
+- VOICE-6 `5def3ff` — a generic category word (నూనె) can never auto-add, at any catalog size. Why: single-oil catalogs silently auto-added on a generic word.
+- VOICE-7 `7ef657a` — learned aliases are stamped USED when they decide an AutoAdd. Why: eviction was least-recently-learned, evicting daily-used aliases.
+- VOICE-8 `a5a3cef` + config `e4d7fea` — battery/audit tests assert quantities and cannot pass vacuously; `appsettings` Voice section gains `MaxLearnedAliasesPerItem`. Why: quantity regressions passed the old battery silently.
+- VOICE-9 `dde97c6` + `30462ed` — on-device speech recognizer first, testable fallback chain, and the "manual" fallback actually opens typed search. Why: on GMS-less budget tablets voice was permanently dead and the fallback was a dead-end toast.
+- PRIVACY-1 (code half) `435e518` — learned alias text is never written to logs. Why: the privacy policy promised "never"; a Debug log line broke that promise.
+
+**FIX-2 — Money / data** (owns BillingHandlers, QuotaStore, BackupService, AngadiDb)
+- MONEY-1 `d82ce85` — finalize rejects an undefined GST slab. Why: a cast-in slab was taxed at a nonsense (even negative) rate instead of failing closed.
+- MONEY-2 `ec83490` (+ LOG-3a) — a throwing/hanging subscription service falls back to Free tier with a warning log. Why: one bad service could fail EVERY sale.
+- MONEY-3 `2fd6066` — negative cash received is rejected. Why: it produced a "shortfall" larger than the bill.
+- RESTORE-1 (+F6) `ca82720` — a restore can no longer rewind bill numbers or the free-bill quota (live sequence + quota Meta snapshotted pre-swap, element-wise MAX written back; swapped file reopens under quick_check). Why: duplicate GST invoice numbers + free-tier reset in one tap — a launch blocker.
+- RESTORE-2 `998fe46` — the restore sweep recomputes every bill (totals + tax splits), rejects rewound sequences and orphan stock/dues rows. Why: a doctored-but-consistent backup previously restored clean and poisoned every later GST report.
+- QUOTA-1 `6b91600` — a far-future `last_seen` no longer poisons the quota for a year (48 h bound + repair-on-increment). **Tradeoff to weigh when verifying:** rollbacks longer than 48 h no longer pin by `last_seen` alone; the seed-from-bills count still protects months with real sales.
+- M-3 `dd42ea1` — device-lifetime bill counter in Preferences: an out-of-band DB rewind can no longer reset the free-tier count. Why: owner-accepted reinstall mitigation, conservative (floor only for same-device restores).
+- DATA-1a `fb58163` — unparseable `schema_version` recovers via DamagedDatabaseException instead of crash-looping startup; F6 swapped-file recovery compile error fixed.
+- DATA-1b `e807bb2` — backup exports can no longer overwrite each other (seconds/GUID suffixes). Why: the pre-restore safety copy could BE overwritten by the very export it protected against.
+- DATA-2 `c608368` — `PRAGMA synchronous=FULL`. Why: WAL at NORMAL could lose the last committed bills in a power cut.
+- DATA-3 `34dd136` — a stale item save no longer silently reverts learned voice aliases (SaveAsync preserves LearnedAliasesJson, not just StockMilli). Why: catalog edits were erasing voice learning.
+- SEC-6 (data part) `4afc04b` — backups carry provenance: created-at stamp + device-key HMAC + a metadata API for the pre-restore confirmation. Why: restore previously proved consistency, not genuineness or currency.
+- SEC-1 `adb6c4b` — manual backup exports can be encrypted (AES-256-GCM envelope, owner passphrase). Why: a plaintext export is the whole shop book — every customer phone + dues — in one forwardable file.
+- CA2016 `cc5a0fc` — build break introduced by the SEC-6 commit (cancellation token not forwarded in BackupService), found by Muse main's local build and fixed by forwarding `ct`.
+- SEND-1 (handler half) + L-7 (flag) + TESTS-1 `c464ccc` — both WhatsApp handlers Normalize the phone and fail closed; `FinalizeBillCommand` carries `FreeBillConfirmed`; the ten T1 money test specs landed as tests.
+
+**FIX-3 — UI / logging** (complete)
+- UI-1 `e44f800` — all 8 secondary pages' OnAppearing loads run inside SafeUi.Run (+ grep-level architecture test). Why: unwrapped `async void` loads failed silently, leaving half-loaded pages.
+- UI-2 `eb5288c`, UI-3 `7479322` — EditLine routes through SafeAsync; SearchAsync reports sender failures instead of faulting an unobserved task.
+- LOG-1 `6139e82` — the 45 s finalize watchdog now logs (with bill id + correlation) when it fires. Why: a true counter hang previously left zero evidence in exported logs.
+- LOG-2 `60035fc` — malformed appsettings.json degrades to defaults + one startup warning instead of crashing startup.
+- LOG-3 `f8ea4f8` + `e917a31` — correlation id as a real log scope + bootstrap logger before Build(); log-export catch broadened; recovery skips recorded; localizer placeholder fallback; AppShell catches now toast. (Item (a) landed with MONEY-2; item (f) is in AngadiDb — see "still open" below.)
+- SEC-4 `9f6f6d6` (service) + `14b516c` (UI) — owner PIN: salted PBKDF2-HMAC-SHA256 (100k iters) in Meta only, 5 wrong tries → persisted 60 s lockout; gates void, dues payment, write-off, backup export/restore, UPI-ID/GSTIN edits. Billing ungated; no PIN set → actions proceed + Settings nudge; pharmacy first-run gets a skippable PIN prompt. (Owner-approved design, 2026-10-20 13:45 EDT.)
+- L-7 (UI) `8f78f82` — a ₹0 bill needs an explicit "give it free?" confirmation before finalize; cancelling costs no quota/stock/number.
+- SEC-5 (UI) `4526697` — dues write-off action on the customer account: PIN gate → amount → mandatory reason → report shows write-offs as their own line.
+- SEC-6 (UI) `3e7e591` — restore confirmation shows the backup's bill/item/customer counts + newest bill date before anything is swapped. **Note:** this commit exists on main up to three times (`88851a6`, `f6ab886`, `3e7e591`, identical content — re-pushes after lost responses). Harmless; do not "clean up" history for it.
+
+**FIX-4 — App security** (complete)
+- SEC-3 `06aa205` — audit trail: ItemChanged carries Old/New PricePaise; ShopProfileChanged carries Old/New UpiId+Gstin (additive payloads, old events still deserialize). Why: UPI-swap and price-shrinkage fraud left no record. (In-app history viewer = v1.1.)
+- M-11 `0194c15` — Outbox rows pruned at 90 days at startup. Why: the outbox grew forever.
+- SEC-5 `0711c94` — `DuesEntryKind.WriteOff`: bad debt is forgiven as itself, never as a fake payment; reason mandatory; reports count write-offs separately.
+- DUES-1 `c85a563` — DuesAging reversals are amount-aware: a reversal cancels min(reversal, charge remaining); excess joins the payment pool. Why: one reversal previously cancelled the whole charge regardless of amount.
+- T3-04/T3-05 `83f4761` — outbox same-transaction tests, proven by counting rows.
+- SEND-1 (share half) `b4e0a89` — ReceiptShare normalizes the number or fails closed (choke point both senders pass through).
+
+**FIX-5 — Release / docs** (complete)
+- LOCAL-1 `4199950` (VERIFIED) — warnings are errors by default on every machine, not just CI.
+- RELEASE-2 `548ad96` (VERIFIED) — rollback doc rewritten: Play cannot downgrade; roll forward with a higher versionCode.
+- RELEASE-3 (text) `e28e79c` — full Play listing EN + TE + screenshot checklist in store/README.md. **Screenshots themselves still outstanding (owner/launch gate).**
+- RELEASE-4 (part) `89d48b4` — version.json is the single version source. **WARNING:** release.yml does NOT read it yet (see owner-blocked items) — the two halves must land together before any tag.
+- RELEASE-1 (part) `1e4d492` — PublishTrimmed pinned for Release builds (AOT deliberately off, documented in the csproj comment).
+- PRIVACY-1 (policy half) `6f39bdc` (VERIFIED) — privacy policy rewritten against the code; **placeholders for developer name / support email / support WhatsApp still await the owner (hard Play gate)**.
+- Owner decisions record `ef13991` — all five 2026-10-20 decisions (PIN gate, plaintext DB accepted for v1, API 28 floor, ₹0-bill confirmation, quota-reinstall acceptance) in docs/RELEASE.md.
+- FEATURE-1(f) `4f3197f` — CHANGELOG names the CS0819 fix.
+
+### Still open — for Claude Code, in priority order
+1. **TEST-BUILD-1** (end of this log) — test project does not compile; one-line fix; blocks the entire suite.
+2. **Verify the FIXED-AWAITING-VERIFY backlog** — run the full suite once TEST-BUILD-1 is fixed; treat QUOTA-1's 48 h tradeoff and the SEC-6 duplicate commits as called out above. Flip entries to VERIFIED only with test evidence.
+3. **DATA-1 (MEDIUM)** — the ordered migration framework is still NOT built (only its two LOW companions, DATA-1a/1b, landed). Must land before ANY v1.1 schema change.
+4. **LOG-3(f)** — `BackupBeforeMigration` swallowing non-missing-table SQLiteExceptions: believed addressed by `fb58163`'s AngadiDb work; confirm by reading the current code, then close.
+5. **MINOR-1** — the dues-reminder handler already routes the promised date through `LocalDates.Short` (localized month names; commit `d0d703d` + handler read at HEAD): confirm with the te-IN test and close.
+
+### Owner-side only (NOT Claude Code tasks)
+- **RELEASE-1 ci.yml + RELEASE-4 release.yml halves are PREPARED and YAML-validated** at `~/workspace/angadi-review/fix5/.github/workflows/` (owner's machine copy) but could not be pushed: the GitHub App lacks the **Workflows permission** (403 on `.github/workflows/*`). Owner: grant it, or push those two files with a credentialed git client — **before the first tag** (version.json/release.yml are out of sync until then).
+- Play gates: subscription products `angadi_pro_monthly` / `angadi_pro_yearly`, keystore + CI secrets, `Support:WhatsAppNumber`, privacy-policy placeholders + hosting, store screenshots, 12+ testers × 14 days closed test.
+- **UAT-1** real-device list (entry below) — emulator green is necessary, not sufficient.
+
 ## Entries
 
 ### GOV-1 — Rule change: Muse's agents implement directly
@@ -40,18 +121,16 @@ Development no longer runs through one implementer. Muse's own dev/fix agents no
 - **Why:** A reminder the customer can't smoothly read is a reminder that doesn't get paid.
 
 ### VERIFY-1 — Android Auto Backup now includes `angadi.db` + WAL + shared prefs (scoped rules)
-- **Status:** OPEN (claimed by Claude Code commit `0b25f05`, "Production audit round 1", 2026-10-20 — UNVERIFIED by independent read)
-- **Question to verify in code:** when Android restores DB+WAL together, is the pair consistent (checkpoint state)? Does restore pair/mismatch handling exist, or can a stale WAL replay against a newer DB?
-- **Why:** Backup that restores corrupt books is worse than no backup — the shop trusts it.
+- **Status:** VERIFIED (scoping) + WEAK (pairing) — T3 re-run, direct reads at cd2754b, 2026-10-20
+- **Verified:** manifest `allowBackup=true` + `fullBackupContent`/`dataExtractionRules`; both rule files include exactly `file/angadi.db`, `file/angadi.db-wal`, `sharedpref/.` for cloud backup and device transfer; logs/snapshots excluded, as claimed.
+- **Weak (new item DATA-5 below):** the db+wal pair is copied non-atomically by Android's transport and the app has NO checkpoint hook (no BackupAgent) — a torn pair can restore to an older/mixed state. The app's own snapshots ARE checkpointed but are excluded from Auto Backup. Direction: checkpoint on pause or include snapshots; device test specced as T3-10.
 
 ### VERIFY-2 — Chunked report loads (500) after SQLite parameter-limit fix
-- **Status:** OPEN (claimed by commit `0b25f05` — UNVERIFIED)
-- **Question to verify:** chunk boundaries in `BillRepository.Load` must not drop or duplicate bill lines; load must be all-or-nothing per bill. Check `ScaleTests` (1,200 bills/day) asserts *all lines present + totals equal*, not merely "no exception".
+- **Status:** VERIFIED — T3 re-run, direct reads at cd2754b, 2026-10-20
+- **Evidence:** `BillRepository.Load` chunks bill rows at 500, fetches ALL lines per chunk, groups by bill id — each bill sits in exactly one chunk, so lines can neither drop nor double-count. `ScaleTests.ManyBillsInOneRange_LoadWithAllTheirLines` (1,200 bills crossing both boundaries) asserts count, exactly-2-lines per bill, and Σ totals. Nit (no fix queued): line order inside a bill relies on insertion order — no ORDER BY in Load/GetAsync.
 
 ### VERIFY-3 — Data-layer invariant sweep (T3 lane, re-run pending)
-- **Status:** OPEN
-- **Scope:** AngadiDb (WAL, busy timeout, FKs), UnitOfWork commit-only-on-success, relative stock UPDATEs, stock = Σ ledger, DuesAging FIFO edge cases, staged restore (integrity_check + invariant sweep + atomic swap, tampered backup rejected), schema-version path for future non-additive migrations, quota Meta counters, outbox rows per event, seed idempotency.
-- **Why:** This lane's first run was stopped by a GitHub API rate limit (429) before any file was read — nothing in this scope is verified yet, and unverified must never be reported as passed.
+- **Status:** DONE — T3 re-run completed 2026-10-20 at cd2754b. VERIFIED: WAL on, busy timeout, UoW commit-only-on-success (strong rollback test), relative stock UPDATEs (200-concurrent-adjust test, exact reconciliation), stock = Σ ledger, negative stock legal, dues balance = Σ ledger atomically, staged restore mechanics, quota mechanics within one DB, outbox happy path, seed idempotency + opening stock via ledger, finalize path end-to-end atomicity. CONFIRMED RESTORE-1 and RESTORE-2 as written in this log. WEAK: FK pragma set but Rows.cs declares NO FK constraints anywhere; nested-command commit predicate structural gap (no current flow); restore sweep tamper test covers stock only (RESTORE-2); migration path untested against a genuinely older-shaped DB (spec T3-08, lands with DATA-1). New flaws from the sweep: DATA-2, DATA-3, DUES-1, DATA-5 below.
 
 ### MONEY-1 (MEDIUM) — Finalize validator never checks `GstSlab` is a defined value; a cast-in slab is taxed at a nonsense rate instead of failing closed
 - **Status:** FIXED-AWAITING-VERIFY · **Fixed by:** FIX-2, 2026-10-20 (validator check + regression test `T1_04_Finalize_UndefinedGstSlab_FailsClosed`; commit SHA recorded by the verifier — the push carrying this note. CI not observable from the fix agent: UNVERIFIED-CI.)
@@ -78,7 +157,7 @@ Development no longer runs through one implementer. Muse's own dev/fix agents no
 - **Verified strong (no action):** GST-inclusive math, 40% slab, discount order + largest-remainder apportionment, change-due cash-only, cash-short args, 50/mo quota + H2 clock defence, B2 in-transaction increment, finalize idempotency (strongest tests in the suite), H1 void fail-closed, 2,000-bill invariant fuzz.
 
 ### LOCAL-1 (LOW) — `TreatWarningsAsErrors=false` in local builds; only CI enforces it
-- **Status:** OPEN · **Found by:** Architecture/flow audit, 2026-10-20 (file read at 94a9684f)
+- **Status:** VERIFIED · **Fixed by:** FIX-5 (commit 4199950c), verified by Muse main local read: Directory.Build.props line 11 now `true`. · **Found by:** Architecture/flow audit, 2026-10-20 (file read at 94a9684f)
 - **Evidence:** `Directory.Build.props` sets `TreatWarningsAsErrors=false` with the comment "Flip to true after the first green build". The build has been green since 2026-10-19 (~22:45 EDT). CI overrides with `-p:TreatWarningsAsErrors=true` (ci.yml), so the gate is real in CI but a developer in Visual Studio (the owner's maintenance path) builds without it and can merge warnings locally unnoticed.
 - **Fix:** flip the props default to `true` now that the flip condition (first green build) is met. Why: the enterprise bar (§10) says warnings-as-errors — it should hold on every machine, not only in CI.
 
@@ -178,7 +257,7 @@ Development no longer runs through one implementer. Muse's own dev/fix agents no
 - **Decision for Sai:** (a) accept for v1 single-shop tablets behind the device lock screen — app-private storage is not readable by other apps on a non-rooted device; or (b) SQLCipher build with the key in Android Keystore + a plaintext→encrypted migration, recommended before pharmacy scale or any multi-staff rollout. Record the acceptance consciously; don't carry it silently.
 
 ### SEC-3 (MEDIUM-HIGH) — No audit record when the shop's UPI ID or an item's price changes — the two frauds that actually happen in shops
-- **Status:** OPEN · **Found by:** A2, 2026-10-20
+- **Status:** FIXED-AWAITING-VERIFY · **Fixed by:** FIX-4, commit 06aa205c (ItemChanged carries Old/New PricePaise; ShopProfileChanged carries Old/New UpiId+Gstin; additive payload fields, old payloads still deserialize; AuditTrailTests). Remaining sub-item: an in-app history VIEWER (the audit data now exists in the Outbox; surfacing it is v1.1 UI polish). M-11 (Outbox prune) fixed in the same lane, commit 0194c153: PruneOutboxCommand, 90-day retention, startup sweep + OutboxRetentionTests. · **Found by:** A2, 2026-10-20
 - **Evidence:** `ShopProfileRow` and `ItemRow` carry only Created/Updated stamps; there is no change-history entity in Rows.cs. (a) **UPI swap fraud:** someone changes the shop UPI ID to their own; customer payments silently go to the wrong account and there is NO record of when or to what it changed. (b) **Price-shrinkage:** staff lowers a price, sells to an accomplice, restores it — no record the price ever changed (old bills are safe: lines snapshot price at sale).
 - **Fix:** append an outbox event (or history rows) with old→new value + timestamp on every UPI-ID/GSTIN change and every item price edit; surface profile/price history in-app. Cheap to build on the existing Outbox.
 
@@ -188,7 +267,7 @@ Development no longer runs through one implementer. Muse's own dev/fix agents no
 - **Decision for Sai:** ship an optional owner PIN (or biometric) gating ONLY sensitive actions — void, dues payment, restore, export, price/UPI edits — with counter billing PIN-free for speed. A2 recommends ON by default for pharmacy.
 
 ### SEC-5 (MEDIUM) — No dues write-off: bad debt can only be "forgiven" as a fake payment
-- **Status:** OPEN · **Found by:** A2, 2026-10-20
+- **Status:** FIXED-AWAITING-VERIFY · **Fixed by:** FIX-4, commit 0711c94b (DuesEntryKind.WriteOff=3, schema-additive int; RecordDuesWriteOffCommand — reason mandatory, cannot exceed balance; DuesWrittenOff outbox event; reports count write-offs separately via DuesWrittenOffSoFar; DuesWriteOffTests). UI action (ledger-page button, PIN-gated) → FIX-3 wave-2 item 11. · **Found by:** A2, 2026-10-20
 - **Evidence:** `DuesEntryKind` = Charge/Payment/Reversal only. Forgiving bad debt requires a fake `RecordDuesPayment` (free-text Note is the only distinction) → cash/dues reports overstate real collections, and genuine payment fraud hides in the same bucket.
 - **Fix:** add `DuesEntryKind.WriteOff` + a UI action with a required reason; exclude write-offs from "dues paid" totals; show them as their own report line.
 
@@ -210,22 +289,22 @@ Development no longer runs through one implementer. Muse's own dev/fix agents no
 - **Why:** Duplicate invoice numbers are a compliance defect a GST officer can see on paper. This is a launch blocker.
 
 ### RELEASE-1 (HIGH, verify-at-HEAD first) — CI may never build the Release configuration; the shippable AAB path is exercised only on release day
-- **Status:** OPEN · **Found by:** Flaw hunter (at 94a9684f: ci.yml Android job is literally "Build Android (Debug, unsigned)"); T4 notes commit 0b25f05 claims Release-build testing + an e2e [debug, release] matrix — **reconcile at current HEAD before fixing**
+- **Status:** PARTIAL — verdict CONFIRMED OPEN by FIX-5 (quoted ci.yml at HEAD: only "Build Android (Debug, unsigned)"; the 0b25f05 "[debug, release] matrix" claim is NOT borne out by the file). csproj half DONE+VERIFIED: PublishTrimmed=true pinned for Release (commit 1e4d492c; RunAOTCompilation deliberately left off, documented in the XML comment). ci.yml half PREPARED + YAML-validated (local: ~/workspace/angadi-review/fix5/.github/workflows/ci.yml; Muse main reviewed the diff — +24 lines, Release AAB step + artifact) but BLOCKED: the GitHub App lacks the Workflows permission (403 "Resource not accessible by integration" on .github/workflows/*, failed 3×) and Muse main's git push has no credentials for this remote. OWNER ACTION (before first tag, NOT on the Day-2 testing path): grant the Muse GitHub App the Workflows permission, or push those two prepared files via a credentialed git client. · **Found by:** Flaw hunter (at 94a9684f); confirmed by FIX-5, 2026-10-20
 - **Evidence:** Everything Release-only in the csproj (`AndroidPackageFormat=aab`, the Release `TrimmerRootAssembly` group) has zero CI coverage on the audited HEAD. A linker/AAB break would surface for the first time when v1.0.0 is tagged.
 - **Fix (if still open at HEAD):** add a Release AAB step/job to ci.yml; fail if no `*.aab` is produced; upload as artifact. Also pin the Release perf properties (L-item: no `PublishTrimmed`/`RunAOTCompilation` is set explicitly — SDK defaults decide what ships on low-RAM tablets).
 
 ### RELEASE-2 (HIGH) — The documented rollback cannot roll anything back
-- **Status:** OPEN · **Found by:** Flaw hunter, 2026-10-20
+- **Status:** VERIFIED · **Fixed by:** FIX-5 (commit 548ad96a), verified by Muse main local read: the doc now reads halt rollout → hotfix → NEW AAB with HIGHER versionCode → test upgrade FROM the bad version; the downgrade fiction is removed. · **Found by:** Flaw hunter, 2026-10-20
 - **Evidence:** `docs/deployment-and-rollback.md` says "re-publish the previous AAB. Play handles downgrade delivery." Play NEVER delivers a lower versionCode to a device on a higher one, and release.yml makes codes strictly increase. Following this doc during a data-corrupting incident does nothing.
 - **Fix:** rewrite the doc: halt the rollout → hotfix → publish a NEW AAB with a HIGHER versionCode containing the good code → test upgrading FROM the bad version explicitly.
 
 ### RELEASE-3 (HIGH) — Store listing is not submittable: zero screenshots, no full description
-- **Status:** OPEN · **Found by:** Flaw hunter, 2026-10-20
+- **Status:** PARTIAL · **Fixed by:** FIX-5 (commit e28e79c7), text verified by Muse main: store/README.md now carries the full Play listing (EN + TE full description from real features, category, data-safety notes) + a screenshot checklist naming the CI e2e source. STILL OUTSTANDING: the actual screenshots (phone set harvestable from ci-e2e artifacts; 7″/10″ tablet sets need a tablet-profile e2e pass) — a launch-gate asset task, not a code fix. · **Found by:** Flaw hunter, 2026-10-20
 - **Evidence:** `store/` has the icon, feature graphic, launcher preview, and a README whose listing text stops at the short description. Play requires phone screenshots to publish at all, plus 7″/10″ tablet screenshots for the tablet listing — the exact devices this POS targets.
 - **Fix:** capture phone + 7″ + 10″ screenshots (the CI e2e job already screenshots the app on an emulator — harvest from there); write the full description (EN + TE) into `store/README.md`.
 
 ### RELEASE-4 (MEDIUM) — Release plumbing: coverage gate dropped in release.yml; versionCode derived from run number
-- **Status:** OPEN · **Found by:** Flaw hunter, 2026-10-20
+- **Status:** PARTIAL — version.json half DONE+VERIFIED (commit 89d48b42; file present at HEAD: {"versionCode":100,"versionName":"1.0.0"}; RELEASE.md documents the one manual sync point). release.yml half PREPARED + YAML-validated (local: ~/workspace/angadi-review/fix5/.github/workflows/release.yml; Muse main reviewed the diff — CI-green check-run gate, version.json read, NFR-10 coverage gate restored) but BLOCKED on the same Workflows-permission 403 as RELEASE-1. WARNING: until release.yml lands, it still derives code=100+run-number and does NOT read version.json — the two halves must land together before any tag. · **Found by:** Flaw hunter, 2026-10-20
 - **Evidence:** release.yml runs only `dotnet test` — the NFR-10 coverage gate exists only in ci.yml, and nothing verifies the tagged commit was green in CI; with the Play secret set, a red/never-run commit still auto-uploads a signed bundle. versionCode = `100 + GITHUB_RUN_NUMBER` — run numbers reset if the workflow is recreated → code ≤ one already on Play → release-day rejection; it also contradicts the docs and the csproj's static version 1.
 - **Fix:** add the coverage step + a CI-conclusion check for `github.sha` to release.yml; single version source of truth — a committed `version.json` the workflow reads and bumps; align both docs.
 
@@ -246,7 +325,7 @@ Development no longer runs through one implementer. Muse's own dev/fix agents no
 - **Status:** OPEN · **Found by:** Flaw hunter, 2026-10-20
 - **Evidence:** `AngadiDb` Migrate = ten bare `CreateTable` calls ("additive migrations are automatic"), then `schema_version` is overwritten. Zero `ALTER TABLE` in src/. A column-type change or table split (e.g. a payments table for split tender) will be skipped or improvised against live shop data.
 - **Fix:** ordered `Migrations[]` keyed by from-version, run in ONE transaction, version stamp bumped only after all steps succeed; backfill the existing v2/v3 changes as the first entries. Must land before ANY v1.1 schema change.
-- **Adjacent LOWs (same lane):** (a) `int.Parse` (not TryParse) on `schema_version` can crash-loop startup on a non-numeric value — TryParse → throw DamagedDatabaseException so snapshot recovery handles it. (b) Two backup exports in the same minute overwrite each other (filename has minute precision, `overwrite: true`) — INCLUDING the pre-restore safety copy: export at 10:42, restore at 10:42, and the safety copy IS the overwritten file. Fix: seconds/GUID suffix; safety copies `overwrite: false`.
+- **Adjacent LOWs (same lane):** (a) `int.Parse` (not TryParse) on `schema_version` can crash-loop startup on a non-numeric value — TryParse → throw DamagedDatabaseException so snapshot recovery handles it. (b) Two backup exports in the same minute overwrite each other (filename has minute precision, `overwrite: true`) — INCLUDING the pre-restore safety copy: export at 10:42, restore at 10:42, and the safety copy IS the overwritten file. Fix: seconds/GUID suffix; safety copies `overwrite: false`. — **BOTH FIXED-AWAITING-VERIFY by FIX-2, 2026-10-20** (tests `UnparseableSchemaVersion_RecoversInsteadOfCrashing` + `DATA1_TwoExportsInTheSameSecond_ProduceTwoFiles`. UNVERIFIED-CI. The MEDIUM framework above stays OPEN — FIX-2 wave-2 item 11.)
 
 ### VOICE-9 (MEDIUM) — Speech has no offline/on-device path, and the "manual" fallback never opens typed entry
 - **Status:** OPEN · **Found by:** Flaw hunter (extends VOICE-8), 2026-10-20
@@ -254,13 +333,13 @@ Development no longer runs through one implementer. Muse's own dev/fix agents no
 - **Fix:** try the on-device recognizer first; drop the internet pre-gate when it exists; set prefer-offline; make the manual branch actually focus the search field.
 
 ### PRIVACY-1 (MEDIUM) — Learned voice words ARE written to logs at Debug level; the policy's "never" is false and the NFR-08 test can't catch it
-- **Status:** OPEN · **Found by:** Flaw hunter, 2026-10-20 (the crack in A1's otherwise-clean sweep — A1 verified the pipeline/handlers; this line lives in AliasLearner)
+- **Status:** PARTIAL — policy half DONE+VERIFIED (FIX-5, commit 6f39bdca: rewritten against the code; OWNER-FILL comment at top; placeholders await Sai's name/email). Code half (delete the AliasLearner Debug line + NFR-08 LearnAsync coverage) is FIX-1's item 7 — status in FIX-1's report. · **Found by:** Flaw hunter, 2026-10-20 (the crack in A1's otherwise-clean sweep — A1 verified the pipeline/handlers; this line lives in AliasLearner)
 - **Evidence:** `AliasLearner.cs:69-70`: `LogDebug("Learned alias text: {Alias}", alias)`. PRIVACY_POLICY.md and the feedback UI both promise learned voice words are NEVER written to logs. Release builds are saved only by the Information-level filter; any Debug/sideload build's exported log zip contains the shop's learned vocabulary. `LoggingTests.NFR08…` never calls `LearnAsync`, so the leaking line is never exercised.
 - **Fix:** delete the Debug line entirely (log the count, never the text); add a LearnAsync call to the NFR-08 test.
 - **Policy mismatches (L-9, same agent batch):** policy also (b) claims no background uploads while PlaySubscriptionService auto-starts a background Play re-check from inside billing; (c) never discloses the automatic on-device copies (3 snapshots, .pre-update, .pre-restore, damaged copies) that a "deleted" customer persists in; (d) omits Internet/Billing/Vibrate from its permissions list and the feedback path from data-leaving. Rewrite the policy against the code, then fill + host it (SEC-7).
 
 ### SEND-1 (MEDIUM) — WhatsApp senders trust the stored phone blindly at the send layer
-- **Status:** OPEN · **Found by:** Flaw hunter, 2026-10-20
+- **Status:** PARTIAL · **Fixed by:** FIX-4, commit b4e0a89c — the SHARE layer (ReceiptShare choke point both handlers pass through) now normalizes and fails closed with CUSTOMER_NO_PHONE, so no send can reach an un-normalized number. Handler-side first line of defence (Normalize inside SendBillToCustomerHandler/SendDuesReminderHandler, BillingHandlers.cs) routed to FIX-2 as item 19 with FIX-4's paste-ready diff + test recipe. Note: the share-layer change has no unit test (Angadi.Tests doesn't reference the Maui project) — verified by build + read in the verification pass. · **Found by:** Flaw hunter, 2026-10-20
 - **Evidence:** `SendBillToCustomerHandler` / `SendDuesReminderHandler` check only non-empty, then `ReceiptShare` builds `https://wa.me/` + phone unescaped/unvalidated (contrast SendFeedbackHandler, which does Normalize). Today the invariant holds only because save normalizes; a row arriving via an old-backup restore or future import can send a full bill (name, 15 lines, totals, TOTAL DUES BALANCE) to a malformed/wrong-country number.
 - **Fix:** `PhoneNumbers.Normalize(customer.Phone) is not { } → CustomerNoPhone` inside both handlers, and defensively in ReceiptShare.
 
@@ -269,4 +348,36 @@ Development no longer runs through one implementer. Muse's own dev/fix agents no
 - **Items:** (a) **Split tender** — part-cash/part-UPI can't be recorded truthfully (validator forbids cash on non-cash tender); everyday payment, shopkeepers will misrecord or split bills (2 quota slots, wrong invoice). Needs a `BillPayment` child table — v1.1, and it needs DATA-1's migration framework first. (b) **UpiRef optional at every layer** — keep it skippable for speed but make it explicit (≥4-char ref or a deliberate "No ref" tap; day-end shows a count of UPI bills without refs) for month-end reconciliation. (c) **₹0 bills finalize silently** — 100% discount / ₹0 item burns a bill number + quota slot and decrements stock with no warning; require an explicit free-bill confirmation flag. (d) **Feedback attach-logs does two separate shares** — the zip never travels inside the WhatsApp message; with the empty support number the shopkeeper believes logs reached support when nothing arrived (LOG lane + SEC-7 overlap). (e) **Min-SDK floor (API 28)** — excludes budget Android 8/Go tablets common in kirana; decide from real target devices, test API 26, else record the deliberate floor in RELEASE.md. (f) **CHANGELOG omits the CS0819 fix by name** — one line (commit 80a34291), against the repo's own What/Issue/Why rule.
 - **Reconciliations (flaw hunt vs other agents — read before fixing):** H-A's Auto-Backup-rules portion is ALREADY FIXED at HEAD 0b25f05 (A2 verified backup_rules.xml + data_extraction_rules.xml scope to DB+WAL+prefs) — do NOT redo it; the open parts of H-A are SEC-1/SEC-2 (plaintext DB + exports). H-C = SEC-4 (PIN decision). H-D's new detail: manual exports land in CacheDirectory and exist only if the share sheet is completed — fold the overdue-backup nag into the v2 W4 work. M-11 (Outbox grows forever, sparse payloads) is the same root as SEC-3 — fix together: audit records with old→new + an Outbox prune beyond the backup window. M-14 = TESTS-1/T1-10 (report-handler tests) — one batch. M-15 (platform adapters untested) partially covered by VOICE-8 SPEC-6/7.
 
+### DEPS-1 (HIGH, build-blocking) — SQLitePCLRaw.lib.e_sqlite3 2.1.10 has a known HIGH-severity vulnerability; NuGet audit fails the Infrastructure build
+- **Status:** IN-FIX (FIX-2 item 18) · **Found by:** Muse main's LOCAL BUILD (SDK 10.0.402), 2026-10-20 — the first machine-witnessed build of the project
+- **Evidence:** `dotnet build src/Angadi.Infrastructure` → `error NU1903: Warning As Error: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.10 has a known high severity vulnerability, GHSA-2m69-gcr7-jv3q`. The Tests project hits the same NU1903 twice (its own restore + Infrastructure's) and is otherwise buildable on this machine — once DEPS-1 and the CA1307 line (below) are fixed, `dotnet test` runs locally. Angadi.Domain compiles 0 warnings / 0 errors. Angadi.Application's only errors: CA1307 ×2 on TeluguParser.cs:220 — FIX-1's VOICE-2 commit e657514 (`Contains`/`Replace` without StringComparison); routed back to FIX-1 with the exact analyzer text, 2026-10-20.
+- **Fix:** bump the SQLitePCLRaw bundle/lib to the lowest patched version compatible with the sqlite-net-pcl version in use; rebuild Infrastructure + run data tests. If the bump forces a sqlite-net major upgrade, STOP — integrator decision.
+- **Why:** a vulnerable native SQLite inside the app that holds the shop's books, and a red build on any machine with current audit data — including CI.
+
+### DATA-2 (MEDIUM) — `PRAGMA synchronous` is never set: WAL at NORMAL can lose the last committed bills in a power cut
+- **Status:** IN-FIX (FIX-2 item 14) · **Found by:** T3 re-run, full read of AngadiDb.Open at cd2754b, 2026-10-20
+- **Evidence:** `AngadiDb.Open` sets journal_mode=WAL, foreign_keys=ON, BusyTimeout — and never touches `synchronous`. WAL default NORMAL is safe against app crash, NOT against OS crash/power loss — on the cheap-phone, frequent-power-cut profile this app is built for. The startup recovery net mitigates; it doesn't close the window.
+- **Fix:** `PRAGMA synchronous=FULL` in Open. One line; negligible cost at billing workload.
+
+### DATA-3 (MEDIUM) — Stale item saves silently clobber learned voice aliases
+- **Status:** IN-FIX (FIX-2 item 15) · **Found by:** T3 re-run at cd2754b, 2026-10-20
+- **Evidence:** `ItemRepository.SaveAsync` protects exactly one field from the stored row (`row.StockMilli = existing.StockMilli`) — no equivalent preservation for `LearnedAliasesJson`/`AliasesJson`. A flow that loads an Item, holds it, and saves after the AliasLearner wrote newer aliases reverts the learning. (CustomerRepository.SaveAsync has the same shape — preserves only DuesBalancePaise.)
+- **Fix:** mirror the stock pattern — preserve the alias columns from `existing` unless the save IS the learner's own path. Test spec T3-09.
+
+### DUES-1 (MEDIUM) — DuesAging reversal is amount-blind: a partial reversal cancels the whole charge
+- **Status:** FIXED-AWAITING-VERIFY · **Fixed by:** FIX-4, commit c85a5639 (shared OpenCharges settlement core: reversal cancels min(amount, own charge remaining), excess joins the pool; DuesAgingTests incl. T3-06/T3-07 verbatim). T3-04/T3-05 outbox-atomicity evidence also landed (commit 83f47614, OutboxAtomicityTests). · **Found by:** T3 re-run at cd2754b, 2026-10-20
+- **Evidence:** `DuesAging.UnpaidCharges`: a Reversal WITH a BillId removes that bill's charge in full, regardless of the reversal's Amount (`reversed` is a HashSet<Guid>; the amount is never read). Correct only because today's sole reversal flow is void (full GrandTotal).
+- **Fix (semantics pinned by Muse, 2026-10-20):** a reversal cancels min(reversal amount, that charge's remaining); any excess joins the payment pool. Tests T3-06 (partial payment remainder) + T3-07 (reversal scoping + redistribution).
+
+### DATA-5 (LOW) — Auto Backup restores DB+WAL as a non-atomic pair; no checkpoint hook
+- **Status:** OPEN · **Found by:** T3 re-run (VERIFY-1 deep-dive) at cd2754b, 2026-10-20
+- **Evidence:** backup_rules include db + wal (correct scoping), but Android's transport copies the two files at different moments and the app declares no BackupAgent/onBackup checkpoint hook. A torn pair can silently restore an older/mixed state on a new phone. The app's daily snapshots are checkpointed copies — but are excluded from Auto Backup.
+- **Fix direction:** checkpoint the WAL on app pause, or include the snapshots folder in the rules; device behaviour pinned by spec T3-10. Pairs with SEC-1/H-D (backup trust) and v2 W4.
+
 <!-- New entries go ABOVE this line, newest first within their section order: GOV, CRITICAL, HIGH, MEDIUM, LOW, MINOR, VERIFY. Keep the Flaw → Fix → Why shape. -->
+
+### TEST-BUILD-1 (HIGH, build-blocking for tests) — `Angadi.Tests` does not compile at final HEAD `e4d7fea`: a test file is missing one `using`
+- **Status:** OPEN · **Found by:** Muse main's LOCAL `dotnet test` run (SDK 10.0.402), 2026-10-20 ~19:20 EDT — the first full-suite attempt at the final HEAD.
+- **Evidence:** `tests/Angadi.Tests/Infrastructure/BackupInspectorTests.cs(21,44): error CS0246: The type or namespace name 'FinalizeBillCommand' could not be found`. The file (added by FIX-3 for SEC-6 UI) has usings for `Angadi.Application.Platform`, `Angadi.Domain.Billing`, `Angadi.Tests.Application` — but `FinalizeBillCommand` lives in `Angadi.Application.Billing` (`src/Angadi.Application/Billing/BillingContracts.cs:15`), which is not imported. The production projects (Domain/Application/Infrastructure) all build 0 warnings / 0 errors at the same HEAD — only the test project fails, so the suite produces NO results until this is fixed.
+- **Fix (one line):** add `using Angadi.Application.Billing;` to `BackupInspectorTests.cs`, then run the full suite and record the real pass/fail counts here.
+- **Why:** every FIXED-AWAITING-VERIFY entry in this log is gated on this suite running; a test project that cannot compile silently nullifies the whole verification story. (Process note for all agents: a lane that cannot build locally must say so — "checked by reading" missed this; the local build rig caught it in 30 seconds.)
