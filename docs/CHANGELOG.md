@@ -1,6 +1,12 @@
 # CHANGELOG.md — Angadi POS v1
 Every meaningful change: date, what, the issue it addresses, and the one-line why. Newest first.
 
+## 2026-10-19 (night, Claude Code)
+- **Camera barcode scanning** (on-device, no network), with the typed/USB-gun box as fallback. Why: locked scope; fastest way to bill packaged goods.
+- **Google Play subscription client** replaces the never-Pro stub on devices. Why: ₹200/month must be payable; status is cached so billing never waits on the network.
+- **LOW items + NFR-07/08 tests** (correlation id on every request line, phone numbers never logged). Why: support logs must be traceable and private.
+- CI run 39352632912: core + Android green.
+
 ## 2026-10-19 (late, Claude Code)
 - **Highs closed: H2/B2 quota clock defence, H3 safe restore, H9 UPI reference.** Why: free-tier abuse by changing the phone date, and a bad backup wiping a shop, were the two ways v1 could lose money or data.
 - **Mediums closed: M2, M4, M6, M7, M8, M12, M14 + voice pass H5/H6/M1/M3/M13.** Why: learning that can't poison the catalog, no crash on typos or broken resources, sync-ready outbox.

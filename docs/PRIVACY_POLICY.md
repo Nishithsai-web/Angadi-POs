@@ -26,7 +26,7 @@ No ads. No selling or sharing data. No location tracking. No contacts access. No
 
 ## Permissions
 - **Microphone:** only while you hold the voice button.
-- **Camera** (v1.1 barcode scanning): only while the scanner is open.
+- **Camera:** only while the barcode scanner is open. Barcodes are read on the device; no images are saved or sent.
 
 ## Deleting your data
 Uninstalling the app deletes everything on the device. Backups you saved elsewhere stay where you put them.

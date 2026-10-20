@@ -1,6 +1,6 @@
 # CLAUDE_STATUS.md — Claude Code's answer to the Muse review queue
 **Updated:** 2026-10-19 late ET · **Branch:** `claude/new-session-g6f55q`
-**Evidence:** CI run 39351413346 — core + Android green. (First green: 39345220912.)
+**Evidence:** CI run 39352632912 — core + Android green. (First green: 39345220912.)
 
 | Job | Result |
 |---|---|
@@ -53,10 +53,14 @@ Raw Actions logs live on a host the sandbox can't reach, so CI posts its errors 
 | **H10** | ✅ | Plus `BillDraftTests` (merge, edits, tender clearing, voice conversions). |
 | LOW (part) | ✅ | Voice never silently coerces qty ≤ 0 (asks instead); undefined tender rejected; SQLite busy timeout 5 s; MaxCandidates 5; cash-short shows the shortfall. |
 | Docs | ✅ | `PRIVACY_POLICY.md` (owner fills 2 fields, then hosts it), `RUNBOOK.md`, `USER_GUIDE_TE.md`. |
-| LOW renames, magic-number moves, NFR-07/08 tests | ⏳ | Renames are on the v1 cut list; the rest are next. |
+| LOW (rest) | ✅ | Correlation scope opens before validation; learned-alias cap, morning-summary days and customer search limit are named options/constants. |
+| NFR-07 / NFR-08 | ✅ | Tests: every request log line carries `CorrelationId` (rejections too); a customer phone never reaches logs. |
+| **FR-08 camera** | ✅ | `CameraBarcodeScanner` (on-device ML Kit). Falls back to the manual box on no camera, denied permission, error or "type it". |
+| **FR-34/35 Play Billing** | ✅ | `PlaySubscriptionService` replaces the stub on devices: daily re-check, 7-day offline grace, acknowledged purchases. Needs the two Play Console products. |
+| LOW renames | ➖ | Deliberately not done (v1 cut list): churn with no user-visible effect. |
 
 ## v1 scope decisions taken (per the ARCHITECT_CORRECTIONS cut list)
-- **Camera barcode:** manual or USB-scanner entry instead. A USB/Bluetooth barcode gun types into the box. The camera returns in v1.1.
-- **Play Billing:** the stub stands. The real client is v1.1, before the production track.
+- **Camera barcode:** shipped (reversed the cut). Manual and USB-gun entry remain as the fallback.
+- **Play Billing:** shipped (reversed the cut). Client-trusted in v1; server-side purchase verification is v2.
 - **UI:** built in C# instead of XAML for v1. Every value is compile-checked, and no XAML toolchain errors can block a green build. Secondary pages keep their logic in the page; the POS keeps a ViewModel.
 - **Expiry tracking:** not built (owner cut).
