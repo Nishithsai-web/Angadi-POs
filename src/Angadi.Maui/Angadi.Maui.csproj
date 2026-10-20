@@ -31,6 +31,9 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.0" />
     <PackageReference Include="BarcodeScanning.Native.Maui" Version="2.2.1" />
     <PackageReference Include="Plugin.InAppBilling" Version="8.0.5" />
+    <!-- ML Kit pulls androidx.tracing-ktx 1.2 while MAUI pulls tracing 1.3, which absorbed the ktx classes:
+         D8 then sees androidx.tracing.TraceKt twice. Lifting ktx to 1.3 (an empty shim) removes the duplicate. -->
+    <PackageReference Include="Xamarin.AndroidX.Tracing.Tracing.Ktx" Version="1.3.0" />
   </ItemGroup>
 
   <ItemGroup>
