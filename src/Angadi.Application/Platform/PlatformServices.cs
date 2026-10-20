@@ -75,6 +75,26 @@ public interface IBackupInspector
     BackupInfo? Inspect(string filePath);
 }
 
+public enum PinCheck { Ok = 0, Wrong = 1, Locked = 2, NoPin = 3 }
+
+/// <param name="Result">How the verification ended.</param>
+/// <param name="LockedSecondsRemaining">When Result is Locked: seconds until another try is allowed.</param>
+public sealed record PinVerification(PinCheck Result, int LockedSecondsRemaining = 0);
+
+/// <summary>
+/// SEC-4 (owner-approved design, 2026-10-20): an optional owner PIN gates ONLY the sensitive actions
+/// (void, dues payment/write-off, backup export/restore, UPI-ID/GSTIN edits) — counter billing stays
+/// friction-free, and with no PIN set the actions proceed (Settings nudges the owner to set one).
+/// The PIN itself is never stored: only a salted PBKDF2 hash in the DB Meta table (never Preferences).
+/// Five wrong attempts lock verification for 60 s (persisted, so restarting the app is not a bypass).
+/// </summary>
+public interface IPinService
+{
+    Task<bool> HasPinAsync(CancellationToken ct = default);
+    Task SetPinAsync(string pin, CancellationToken ct = default);
+    Task<PinVerification> VerifyAsync(string pin, CancellationToken ct = default);
+}
+
 /// <summary>
 /// Automatic data safety. Rolling validated copies of the database are kept on the phone; if the live file is ever
 /// found damaged at startup it is moved aside and the newest good copy is put back automatically.
