@@ -43,6 +43,8 @@ public sealed record RestoreBackupCommand(string FilePath) : ICommand<Result>, I
 /// <summary>H11: Settings → Export logs goes through the dispatcher like every other action, so it is logged and testable.</summary>
 /// <summary>Background safety copy (app start, app going to the background). Never waits on the user.</summary>
 public sealed record TakeSafetySnapshotCommand : ICommand<Result>, INoTransaction;
+/// <summary>M-11: Outbox retention sweep (rows older than 90 days), dispatched at app start like the snapshot.</summary>
+public sealed record PruneOutboxCommand : ICommand<Result>, INoTransaction;
 /// <summary>The startup recovery report, once; null when there is nothing to tell the shopkeeper.</summary>
 public sealed record GetDataRecoveryQuery : IQuery<Angadi.Application.Platform.DataRecoveryReport?>;
 public sealed record ExportLogsCommand : ICommand<Result<string>>, INoTransaction;

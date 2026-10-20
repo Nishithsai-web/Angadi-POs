@@ -283,6 +283,11 @@ internal sealed class Outbox(AngadiDb db, IClock clock) : IOutbox
         };
         return db.RunAsync(c => c.Insert(row), ct);
     }
+
+    // FIX(M-11, 2026-10-20, FIX-4): the retention sweep behind IOutbox.PruneOlderThanAsync — one range DELETE
+    // on the append timestamp; see the interface for the flaw and the 90-day rationale.
+    public Task<int> PruneOlderThanAsync(DateTimeOffset cutoff, CancellationToken ct = default)
+        => db.RunAsync(c => c.Execute("DELETE FROM Outbox WHERE CreatedAtMs < ?", Ms(cutoff)), ct);
 }
 
 internal sealed class ShopProfileRepository(AngadiDb db, IClock clock) : IShopProfileRepository

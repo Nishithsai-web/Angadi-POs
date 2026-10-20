@@ -179,12 +179,25 @@ internal sealed class ExportLogsHandler(ILogExporter exporter) : IRequestHandler
 
 // ---------- Automatic data safety ----------
 
-internal sealed class DataSafetyHandlers(IDataSafety safety) :
+internal sealed class DataSafetyHandlers(IDataSafety safety, IOutbox outbox, IClock clock) :
     IRequestHandler<TakeSafetySnapshotCommand, Result>,
-    IRequestHandler<GetDataRecoveryQuery, DataRecoveryReport?>
+    IRequestHandler<GetDataRecoveryQuery, DataRecoveryReport?>,
+    IRequestHandler<PruneOutboxCommand, Result>
 {
     public Task<Result> Handle(TakeSafetySnapshotCommand command, CancellationToken ct) => safety.SnapshotAsync(ct);
     public Task<DataRecoveryReport?> Handle(GetDataRecoveryQuery query, CancellationToken ct) => Task.FromResult(safety.TakeRecoveryReport());
+
+    // FIX(M-11, 2026-10-20, FIX-4): Flaw: the Outbox grew forever — v1 appends a row per bill/void/payment/
+    // edit and nothing drains it. Fix: at startup, delete rows older than 90 days. Why 90 days: beyond any
+    // realistic backup horizon or offline-sync window, and the sweep is a single range DELETE, cheap enough
+    // for every cold start. Logged in docs/AGENT_FIX_LOG.md.
+    private static readonly TimeSpan OutboxRetention = TimeSpan.FromDays(90);
+
+    public async Task<Result> Handle(PruneOutboxCommand command, CancellationToken ct)
+    {
+        await outbox.PruneOlderThanAsync(clock.Now - OutboxRetention, ct);
+        return Result.Success();
+    }
 }
 
 // ---------- Shop, seed, bills, backup ----------

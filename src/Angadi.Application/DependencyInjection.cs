@@ -89,6 +89,7 @@ public static class DependencyInjection
         services.AddTransient<DataSafetyHandlers>();
         services.AddTransient<IRequestHandler<TakeSafetySnapshotCommand, Result>>(sp => sp.GetRequiredService<DataSafetyHandlers>());
         services.AddTransient<IRequestHandler<GetDataRecoveryQuery, DataRecoveryReport?>>(sp => sp.GetRequiredService<DataSafetyHandlers>());
+        services.AddTransient<IRequestHandler<PruneOutboxCommand, Result>>(sp => sp.GetRequiredService<DataSafetyHandlers>());   // M-11 (FIX-4)
         services.AddTransient<IRequestHandler<SetItemBarcodeCommand, Result>, SetItemBarcodeHandler>();
 
         // Notes & feedback

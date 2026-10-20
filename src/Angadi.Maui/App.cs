@@ -25,6 +25,7 @@ public sealed class App : Microsoft.Maui.Controls.Application
     {
         base.OnStart();
         TakeSafetySnapshot();
+        PruneOutbox();
     }
 
     protected override void OnSleep()
@@ -37,5 +38,14 @@ public sealed class App : Microsoft.Maui.Controls.Application
     {
         try { await _services.GetRequiredService<ISender>().Send(new TakeSafetySnapshotCommand()); }
         catch (Exception ex) { GlobalExceptions.Report(ex, "safety-snapshot"); }
+    });
+
+    // FIX(M-11, 2026-10-20, FIX-4): app start is when the Outbox retention sweep runs (deletes rows older
+    // than 90 days — see PruneOutboxCommand's handler). Fire-and-forget like the safety snapshot: it must
+    // never delay or block the counter. Logged in docs/AGENT_FIX_LOG.md.
+    private void PruneOutbox() => _ = Task.Run(async () =>
+    {
+        try { await _services.GetRequiredService<ISender>().Send(new PruneOutboxCommand()); }
+        catch (Exception ex) { GlobalExceptions.Report(ex, "outbox-prune"); }
     });
 }
