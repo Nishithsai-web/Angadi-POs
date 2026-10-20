@@ -172,6 +172,12 @@ public sealed partial class PosViewModel : ViewModelBase
         SearchText = "";
     }
 
+    /// <summary>
+    /// Raised when voice falls back to typed search (the "manual" failure): the page focuses the
+    /// search box (VOICE-9, FIX-1 2026-10-20).
+    /// </summary>
+    public event EventHandler? SearchFocusRequested;
+
     [RelayCommand]
     private Task Mic() => SafeAsync(MicCore);
 
@@ -185,7 +191,13 @@ public sealed partial class PosViewModel : ViewModelBase
             var heard = await _speech.ListenAsync(_voiceOptions.Culture, new Progress<string>(p => VoiceText = p));
             if (heard.IsFailure)
             {
-                if (heard.Error.Detail == "manual") { await Dialogs.ToastAsync(Text["pos.voice.offline"]); return; }
+                // FIX(VOICE-9, 2026-10-20, FIX-1): Flaw: the "manual" fallback only toasted — the
+                // shopkeeper was told to type, but the search box was never focused, despite the
+                // fallback chain's contract promising typed search opens. Fix: raise
+                // SearchFocusRequested; PosPage focuses the search entry.
+                // Why: a fallback that needs a hunt for the box is a dead mic at a busy counter.
+                // Logged in docs/AGENT_FIX_LOG.md.
+                if (heard.Error.Detail == "manual") { await Dialogs.ToastAsync(Text["pos.voice.offline"]); SearchFocusRequested?.Invoke(this, EventArgs.Empty); return; }
                 if (heard.Error.Detail != "cancelled") await ShowIfFailedAsync(heard);
                 return;
             }
