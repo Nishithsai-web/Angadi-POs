@@ -102,9 +102,14 @@ public class AliasLearnerAndAuditTests : IDisposable
     [Fact]
     public void Audit5_QuantityOnlyUtterance_NeverMatchesAnItem()
     {
+        // SPEC-5 (VOICE-8): the old body looped over Parse(...) results — if Parse returned
+        // nothing, the loop never ran and the test passed vacuously. Pin both layers instead:
+        // a quantity-only utterance parses to NOTHING, and a nameless line matches NOTHING.
+        Assert.Empty(new TeluguParser().Parse("రెండు కేజీలు"));
+        Assert.Empty(new TeluguParser().Parse("ఐదు"));
         var items = new[] { new Item { TeluguName = "బియ్యం", EnglishName = "Rice" } };
-        foreach (var line in new TeluguParser().Parse("రెండు కేజీలు"))
-            Assert.Equal(MatchKind.NoMatch, ItemMatcher.Match(line, items, new VoiceOptions()).Kind);
+        var line = new ParsedLine("", new Qty(2000), Unit.Kilogram, null, "రెండు కేజీలు");
+        Assert.Equal(MatchKind.NoMatch, ItemMatcher.Match(line, items, new VoiceOptions()).Kind);
     }
 
     [Fact]
