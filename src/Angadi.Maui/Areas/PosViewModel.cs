@@ -60,6 +60,7 @@ public sealed partial class PosViewModel : ViewModelBase
     /// <summary>The customer whose account this bill goes to (any tender); "+ Customer" when none.</summary>
     [ObservableProperty] private string _customerLabel = "";
     private Customer? _customer;
+    private static readonly TimeSpan FinalizeTimeout = TimeSpan.FromSeconds(45);
 
     public override async Task OnAppearingAsync()
     {
@@ -103,7 +104,9 @@ public sealed partial class PosViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private async Task Mic()
+    private Task Mic() => SafeAsync(MicCore);
+
+    private async Task MicCore()
     {
         if (IsListening) return;
         IsListening = true;
@@ -157,15 +160,44 @@ public sealed partial class PosViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private async Task Scan()
+    private Task Scan() => SafeAsync(ScanCore);
+
+    private async Task ScanCore()
     {
         var code = await _scanner.ScanAsync();
         if (code.IsFailure) return;   // cancelled
-        var item = await Sender.Send(new GetItemByBarcodeQuery(code.Value));
+        if (Barcodes.Normalize(code.Value) is not { } barcode || !Barcodes.IsValid(barcode))
+        {
+            await Dialogs.ToastAsync(Text.Error(new Error(ErrorCodes.BarcodeInvalid)));
+            return;
+        }
+        var item = await Sender.Send(new GetItemByBarcodeQuery(barcode));
         if (item is not null) { _draft.Add(item, source: LineSource.Barcode); return; }
 
-        var create = await Dialogs.ConfirmAsync(Text["pos.scan"], Text.Error(new Error(ErrorCodes.BarcodeUnknown)), Text["common.yes"], Text["common.no"]);
-        if (create) await Nav.GoToAsync(Routes.ItemEdit, new Dictionary<string, object> { ["barcode"] = code.Value });
+        // Unknown packet: make it a new item, or put the code on an item that already exists (then bill it).
+        var asNew = Text["pos.scan.new"];
+        var attach = Text["pos.scan.attach"];
+        var choice = await Dialogs.ChooseAsync(Text.Format("pos.scan.unknown", barcode), Text["common.cancel"], attach, asNew);
+        if (choice == asNew)
+        {
+            await Nav.GoToAsync(Routes.ItemEdit, new Dictionary<string, object> { ["barcode"] = barcode });
+            return;
+        }
+        if (choice != attach) return;
+
+        var search = await Dialogs.PromptAsync(Text["pos.scan.attach"], Text["pos.search"], Text["common.ok"], Text["common.cancel"]);
+        if (string.IsNullOrWhiteSpace(search)) return;
+        var found = await Sender.Send(new SearchItemsQuery(search, 15));
+        if (found.Count == 0) { await Dialogs.ToastAsync(Text.Error(new Error(ErrorCodes.VoiceNoMatch))); return; }
+        var labels = found.Select(i => $"{Text.Name(i)} · {IndianFormat.Rupees(i.Price)}").ToList();
+        var pick = await Dialogs.ChooseAsync(Text["pos.scan.attach"], Text["common.cancel"], [.. labels]);
+        var index = pick is null ? -1 : labels.IndexOf(pick);
+        if (index < 0) return;
+        var target = found[index];
+        var set = await Sender.Send(new SetItemBarcodeCommand(target.Id, barcode));
+        if (await ShowIfFailedAsync(set)) return;
+        await Dialogs.ToastAsync(Text.Format("pos.scan.attached", Text.Name(target)));
+        _draft.Add(target, source: LineSource.Barcode);
     }
 
     [RelayCommand]
@@ -195,9 +227,11 @@ public sealed partial class PosViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private async Task BillDiscount()
+    private Task BillDiscount() => SafeAsync(BillDiscountCore);
+
+    private async Task BillDiscountCore()
     {
-        if (_draft.IsEmpty) return;
+        if (_draft.IsEmpty) { await Dialogs.ToastAsync(Text.Error(new Error(ErrorCodes.BillEmpty))); return; }
         var value = await Dialogs.PromptAsync(Text["pos.discount.bill"], "%", Text["common.ok"], Text["common.cancel"], "0", Keyboard.Numeric);
         if (value is null || !PosInput.TryParseDecimal(value, out var pct)) return;
         if (pct > 100) { await Dialogs.ToastAsync(Text.Error(new Error(ErrorCodes.BillDiscountTooLarge))); return; }
@@ -205,7 +239,9 @@ public sealed partial class PosViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private async Task NewBill()
+    private Task NewBill() => SafeAsync(NewBillCore);
+
+    private async Task NewBillCore()
     {
         if (!_draft.IsEmpty && !await Dialogs.ConfirmAsync(Text["pos.newbill"], Text["pos.newbill.confirm"], Text["common.yes"], Text["common.no"])) return;
         _draft.Clear();
@@ -213,9 +249,11 @@ public sealed partial class PosViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private async Task PayCash()
+    private Task PayCash() => SafeAsync(PayCashCore);
+
+    private async Task PayCashCore()
     {
-        if (_draft.IsEmpty) return;
+        if (_draft.IsEmpty) { await Dialogs.ToastAsync(Text.Error(new Error(ErrorCodes.BillEmpty))); return; }
         var value = await Dialogs.PromptAsync(Text["tender.cash"], Text["tender.received"] + " (" + Text["pos.optional"] + ")",
             Text["tender.pay"], Text["common.cancel"], "", Keyboard.Numeric);
         if (value is null) return;
@@ -225,9 +263,13 @@ public sealed partial class PosViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private async Task PayUpi()
+    private Task PayUpi() => SafeAsync(PayUpiCore);
+
+    private async Task PayUpiCore()
     {
-        if (_draft.IsEmpty || _shop is null) return;
+        if (_draft.IsEmpty) { await Dialogs.ToastAsync(Text.Error(new Error(ErrorCodes.BillEmpty))); return; }
+        _shop ??= await Sender.Send(new GetShopProfileQuery());
+        if (_shop is null) { await Nav.GoToAsync(Routes.ShopSetup); return; }
         var paid = await Nav.GoForResultAsync<string>(Routes.UpiPay, new Dictionary<string, object>
         {
             ["payload"] = UpiLink.Build(_shop.UpiId, _shop.Name, _draft.Bill.GrandTotal),
@@ -240,9 +282,11 @@ public sealed partial class PosViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private async Task PayUdhaar()
+    private Task PayUdhaar() => SafeAsync(PayUdhaarCore);
+
+    private async Task PayUdhaarCore()
     {
-        if (_draft.IsEmpty) return;
+        if (_draft.IsEmpty) { await Dialogs.ToastAsync(Text.Error(new Error(ErrorCodes.BillEmpty))); return; }
         var customer = _customer ?? await PickCustomerAsync();
         if (customer is null) return;
         SetCustomer(customer);
@@ -252,7 +296,9 @@ public sealed partial class PosViewModel : ViewModelBase
 
     /// <summary>"+ Customer" on the bill: attach a customer so the bill shows in their account; tap again to remove.</summary>
     [RelayCommand]
-    private async Task AttachCustomer()
+    private Task AttachCustomer() => SafeAsync(AttachCustomerCore);
+
+    private async Task AttachCustomerCore()
     {
         if (_customer is not null)
         {
@@ -292,7 +338,14 @@ public sealed partial class PosViewModel : ViewModelBase
     {
         await RunBusyAsync(async () =>
         {
-            var result = await Sender.Send(new FinalizeBillCommand(_draft.Bill));
+            // Watchdog: if anything ever stalls, the counter gets a message instead of a dead screen.
+            Result<FinalizedBill> result;
+            try { result = await Sender.Send(new FinalizeBillCommand(_draft.Bill)).WaitAsync(FinalizeTimeout); }
+            catch (TimeoutException)
+            {
+                await Dialogs.ToastAsync(Text.Error(new Error(ErrorCodes.Unexpected)));
+                return;
+            }
             if (result.IsFailure)
             {
                 await ShowIfFailedAsync(result);

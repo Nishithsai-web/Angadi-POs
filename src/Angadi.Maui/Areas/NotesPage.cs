@@ -29,9 +29,9 @@ public sealed class NotesPage : ContentPage
 
         _newNote = Ui.Entry(text["notes.add.placeholder"]);
         _newNote.MaxLength = Note.MaxLength;
-        _newNote.Completed += async (_, _) => await AddAsync();
+        _newNote.Completed += SafeUi.On(async () => await AddAsync());
         var add = Ui.Button(text["notes.add"]);
-        add.Clicked += async (_, _) => await AddAsync();
+        add.Clicked += SafeUi.On(async () => await AddAsync());
         var addRow = new Grid { ColumnDefinitions = { new(GridLength.Star), new(GridLength.Auto) }, ColumnSpacing = 8 };
         addRow.Add(_newNote, 0, 0);
         addRow.Add(add, 1, 0);
@@ -43,7 +43,7 @@ public sealed class NotesPage : ContentPage
         };
         var logsRow = new HorizontalStackLayout { Spacing = 6, Children = { _attachLogs, Ui.Body(text["feedback.logs"], 14) } };
         var send = Ui.Button(text["feedback.send"], Theme.Success);
-        send.Clicked += async (_, _) => await SendFeedbackAsync();
+        send.Clicked += SafeUi.On(async () => await SendFeedbackAsync());
 
         Content = Ui.Scroll(
             Ui.Title(text["notes.title"]),
@@ -74,12 +74,12 @@ public sealed class NotesPage : ContentPage
     {
         var done = new CheckBox { IsChecked = note.IsDone, Color = Theme.Primary, VerticalOptions = LayoutOptions.Center };
         SemanticProperties.SetDescription(done, _text["notes.done"]);
-        done.CheckedChanged += async (_, e) =>
+        done.CheckedChanged += SafeUi.On<CheckedChangedEventArgs>(async e =>
         {
             var r = await _sender.Send(new SetNoteDoneCommand(note.Id, e.Value));
             if (r.IsFailure) await _dialogs.ToastAsync(_text.Error(r.Error));
             await ReloadAsync();
-        };
+        });
 
         var body = new Label
         {
@@ -91,13 +91,13 @@ public sealed class NotesPage : ContentPage
 
         var delete = new Button { Text = "✕", WidthRequest = 48, BackgroundColor = Theme.PrimarySoft, TextColor = Theme.Danger, Padding = 0 };
         SemanticProperties.SetDescription(delete, _text["notes.delete"]);
-        delete.Clicked += async (_, _) =>
+        delete.Clicked += SafeUi.On(async () =>
         {
             if (!await _dialogs.ConfirmAsync(_text["notes.delete"], _text["notes.delete.confirm"], _text["common.yes"], _text["common.no"])) return;
             var r = await _sender.Send(new DeleteNoteCommand(note.Id));
             if (r.IsFailure) await _dialogs.ToastAsync(_text.Error(r.Error));
             await ReloadAsync();
-        };
+        });
 
         var g = new Grid { ColumnDefinitions = { new(GridLength.Auto), new(GridLength.Star), new(GridLength.Auto) }, ColumnSpacing = 8 };
         g.Add(done, 0, 0);

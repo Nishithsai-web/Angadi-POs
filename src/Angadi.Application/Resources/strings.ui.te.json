@@ -48,5 +48,11 @@
   "stock.move.Purchase": "కొన్నది",
   "stock.move.Damage": "పాడైనది",
   "stock.move.CountCorrection": "లెక్క సరిచేత",
-  "stock.move.Opening": "మొదటి స్టాక్"
+  "stock.move.Opening": "మొదటి స్టాక్",
+  "pos.scan.new": "కొత్త సరుకుగా చేర్చు",
+  "pos.scan.attach": "ఉన్న సరుకుకి ఈ బార్‌కోడ్ పెట్టు",
+  "pos.scan.unknown": "ఈ బార్‌కోడ్ ({0}) ఏ సరుకుకీ లేదు",
+  "pos.scan.attached": "{0} కి బార్‌కోడ్ పెట్టాం",
+  "scan.torch": "లైట్",
+  "items.scan.find": "స్కాన్ చేసి వెతుకు"
 }

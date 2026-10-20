@@ -64,6 +64,7 @@ public static class ErrorCodes
     public const string CameraPermissionDenied = "CAMERA_PERMISSION_DENIED";
     public const string BarcodeUnknown = "BARCODE_UNKNOWN";
     public const string BarcodeDuplicate = "BARCODE_DUPLICATE";
+    public const string BarcodeInvalid = "BARCODE_INVALID";
     public const string BillEmpty = "BILL_EMPTY";
     public const string BillQtyInvalid = "BILL_QTY_INVALID";
     public const string BillTenderMissing = "BILL_TENDER_MISSING";

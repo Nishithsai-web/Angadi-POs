@@ -53,26 +53,42 @@ internal sealed class CameraBarcodeScanner(ManualBarcodeScanner manual, ILocaliz
     }
 }
 
-/// <summary>Full-screen camera with one hint line and two big buttons. First readable code wins.</summary>
+/// <summary>
+/// Full-screen camera, a hint, a torch and two big buttons. Reads retail formats only (EAN-13/8, UPC-A/E, Code 128,
+/// Code 39, QR). A code is accepted only when the SAME value is read in two consecutive frames and its EAN check
+/// digit is right — so a blurred or partial read can never put the wrong item on a bill.
+/// </summary>
 internal sealed class ScanPage : ContentPage
 {
     public const string TypeInstead = "\u0000type";
     private readonly TaskCompletionSource<string?> _done = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly CameraView _camera;
+    private string? _candidate;
 
     public Task<string?> Result => _done.Task;
 
     public ScanPage(ILocalizer text)
     {
         BackgroundColor = Colors.Black;
-        _camera = new CameraView { CameraEnabled = true, VibrationOnDetected = true };
+        _camera = new CameraView
+        {
+            CameraEnabled = true,
+            VibrationOnDetected = false,   // vibrate once, on the confirmed read (below)
+            BarcodeSymbologies = BarcodeFormats.Ean13 | BarcodeFormats.Ean8 | BarcodeFormats.Upca | BarcodeFormats.Upce
+                                 | BarcodeFormats.Code128 | BarcodeFormats.Code39 | BarcodeFormats.QRCode,
+        };
         _camera.OnDetectionFinished += (_, e) =>
         {
+            string? frame = null;
             foreach (var barcode in e.BarcodeResults)
             {
-                var value = barcode.DisplayValue?.Trim();
-                if (!string.IsNullOrEmpty(value)) { Finish(value); return; }
+                var value = Angadi.Domain.Items.Barcodes.Normalize(barcode.DisplayValue);
+                if (value is not null && Angadi.Domain.Items.Barcodes.IsValid(value)) { frame = value; break; }
             }
+            if (frame is null) return;
+            if (frame != _candidate) { _candidate = frame; return; }   // wait for a second identical frame
+            try { Vibration.Default.Vibrate(TimeSpan.FromMilliseconds(80)); } catch (Exception) { /* no vibrator */ }
+            Finish(frame);
         };
 
         var hint = new Label
@@ -85,9 +101,16 @@ internal sealed class ScanPage : ContentPage
         var cancel = Ui.Secondary(text["common.cancel"]);
         cancel.Clicked += (_, _) => Finish(null);
 
-        var buttons = new Grid { ColumnDefinitions = { new(GridLength.Star), new(GridLength.Star) }, ColumnSpacing = 12, Padding = 16 };
-        buttons.Add(type, 0, 0);
-        buttons.Add(cancel, 1, 0);
+        var torch = Ui.Secondary(text["scan.torch"]);
+        torch.Clicked += (_, _) =>
+        {
+            try { _camera.TorchOn = !_camera.TorchOn; } catch (Exception) { /* no flash on this device */ }
+        };
+
+        var buttons = new Grid { ColumnDefinitions = { new(GridLength.Star), new(GridLength.Star), new(GridLength.Star) }, ColumnSpacing = 12, Padding = 16 };
+        buttons.Add(torch, 0, 0);
+        buttons.Add(type, 1, 0);
+        buttons.Add(cancel, 2, 0);
 
         var grid = new Grid { RowDefinitions = { new(GridLength.Auto), new(GridLength.Star), new(GridLength.Auto) } };
         grid.Add(hint, 0, 0);

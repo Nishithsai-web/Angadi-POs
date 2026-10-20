@@ -60,8 +60,8 @@ public sealed class AppShell : Shell
     private ToolbarItem LanguageSwitch()
     {
         var item = new ToolbarItem { Text = _text.Language == UiLanguage.Telugu ? _text["lang.english"] : _text["lang.telugu"], Order = ToolbarItemOrder.Primary };
-        item.Clicked += async (_, _) =>
-            await SetLanguageAsync(_text.Language == UiLanguage.Telugu ? UiLanguage.English : UiLanguage.Telugu);
+        item.Clicked += SafeUi.On(async () =>
+            await SetLanguageAsync(_text.Language == UiLanguage.Telugu ? UiLanguage.English : UiLanguage.Telugu));
         return item;
     }
 

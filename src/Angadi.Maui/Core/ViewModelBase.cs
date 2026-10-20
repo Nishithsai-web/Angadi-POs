@@ -31,6 +31,21 @@ public abstract partial class ViewModelBase(ISender sender, ILocalizer text, INa
         return true;
     }
 
+    /// <summary>
+    /// Every button goes through this: an exception never escapes into an async-void command (which crashes or,
+    /// worse, silently does nothing). It is logged with its source and shown as the friendly UNEXPECTED message.
+    /// </summary>
+    protected async Task SafeAsync(Func<Task> work, [System.Runtime.CompilerServices.CallerMemberName] string source = "")
+    {
+        try { await work(); }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            GlobalExceptions.Report(ex, GetType().Name + "." + source);
+            await Dialogs.ToastAsync(Text.Error(new Error(ErrorCodes.Unexpected)));
+        }
+    }
+
     /// <summary>Runs work with IsBusy set; an unexpected exception shows the friendly UNEXPECTED message.</summary>
     protected async Task RunBusyAsync(Func<Task> work)
     {

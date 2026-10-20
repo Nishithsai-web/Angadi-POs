@@ -9,10 +9,10 @@ namespace Angadi.Maui.Platform;
 
 /// <summary>
 /// FR-34/35 Google Play Billing adapter (replaces the C2 stub on devices).
-///   • Status is cached on the device and re-checked with Play at most once a day, so finalizing a bill never
-///     waits on the network.
-///   • Offline: a Pro status confirmed within the last 7 days is kept (a shop with no signal can still bill);
-///     after that the app falls back to the free tier until Play confirms again.
+///   • GetStatusAsync answers ONLY from the on-device cache — instantly — and starts a background re-check with
+///     Play when the cache is older than a day. Billing never waits on Play (the contract on ISubscriptionService).
+///   • Every Play call has a time limit, so an emulator or phone without Play services can't hang anything.
+///   • Offline: a Pro status confirmed within the last 7 days is kept; after that the app falls back to free.
 ///   • Every purchase is acknowledged (Play refunds unacknowledged purchases after 3 days).
 ///   • No server in v1: trust is the Play client's purchase list. Server-side verification is v2.
 /// A sideloaded APK or missing Play products simply reads as free; purchases fail with PURCHASE_FAILED.
@@ -23,18 +23,25 @@ internal sealed class PlaySubscriptionService(IOptions<BillingOptions> options, 
     private const string Key = "angadi.pro";            // "plan|confirmedAtMs"
     private static readonly TimeSpan Recheck = TimeSpan.FromDays(1);
     private static readonly TimeSpan OfflineGrace = TimeSpan.FromDays(7);
+    private static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan QueryTimeout = TimeSpan.FromSeconds(20);
+    private static readonly TimeSpan PurchaseTimeout = TimeSpan.FromMinutes(5);   // the user is in Play's sheet
     private static readonly SubscriptionStatus Free = new(false, null, null);
+
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly BillingOptions _o = options.Value;
+    private int _refreshing;   // 0/1: one background refresh at a time
+    private DateTimeOffset _lastAttempt = DateTimeOffset.MinValue;
 
-    public async Task<SubscriptionStatus> GetStatusAsync(CancellationToken ct = default)
+    public Task<SubscriptionStatus> GetStatusAsync(CancellationToken ct = default)
     {
         var cached = ReadCache();
-        if (cached is { } c && clock.Now - c.ConfirmedAt < Recheck) return ToStatus(c);
+        var now = clock.Now;
+        var stale = cached is not { } c || now - c.ConfirmedAt >= Recheck;
+        if (stale && now - _lastAttempt > TimeSpan.FromMinutes(10)) StartBackgroundRefresh();
 
-        var refreshed = await RefreshAsync(ct);
-        if (refreshed.IsSuccess) return refreshed.Value;
-        return cached is { } stale && clock.Now - stale.ConfirmedAt < OfflineGrace ? ToStatus(stale) : Free;
+        var status = cached is { } v && now - v.ConfirmedAt < OfflineGrace ? ToStatus(v) : Free;
+        return Task.FromResult(status);
     }
 
     public Task<Result<SubscriptionStatus>> RestoreAsync(CancellationToken ct = default) => RefreshAsync(ct);
@@ -42,12 +49,12 @@ internal sealed class PlaySubscriptionService(IOptions<BillingOptions> options, 
     public async Task<Result<SubscriptionStatus>> PurchaseAsync(SubscriptionPlan plan, CancellationToken ct = default)
     {
         var productId = plan == SubscriptionPlan.Yearly ? _o.YearlyProductId : _o.MonthlyProductId;
-        await _gate.WaitAsync(ct);
+        if (!await _gate.WaitAsync(QueryTimeout, ct)) return Fail("busy");
         var billing = CrossInAppBilling.Current;
         try
         {
-            if (!await billing.ConnectAsync()) return Fail("not_connected");
-            var purchase = await billing.PurchaseAsync(productId, ItemType.Subscription);
+            if (!await billing.ConnectAsync().WaitAsync(ConnectTimeout, ct)) return Fail("not_connected");
+            var purchase = await billing.PurchaseAsync(productId, ItemType.Subscription).WaitAsync(PurchaseTimeout, ct);
             if (purchase is null || purchase.State != PurchaseState.Purchased) return Fail("not_purchased");
 
             await AcknowledgeAsync(billing, purchase);
@@ -59,6 +66,11 @@ internal sealed class PlaySubscriptionService(IOptions<BillingOptions> options, 
         {
             log.LogWarning("Purchase not completed: {Error}", ex.PurchaseError);
             return Fail(ex.PurchaseError.ToString());
+        }
+        catch (TimeoutException)
+        {
+            log.LogWarning("Play Billing did not answer in time");
+            return Fail("timeout");
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -72,14 +84,26 @@ internal sealed class PlaySubscriptionService(IOptions<BillingOptions> options, 
         }
     }
 
+    private void StartBackgroundRefresh()
+    {
+        if (Interlocked.Exchange(ref _refreshing, 1) == 1) return;
+        _lastAttempt = clock.Now;
+        _ = Task.Run(async () =>
+        {
+            try { await RefreshAsync(CancellationToken.None); }
+            catch (Exception ex) { log.LogWarning("Background subscription check failed: {Type}", ex.GetType().Name); }
+            finally { Interlocked.Exchange(ref _refreshing, 0); }
+        });
+    }
+
     private async Task<Result<SubscriptionStatus>> RefreshAsync(CancellationToken ct)
     {
-        await _gate.WaitAsync(ct);
+        if (!await _gate.WaitAsync(QueryTimeout, ct)) return Fail("busy");
         var billing = CrossInAppBilling.Current;
         try
         {
-            if (!await billing.ConnectAsync()) return Fail("not_connected");
-            var purchases = await billing.GetPurchasesAsync(ItemType.Subscription);
+            if (!await billing.ConnectAsync().WaitAsync(ConnectTimeout, ct)) return Fail("not_connected");
+            var purchases = await billing.GetPurchasesAsync(ItemType.Subscription).WaitAsync(QueryTimeout, ct);
             var active = purchases?.FirstOrDefault(p => p.State == PurchaseState.Purchased
                 && (p.ProductId == _o.YearlyProductId || p.ProductId == _o.MonthlyProductId));
 
@@ -97,7 +121,7 @@ internal sealed class PlaySubscriptionService(IOptions<BillingOptions> options, 
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             log.LogWarning("Subscription check failed: {Type}", ex.GetType().Name);
-            return Fail(ex.GetType().Name);
+            return Fail(ex is TimeoutException ? "timeout" : ex.GetType().Name);
         }
         finally
         {
@@ -109,13 +133,13 @@ internal sealed class PlaySubscriptionService(IOptions<BillingOptions> options, 
     private async Task AcknowledgeAsync(IInAppBilling billing, InAppBillingPurchase purchase)
     {
         if (purchase.IsAcknowledged == true || string.IsNullOrEmpty(purchase.PurchaseToken)) return;
-        try { await billing.FinalizePurchaseAsync([purchase.PurchaseToken]); }
+        try { await billing.FinalizePurchaseAsync([purchase.PurchaseToken]).WaitAsync(QueryTimeout); }
         catch (Exception ex) { log.LogWarning("Acknowledge failed, will retry on next check: {Type}", ex.GetType().Name); }
     }
 
     private static async Task DisconnectAsync(IInAppBilling billing)
     {
-        try { await billing.DisconnectAsync(); } catch (Exception) { /* already closed */ }
+        try { await billing.DisconnectAsync().WaitAsync(TimeSpan.FromSeconds(5)); } catch (Exception) { /* already closed */ }
     }
 
     // Status: RenewsOn is the next time Angadi re-confirms with Play (Play gives no expiry date to the client).
@@ -124,14 +148,18 @@ internal sealed class PlaySubscriptionService(IOptions<BillingOptions> options, 
 
     private (SubscriptionPlan Plan, DateTimeOffset ConfirmedAt)? ReadCache()
     {
-        var raw = Preferences.Default.Get(Key, "");
-        var parts = raw.Split('|');
-        if (parts.Length == 2 && Enum.TryParse<SubscriptionPlan>(parts[0], out var plan)
-            && long.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var ms))
+        try
         {
-            var at = DateTimeOffset.FromUnixTimeMilliseconds(ms);
-            return at <= clock.Now ? (plan, at) : null;   // a future stamp means the clock moved back: re-check
+            var raw = Preferences.Default.Get(Key, "");
+            var parts = raw.Split('|');
+            if (parts.Length == 2 && Enum.TryParse<SubscriptionPlan>(parts[0], out var plan)
+                && long.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var ms))
+            {
+                var at = DateTimeOffset.FromUnixTimeMilliseconds(ms);
+                return at <= clock.Now ? (plan, at) : null;   // a future stamp means the clock moved back: re-check
+            }
         }
+        catch (Exception ex) { log.LogWarning("Subscription cache unreadable: {Type}", ex.GetType().Name); }
         return null;
     }
 

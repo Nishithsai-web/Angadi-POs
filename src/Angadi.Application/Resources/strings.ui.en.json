@@ -48,5 +48,11 @@
   "stock.move.Purchase": "Purchase",
   "stock.move.Damage": "Damaged",
   "stock.move.CountCorrection": "Count correction",
-  "stock.move.Opening": "Opening stock"
+  "stock.move.Opening": "Opening stock",
+  "pos.scan.new": "Add as a new item",
+  "pos.scan.attach": "Put this barcode on an existing item",
+  "pos.scan.unknown": "No item has this barcode ({0})",
+  "pos.scan.attached": "Barcode added to {0}",
+  "scan.torch": "Light",
+  "items.scan.find": "Scan to find"
 }

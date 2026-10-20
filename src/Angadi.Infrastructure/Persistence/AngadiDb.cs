@@ -63,7 +63,7 @@ public sealed class AngadiDb : IUnitOfWork, IDisposable
     public async Task<T> RunAsync<T>(Func<SQLiteConnection, T> action, CancellationToken ct = default)
     {
         if (_inTransaction.Value) return action(_conn);
-        await _gate.WaitAsync(ct).ConfigureAwait(false);
+        await EnterAsync(ct).ConfigureAwait(false);
         try { return action(_conn); }
         finally { _gate.Release(); }
     }
@@ -75,7 +75,7 @@ public sealed class AngadiDb : IUnitOfWork, IDisposable
     {
         if (_inTransaction.Value) return await work().ConfigureAwait(false);   // nested command: join outer
 
-        await _gate.WaitAsync(ct).ConfigureAwait(false);
+        await EnterAsync(ct).ConfigureAwait(false);
         _inTransaction.Value = true;   // set before awaiting work, so it flows into it
         try
         {
@@ -102,6 +102,18 @@ public sealed class AngadiDb : IUnitOfWork, IDisposable
         }
     }
 
+    /// <summary>
+    /// The single connection's lock. Bounded: if something ever holds it this long, fail loudly (logged, a message
+    /// on screen) instead of freezing every screen of the app — the failure the owner hit on the emulator.
+    /// </summary>
+    public static readonly TimeSpan LockTimeout = TimeSpan.FromSeconds(30);
+
+    private async Task EnterAsync(CancellationToken ct)
+    {
+        if (!await _gate.WaitAsync(LockTimeout, ct).ConfigureAwait(false))
+            throw new TimeoutException("Database busy: lock not released within " + LockTimeout.TotalSeconds + " s");
+    }
+
     /// <summary>Flushes WAL into the main file so a plain file copy is a complete backup (FR-37).</summary>
     public Task CheckpointAsync(CancellationToken ct = default)
         => RunAsync(c => c.ExecuteScalar<int>("PRAGMA wal_checkpoint(TRUNCATE)"), ct);
@@ -113,7 +125,7 @@ public sealed class AngadiDb : IUnitOfWork, IDisposable
     /// </summary>
     public async Task ReplaceWithAsync(string validatedPath, CancellationToken ct = default)
     {
-        await _gate.WaitAsync(ct).ConfigureAwait(false);
+        await EnterAsync(ct).ConfigureAwait(false);
         var safety = DatabasePath + ".pre-restore";
         try
         {

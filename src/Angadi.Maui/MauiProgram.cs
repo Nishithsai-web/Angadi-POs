@@ -69,6 +69,7 @@ public static class MauiProgram
         var app = builder.Build();
 
         GlobalExceptions.Logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Angadi.Unhandled");
+        SafeUi.Services = app.Services;
         TranslateExtension.Localizer = app.Services.GetRequiredService<ILocalizer>();
         HookUnhandledExceptions();
         ApplySavedLanguage(app.Services);
@@ -134,7 +135,8 @@ public static class MauiProgram
         Android.Runtime.AndroidEnvironment.UnhandledExceptionRaiser += (_, e) =>
         {
             GlobalExceptions.Report(e.Exception, "Android");
-            e.Handled = true;
+            e.Handled = true;   // keep the counter open; the shopkeeper gets a message, the log gets the details
+            _ = SafeUi.ShowUnexpectedAsync();
         };
 #endif
     }

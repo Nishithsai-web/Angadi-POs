@@ -15,6 +15,8 @@ public sealed record GetQuickSaleItemsQuery : IQuery<IReadOnlyList<Item>>;
 public sealed record GetLowStockQuery : IQuery<IReadOnlyList<Item>>;
 public sealed record GetItemQuery(Guid ItemId) : IQuery<Item?>;
 public sealed record GetItemByBarcodeQuery(string Barcode) : IQuery<Item?>;
+/// <summary>Attach a scanned barcode to an existing item (unknown packet at the counter).</summary>
+public sealed record SetItemBarcodeCommand(Guid ItemId, string Barcode) : ICommand<Result>;
 public sealed record GetStockHistoryQuery(Guid ItemId) : IQuery<IReadOnlyList<StockMove>>;
 
 /// <summary>FR-03. New items may carry an opening stock, written to the ledger.</summary>

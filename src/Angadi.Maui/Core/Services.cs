@@ -23,7 +23,14 @@ public sealed class ShellNavigationService : INavigationService
     {
         var tcs = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
         _pending.Push(tcs);
-        await GoToAsync(route, parameters);
+        try { await GoToAsync(route, parameters); }
+        catch
+        {
+            // Navigation failed: don't leave a result nobody will ever complete (it would hang the caller forever
+            // and hand the next page's result to the wrong caller).
+            if (_pending.Count > 0 && ReferenceEquals(_pending.Peek(), tcs)) _pending.Pop();
+            throw;
+        }
         return await tcs.Task as T;
     }
 

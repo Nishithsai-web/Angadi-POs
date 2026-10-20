@@ -74,10 +74,13 @@ internal sealed class SaveItemHandler(IItemRepository items, IStockLedger ledger
         var item = command.Item;
         item.Aliases = item.Aliases.Select(a => a.Trim()).Where(a => a.Length > 0).Distinct(StringComparer.Ordinal).ToList();
 
-        if (!string.IsNullOrWhiteSpace(item.Barcode))
+        item.Barcode = Barcodes.Normalize(item.Barcode);
+        if (item.Barcode is { } code)
         {
-            var other = await items.GetByBarcodeAsync(item.Barcode, ct);
-            if (other is not null && other.Id != item.Id) return Result.Failure<Guid>(ErrorCodes.BarcodeDuplicate);
+            if (!Barcodes.IsValid(code)) return Result.Failure<Guid>(ErrorCodes.BarcodeInvalid);
+            var other = await items.GetByBarcodeAsync(code, ct);
+            if (other is not null && other.Id != item.Id)
+                return Result.Failure<Guid>(Error.With(ErrorCodes.BarcodeDuplicate, other.TeluguName.Length > 0 ? other.TeluguName : other.EnglishName));
         }
 
         var isNew = await items.GetAsync(item.Id, ct) is null;
@@ -139,6 +142,26 @@ internal sealed class CustomerQueries(ICustomerRepository customers) :
     public Task<IReadOnlyList<Customer>> Handle(SearchCustomersQuery q, CancellationToken ct) => customers.SearchAsync(q.Text, ct);
     public Task<Customer?> Handle(GetCustomerQuery q, CancellationToken ct) => customers.GetAsync(q.CustomerId, ct);
     public Task<IReadOnlyList<DuesEntry>> Handle(GetCustomerLedgerQuery q, CancellationToken ct) => customers.GetLedgerAsync(q.CustomerId, ct);
+}
+
+// ---------- Barcode → existing item ----------
+
+/// <summary>Scanned an unknown packet at the counter: put its barcode on an item that already exists.</summary>
+internal sealed class SetItemBarcodeHandler(IItemRepository items, IOutbox outbox, IClock clock) : IRequestHandler<SetItemBarcodeCommand, Result>
+{
+    public async Task<Result> Handle(SetItemBarcodeCommand command, CancellationToken ct)
+    {
+        if (Barcodes.Normalize(command.Barcode) is not { } code) return Result.Failure(ErrorCodes.BarcodeInvalid);
+        if (!Barcodes.IsValid(code)) return Result.Failure(ErrorCodes.BarcodeInvalid);
+        if (await items.GetAsync(command.ItemId, ct) is not { } item) return Result.Failure(ErrorCodes.ItemNotFound);
+        var other = await items.GetByBarcodeAsync(code, ct);
+        if (other is not null && other.Id != item.Id)
+            return Result.Failure(Error.With(ErrorCodes.BarcodeDuplicate, other.TeluguName.Length > 0 ? other.TeluguName : other.EnglishName));
+        item.Barcode = code;
+        await items.SaveAsync(item, ct);
+        await outbox.AppendAsync("Item", new ItemChanged(item.Id, clock.Now), ct);
+        return Result.Success();
+    }
 }
 
 // ---------- Logs (H11) ----------

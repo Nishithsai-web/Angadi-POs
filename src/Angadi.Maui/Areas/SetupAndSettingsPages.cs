@@ -50,7 +50,7 @@ public sealed class ShopSetupPage : ContentPage
             },
         };
         var save = Ui.Button(text["setup.start"], big: true);
-        save.Clicked += async (_, _) => await SaveAsync();
+        save.Clicked += SafeUi.On(async () => await SaveAsync());
 
         Content = Ui.Scroll(
             Ui.Title(text["setup.welcome"]),
@@ -129,12 +129,12 @@ public sealed class SubscriptionPage : ContentPage
         Title = text["settings.subscription"];
         var o = billing.Value;
         var monthly = Ui.Button(text.Format("sub.monthly.price", IndianFormat.Group(o.MonthlyPriceRupees)), big: true);
-        monthly.Clicked += async (_, _) => await BuyAsync(SubscriptionPlan.Monthly);
+        monthly.Clicked += SafeUi.On(async () => await BuyAsync(SubscriptionPlan.Monthly));
         var yearly = Ui.Button(text.Format("sub.yearly.price", IndianFormat.Group(o.YearlyPriceRupees)), Theme.Accent, big: true);
         yearly.TextColor = Theme.TextPrimary;
-        yearly.Clicked += async (_, _) => await BuyAsync(SubscriptionPlan.Yearly);
+        yearly.Clicked += SafeUi.On(async () => await BuyAsync(SubscriptionPlan.Yearly));
         var restore = Ui.Secondary(text["sub.restore"]);
-        restore.Clicked += async (_, _) => await ShowAsync(await _subscription.RestoreAsync());
+        restore.Clicked += SafeUi.On(async () => await ShowAsync(await _subscription.RestoreAsync()));
         Content = Ui.Scroll(Ui.Title(text["settings.subscription"]), _status, Ui.Caption(text["sub.included"]), monthly, yearly, restore);
     }
 
@@ -175,7 +175,7 @@ public sealed class SettingsPage : ContentPage
         Button Item(string key, Func<Task> action, bool danger = false)
         {
             var b = danger ? Ui.Button(text[key], Theme.Danger) : Ui.Secondary(text[key]);
-            b.Clicked += async (_, _) => await action();
+            b.Clicked += SafeUi.On(async () => await action());
             return b;
         }
 

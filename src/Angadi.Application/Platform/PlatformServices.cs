@@ -42,6 +42,11 @@ public interface IReceiptShare
 /// <summary>Google Play Billing (Agent D). FR-34/35.</summary>
 public interface ISubscriptionService
 {
+    /// <summary>
+    /// CONTRACT: answers from local state immediately — never waits on the network or Play. Billing calls it inside
+    /// the bill's database transaction; a slow answer there froze the whole app (emulator without Play services).
+    /// Implementations refresh in the background.
+    /// </summary>
     Task<SubscriptionStatus> GetStatusAsync(CancellationToken ct = default);
     Task<Result<SubscriptionStatus>> PurchaseAsync(SubscriptionPlan plan, CancellationToken ct = default);
     Task<Result<SubscriptionStatus>> RestoreAsync(CancellationToken ct = default);

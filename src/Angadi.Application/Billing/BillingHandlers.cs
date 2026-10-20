@@ -83,8 +83,9 @@ internal sealed class FinalizeBillHandler(
         var bill = command.Draft;
         var now = clock.Now;
 
-        // FR-34 free-tier quota.
-        var status = await subscription.GetStatusAsync(ct);
+        // FR-34 free-tier quota. Defence in depth: a status that doesn't answer at once counts as free (fail closed),
+        // so billing can never hang on the subscription service while this transaction holds the database.
+        var status = await SubscriptionGuard.StatusAsync(subscription, ct);
         if (!status.IsPro && await quota.UsedThisMonthAsync(now, ct) >= options.Value.FreeBillsPerMonth)
             return Result.Failure<FinalizedBill>(Error.With(ErrorCodes.FreeLimitReached,
                 options.Value.FreeBillsPerMonth, options.Value.MonthlyPriceRupees));
@@ -280,9 +281,22 @@ internal sealed class GetBillQuotaHandler(IQuotaStore quota, ISubscriptionServic
     public async Task<BillQuota> Handle(GetBillQuotaQuery query, CancellationToken ct)
     {
         var now = clock.Now;
-        var status = await subscription.GetStatusAsync(ct);
+        var status = await SubscriptionGuard.StatusAsync(subscription, ct);
         var used = await quota.UsedThisMonthAsync(now, ct);
         return new BillQuota(status.IsPro, used, options.Value.FreeBillsPerMonth);
+    }
+}
+
+/// <summary>Bounded, fail-closed read of the subscription status for use inside transactions.</summary>
+internal static class SubscriptionGuard
+{
+    public static readonly TimeSpan Timeout = TimeSpan.FromSeconds(2);
+    private static readonly SubscriptionStatus Free = new(false, null, null);
+
+    public static async Task<SubscriptionStatus> StatusAsync(ISubscriptionService subscription, CancellationToken ct)
+    {
+        try { return await subscription.GetStatusAsync(ct).WaitAsync(Timeout, ct); }
+        catch (TimeoutException) { return Free; }
     }
 }
 

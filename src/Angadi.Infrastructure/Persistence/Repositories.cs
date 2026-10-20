@@ -19,8 +19,9 @@ internal sealed class ItemRepository(AngadiDb db, IClock clock) : IItemRepositor
 
     public Task<Item?> GetByBarcodeAsync(string barcode, CancellationToken ct = default)
     {
-        var code = barcode.Trim();
-        return db.RunAsync(c => c.Query<ItemRow>("SELECT * FROM Item WHERE Barcode = ? LIMIT 1", code).FirstOrDefault() is { } r ? ToDomain(r) : null, ct);
+        if (Barcodes.Normalize(barcode) is not { } code) return Task.FromResult<Item?>(null);
+        var alt = Barcodes.Alternate(code) ?? code;   // rows saved before normalization may hold the 12-digit UPC-A form
+        return db.RunAsync(c => c.Query<ItemRow>("SELECT * FROM Item WHERE Barcode IN (?, ?) LIMIT 1", code, alt).FirstOrDefault() is { } r ? ToDomain(r) : null, ct);
     }
 
     public Task<IReadOnlyList<Item>> SearchAsync(string text, int limit = 20, CancellationToken ct = default)

@@ -24,8 +24,8 @@
     "en": "No item with this barcode — add it as a new item?"
   },
   "BARCODE_DUPLICATE": {
-    "te": "ఈ బార్‌కోడ్ ఇంకో సరుకుకు ఇప్పటికే ఉంది",
-    "en": "This barcode is already used by another item"
+    "te": "ఈ బార్‌కోడ్ ఇప్పటికే '{0}' కి ఉంది",
+    "en": "This barcode already belongs to '{0}'"
   },
   "BILL_EMPTY": {
     "te": "బిల్లులో సరుకులు లేవు",
@@ -174,5 +174,9 @@
   "FEEDBACK_TEXT_REQUIRED": {
     "te": "మీ సూచన లేదా సమస్య రాయండి",
     "en": "Write your suggestion or problem"
+  },
+  "BARCODE_INVALID": {
+    "te": "బార్‌కోడ్ సరిగ్గా చదవలేదు — మళ్ళీ స్కాన్ చేయండి లేదా సరిగ్గా టైప్ చేయండి",
+    "en": "That barcode doesn't look right — scan again or check the digits"
   }
 }

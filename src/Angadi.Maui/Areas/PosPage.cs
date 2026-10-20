@@ -237,9 +237,9 @@ public sealed class UpiPayPage : ContentPage, IQueryAttributable
         Title = text["tender.upi"];
         _amount.HorizontalTextAlignment = TextAlignment.Center;
         var paid = Ui.Button(text["pos.upi.paid"], Theme.Success, big: true);
-        paid.Clicked += async (_, _) => { _answered = true; await _nav.ReturnAsync<string>("paid"); };
+        paid.Clicked += SafeUi.On(async () => { _answered = true; await _nav.ReturnAsync<string>("paid"); });
         var cancel = Ui.Secondary(text["common.cancel"]);
-        cancel.Clicked += async (_, _) => { _answered = true; await _nav.ReturnAsync<string>(null); };
+        cancel.Clicked += SafeUi.On(async () => { _answered = true; await _nav.ReturnAsync<string>(null); });
         Content = Ui.Scroll(Ui.Title(text["tender.upi.scan"]), _qr, _amount, paid, cancel);
     }
 
@@ -283,9 +283,9 @@ public sealed class ReceiptPage : ContentPage, IQueryAttributable
         _number.HorizontalTextAlignment = TextAlignment.Center;
         _change.HorizontalTextAlignment = TextAlignment.Center;
         var share = Ui.Button(text["receipt.share"], Theme.Success, big: true);
-        share.Clicked += async (_, _) => await ShareAsync();
+        share.Clicked += SafeUi.On(async () => await ShareAsync());
         var next = Ui.Secondary(text["pos.newbill"]);
-        next.Clicked += async (_, _) => await Shell.Current.GoToAsync("//" + Routes.Pos);
+        next.Clicked += SafeUi.On(async () => await Shell.Current.GoToAsync("//" + Routes.Pos));
         Content = Ui.Scroll(new Label { Text = "✅", FontSize = 56, HorizontalTextAlignment = TextAlignment.Center }, _number, _total, _change, share, next);
     }
 

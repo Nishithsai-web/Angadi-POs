@@ -25,7 +25,7 @@ public sealed class ItemsPage : ContentPage
     private readonly Label _legacy = new() { TextColor = Theme.Warning, FontAttributes = FontAttributes.Bold, IsVisible = false };
     private IReadOnlyList<Item> _all = [];
 
-    public ItemsPage(ISender sender, ILocalizer text)
+    public ItemsPage(ISender sender, ILocalizer text, IBarcodeScanner scanner, IDialogService dialogs)
     {
         _sender = sender;
         _text = text;
@@ -33,19 +33,38 @@ public sealed class ItemsPage : ContentPage
         _search = Ui.Entry(text["pos.search"]);
         _search.TextChanged += (_, _) => Filter();
         var add = Ui.Button("+ " + text["items.add"]);
-        add.Clicked += async (_, _) => await Shell.Current.GoToAsync(Routes.ItemEdit);
+        add.Clicked += SafeUi.On(async () => await Shell.Current.GoToAsync(Routes.ItemEdit));
+        // Scan a packet: open its item, or start a new item with the code already filled in.
+        var scan = Ui.Secondary("▦");
+        SemanticProperties.SetDescription(scan, text["items.scan.find"]);
+        scan.Clicked += SafeUi.On(async () =>
+        {
+            var r = await scanner.ScanAsync();
+            if (r.IsFailure) return;
+            if (Barcodes.Normalize(r.Value) is not { } code || !Barcodes.IsValid(code))
+            {
+                await dialogs.ToastAsync(text.Error(new Error(ErrorCodes.BarcodeInvalid)));
+                return;
+            }
+            var item = await _sender.Send(new GetItemByBarcodeQuery(code));
+            var args = item is not null
+                ? new Dictionary<string, object> { ["itemId"] = item.Id.ToString("D") }
+                : new Dictionary<string, object> { ["barcode"] = code };
+            await Shell.Current.GoToAsync(Routes.ItemEdit, args);
+        });
 
         var list = new CollectionView { ItemsSource = _rows, SelectionMode = SelectionMode.Single, ItemTemplate = RowTemplate(), EmptyView = Ui.Caption(text["common.empty"]) };
-        list.SelectionChanged += async (_, e) =>
+        list.SelectionChanged += SafeUi.On<SelectionChangedEventArgs>(async e =>
         {
             if (e.CurrentSelection.FirstOrDefault() is ItemListRow row)
                 await Shell.Current.GoToAsync(Routes.ItemEdit, new Dictionary<string, object> { ["itemId"] = row.Id.ToString("D") });
             list.SelectedItem = null;
-        };
+        });
 
-        var top = new Grid { ColumnDefinitions = { new(GridLength.Star), new(GridLength.Auto) }, ColumnSpacing = 8 };
+        var top = new Grid { ColumnDefinitions = { new(GridLength.Star), new(GridLength.Auto), new(GridLength.Auto) }, ColumnSpacing = 8 };
         top.Add(_search, 0, 0);
-        top.Add(add, 1, 0);
+        top.Add(scan, 1, 0);
+        top.Add(add, 2, 0);
         var grid = new Grid { Padding = 12, RowSpacing = 8, RowDefinitions = { new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Star) } };
         grid.Add(top, 0, 0);
         grid.Add(_legacy, 0, 1);
@@ -131,7 +150,7 @@ public sealed class ItemEditPage : ContentPage, IQueryAttributable
         _aliases = Ui.Entry(text["items.aliases.hint"]);
         _category = Ui.Entry(text["items.category"]);
         _price = Ui.Entry(text["items.price"], Keyboard.Numeric);
-        _barcode = Ui.Entry(text["items.barcode"], Keyboard.Numeric);
+        _barcode = Ui.Entry(text["items.barcode"]);   // Code 128 / shop codes may contain letters
         _low = Ui.Entry(text["items.lowstock"], Keyboard.Numeric);
         _opening = Ui.Entry(text["items.opening"], Keyboard.Numeric);
         foreach (var u in Units) _unit.Items.Add(text.UnitLabel(u));
@@ -140,26 +159,39 @@ public sealed class ItemEditPage : ContentPage, IQueryAttributable
         _slab.SelectedIndex = 1;
 
         var scan = Ui.Secondary("▦");
-        scan.Clicked += async (_, _) =>
+        scan.Clicked += SafeUi.On(async () =>
         {
             var r = await _scanner.ScanAsync();
-            if (r.IsSuccess) _barcode.Text = r.Value;
-        };
+            if (r.IsFailure) return;
+            if (Barcodes.Normalize(r.Value) is not { } code || !Barcodes.IsValid(code))
+            {
+                await _dialogs.ToastAsync(_text.Error(new Error(ErrorCodes.BarcodeInvalid)));
+                return;
+            }
+            // Tell the shopkeeper at once if another item already has this packet's code.
+            var owner = await _sender.Send(new GetItemByBarcodeQuery(code));
+            if (owner is not null && owner.Id != _item.Id)
+            {
+                await _dialogs.ToastAsync(_text.Error(Error.With(ErrorCodes.BarcodeDuplicate, _text.Name(owner))));
+                return;
+            }
+            _barcode.Text = code;
+        });
         var barcodeRow = new Grid { ColumnDefinitions = { new(GridLength.Star), new(GridLength.Auto) }, ColumnSpacing = 8 };
         barcodeRow.Add(_barcode, 0, 0);
         barcodeRow.Add(scan, 1, 0);
 
         var stockIn = Ui.Secondary(text["stock.in"]);
-        stockIn.Clicked += async (_, _) => await AdjustAsync(StockMoveReason.Purchase);
+        stockIn.Clicked += SafeUi.On(async () => await AdjustAsync(StockMoveReason.Purchase));
         var damage = Ui.Secondary(text["stock.reason.damage"]);
-        damage.Clicked += async (_, _) => await AdjustAsync(StockMoveReason.Damage);
+        damage.Clicked += SafeUi.On(async () => await AdjustAsync(StockMoveReason.Damage));
         var count = Ui.Secondary(text["stock.reason.count"]);
-        count.Clicked += async (_, _) => await AdjustAsync(StockMoveReason.CountCorrection);
+        count.Clicked += SafeUi.On(async () => await AdjustAsync(StockMoveReason.CountCorrection));
         _stockBox = Ui.Card(new VerticalStackLayout { Spacing = 8, Children = { Ui.Caption(text["items.stock"]), _stockNow, stockIn, damage, count } });
         _openingBox = new VerticalStackLayout { Children = { Ui.Caption(text["items.opening"]), _opening } };
 
         var save = Ui.Button(text["items.save"], big: true);
-        save.Clicked += async (_, _) => await SaveAsync();
+        save.Clicked += SafeUi.On(async () => await SaveAsync());
 
         Content = Ui.Scroll(
             Ui.Caption(text["items.telugu"]), _te,

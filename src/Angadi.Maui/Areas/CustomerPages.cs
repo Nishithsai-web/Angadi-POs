@@ -47,9 +47,9 @@ public sealed class CustomersPage : ContentPage
         _text = text;
         Title = text["nav.customers"];
         _search = Ui.Entry(text["customers.search"]);
-        _search.TextChanged += async (_, _) => await LoadListAsync();
+        _search.TextChanged += SafeUi.On<TextChangedEventArgs>(async _ => await LoadListAsync(), singleFlight: false);
         var add = Ui.Button("+ " + text["customers.add"]);
-        add.Clicked += async (_, _) => await AddAsync();
+        add.Clicked += SafeUi.On(async () => await AddAsync());
         var top = new Grid { ColumnDefinitions = { new(GridLength.Star), new(GridLength.Auto) }, ColumnSpacing = 8 };
         top.Add(_search, 0, 0);
         top.Add(add, 1, 0);
@@ -94,9 +94,9 @@ public sealed class CustomersPage : ContentPage
                 Command = new Command(async () => await Shell.Current.GoToAsync(Routes.CustomerDetail, new Dictionary<string, object> { ["customerId"] = d.CustomerId.ToString("D") })),
             });
             var wa = Ui.Button("WhatsApp", Theme.Success);
-            wa.Clicked += async (_, _) => await RemindAsync(d, ReminderChannel.WhatsApp);
+            wa.Clicked += SafeUi.On(async () => await RemindAsync(d, ReminderChannel.WhatsApp));
             var sms = Ui.Secondary("SMS");
-            sms.Clicked += async (_, _) => await RemindAsync(d, ReminderChannel.Sms);
+            sms.Clicked += SafeUi.On(async () => await RemindAsync(d, ReminderChannel.Sms));
             var row = new Grid { ColumnDefinitions = { new(GridLength.Star), new(GridLength.Auto), new(GridLength.Auto) }, ColumnSpacing = 6 };
             row.Add(info, 0, 0);
             row.Add(wa, 1, 0);
@@ -171,33 +171,33 @@ public sealed class CustomerDetailPage : ContentPage, IQueryAttributable
         _address = Ui.Entry(text["customers.address"]);
         _notes = new Editor { Placeholder = text["customers.notes"], AutoSize = EditorAutoSizeOption.TextChanges, MinimumHeightRequest = 60, BackgroundColor = Theme.Surface, FontFamily = Theme.Font, FontSize = 16 };
         var save = Ui.Secondary(text["customers.edit.save"]);
-        save.Clicked += async (_, _) => await SaveDetailsAsync();
+        save.Clicked += SafeUi.On(async () => await SaveDetailsAsync());
 
-        _promise.DateSelected += async (_, e) =>
+        _promise.DateSelected += SafeUi.On<DateChangedEventArgs>(async e =>
         {
             if (_loading || _customer is null) return;
             var r = await _sender.Send(new SetPromisedPayDateCommand(_customer.Id, DateOnly.FromDateTime((DateTime?)e.NewDate ?? DateTime.Today)));
             if (r.IsFailure) await _dialogs.ToastAsync(_text.Error(r.Error));
             await LoadAsync();
-        };
+        });
         var clearPromise = Ui.Secondary(text["customers.promise.clear"]);
-        clearPromise.Clicked += async (_, _) =>
+        clearPromise.Clicked += SafeUi.On(async () =>
         {
             if (_customer is null) return;
             await _sender.Send(new SetPromisedPayDateCommand(_customer.Id, null));
             await LoadAsync();
-        };
+        });
         var promiseRow = new Grid { ColumnDefinitions = { new(GridLength.Star), new(GridLength.Auto), new(GridLength.Auto) }, ColumnSpacing = 6 };
         promiseRow.Add(new VerticalStackLayout { Children = { Ui.Caption(text["customers.promise"]), _promiseLabel } }, 0, 0);
         promiseRow.Add(_promise, 1, 0);
         promiseRow.Add(clearPromise, 2, 0);
 
         var pay = Ui.Button(text["customers.pay"], Theme.Success);
-        pay.Clicked += async (_, _) => await PayAsync();
+        pay.Clicked += SafeUi.On(async () => await PayAsync());
         var wa = Ui.Secondary(text["customers.remind.whatsapp"]);
-        wa.Clicked += async (_, _) => await RemindAsync(ReminderChannel.WhatsApp);
+        wa.Clicked += SafeUi.On(async () => await RemindAsync(ReminderChannel.WhatsApp));
         var sms = Ui.Secondary(text["customers.remind.sms"]);
-        sms.Clicked += async (_, _) => await RemindAsync(ReminderChannel.Sms);
+        sms.Clicked += SafeUi.On(async () => await RemindAsync(ReminderChannel.Sms));
         var remindRow = new Grid { ColumnDefinitions = { new(GridLength.Star), new(GridLength.Star) }, ColumnSpacing = 8 };
         remindRow.Add(wa, 0, 0);
         remindRow.Add(sms, 1, 0);

@@ -35,11 +35,11 @@ internal static class Lists
             return g;
         });
         if (onTap is not null)
-            list.SelectionChanged += async (_, e) =>
+            list.SelectionChanged += SafeUi.On<SelectionChangedEventArgs>(async e =>
             {
                 if (e.CurrentSelection.FirstOrDefault() is SimpleRow row) await onTap(row);
                 list.SelectedItem = null;
-            };
+            });
         return list;
     }
 }
@@ -59,7 +59,7 @@ public sealed class BillsPage : ContentPage
         _text = text;
         _clock = clock;
         Title = text["nav.bills"];
-        _day.DateSelected += async (_, _) => await LoadAsync();
+        _day.DateSelected += SafeUi.On<DateChangedEventArgs>(async _ => await LoadAsync());
         var list = Lists.Make(_rows, text["common.empty"], row => Shell.Current.GoToAsync(Routes.BillDetail, new Dictionary<string, object> { ["billId"] = row.Id }));
         var grid = new Grid { Padding = 12, RowSpacing = 8, RowDefinitions = { new(GridLength.Auto), new(GridLength.Star) } };
         grid.Add(_day, 0, 0);
@@ -128,17 +128,17 @@ public sealed class BillDetailPage : ContentPage, IQueryAttributable
         _body.Add(total);
 
         var share = Ui.Button(_text["bills.reshare"], Theme.Success);
-        share.Clicked += async (_, _) =>
+        share.Clicked += SafeUi.On(async () =>
         {
             var r = await _sender.Send(new ShareReceiptCommand(_billId));
             if (r.IsFailure) await _dialogs.ToastAsync(_text.Error(r.Error));
-        };
+        });
         _body.Add(share);
 
         if (bill.Status == BillStatus.Finalized)
         {
             var voidBtn = Ui.Button(_text["bill.void"], Theme.Danger);
-            voidBtn.Clicked += async (_, _) => await VoidAsync();
+            voidBtn.Clicked += SafeUi.On(async () => await VoidAsync());
             _body.Add(voidBtn);
         }
     }
@@ -179,7 +179,7 @@ public sealed class ReportsPage : ContentPage
         _text = text;
         _clock = clock;
         Title = text["nav.reports"];
-        _day.DateSelected += async (_, _) => await LoadAsync();
+        _day.DateSelected += SafeUi.On<DateChangedEventArgs>(async _ => await LoadAsync());
         Content = new ScrollView { Content = new VerticalStackLayout { Children = { new ContentView { Padding = new Thickness(16, 8, 16, 0), Content = _day }, _body } } };
     }
 
