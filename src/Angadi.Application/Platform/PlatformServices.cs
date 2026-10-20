@@ -62,6 +62,19 @@ public interface IBackupService
     Task<Result> RestoreAsync(string filePath, CancellationToken ct = default);
 }
 
+/// <summary>What a backup file holds, read WITHOUT opening it as the live database (SEC-6).</summary>
+public sealed record BackupInfo(DateTimeOffset? NewestBillAt, int BillCount, int CustomerCount, int ItemCount);
+
+/// <summary>
+/// SEC-6: reads a candidate backup's shape (counts + newest bill) so the restore screen can show the
+/// shopkeeper WHAT they are about to roll back to before anything is swapped. Null = not an Angadi
+/// backup this build understands.
+/// </summary>
+public interface IBackupInspector
+{
+    BackupInfo? Inspect(string filePath);
+}
+
 /// <summary>
 /// Automatic data safety. Rolling validated copies of the database are kept on the phone; if the live file is ever
 /// found damaged at startup it is moved aside and the newest good copy is put back automatically.

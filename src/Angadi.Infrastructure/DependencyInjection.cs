@@ -44,6 +44,9 @@ public static class DependencyInjection
         services.AddSingleton<IBackupService>(sp => new BackupService(
             sp.GetRequiredService<AngadiDb>(), sp.GetRequiredService<IClock>(),
             Path.Combine(options.CacheDirectory, "backups"), sp.GetRequiredService<ILogger<BackupService>>()));
+        // FIX(SEC-6, 2026-10-20, FIX-3): the restore screen reads a staged backup's counts/date before the
+        // swap (see BackupInspector). Logged in docs/AGENT_FIX_LOG.md.
+        services.AddSingleton<IBackupInspector, BackupInspector>();
 
         services.AddSingleton<IReceiptRenderer>(sp => new ReceiptRenderer(
             options.ReceiptFonts, Path.Combine(options.CacheDirectory, "receipts"),

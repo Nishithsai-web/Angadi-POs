@@ -214,14 +214,16 @@ public sealed class SettingsPage : ContentPage
     private readonly IDialogService _dialogs;
     private readonly ILocalizer _text;
     private readonly IAppRestart _restart;
+    private readonly IBackupInspector _inspector;
 
-    public SettingsPage(ISender sender, IReceiptShare share, IDialogService dialogs, ILocalizer text, IAppRestart restart)
+    public SettingsPage(ISender sender, IReceiptShare share, IDialogService dialogs, ILocalizer text, IAppRestart restart, IBackupInspector inspector)
     {
         _sender = sender;
         _share = share;
         _dialogs = dialogs;
         _text = text;
         _restart = restart;
+        _inspector = inspector;
         Title = text["nav.settings"];
 
         Button Item(string key, Func<Task> action, bool danger = false)
@@ -254,13 +256,24 @@ public sealed class SettingsPage : ContentPage
     {
         var picked = await FilePicker.Default.PickAsync();
         if (picked is null) return;
-        if (!await _dialogs.ConfirmAsync(_text["settings.restore"], _text["settings.restore.warn"], _text["common.yes"], _text["common.no"])) return;
 
         // H3: stage the picked (content-URI) file locally first, then restore from the staged copy.
         var staged = Path.Combine(FileSystem.CacheDirectory, "restore-staged.db");
         await using (var source = await picked.OpenReadAsync())
         await using (var target = File.Create(staged))
             await source.CopyToAsync(target);
+
+        // FIX(SEC-6, 2026-10-20, FIX-3): Flaw: the only confirmation was a generic warning — restoring a
+        // months-old backup silently rolled the books back, because nothing showed HOW OLD the file was.
+        // Fix: inspect the staged copy and put the facts in the confirmation — bill/customer/item counts
+        // and the newest bill's date (the app language's own month names). A file that isn't an Angadi
+        // backup is rejected here, before any swap is attempted. Why: restore should be an informed
+        // decision, not a leap. Logged in docs/AGENT_FIX_LOG.md.
+        var info = _inspector.Inspect(staged);
+        if (info is null) { await _dialogs.ToastAsync(_text.Error(new Error(ErrorCodes.RestoreInvalidFile))); return; }
+        var newest = info.NewestBillAt is { } at ? _text.Short(at) : "—";
+        var facts = _text.Format("settings.restore.meta", info.BillCount, newest, info.CustomerCount, info.ItemCount);
+        if (!await _dialogs.ConfirmAsync(_text["settings.restore"], facts, _text["common.yes"], _text["common.no"])) return;
 
         var r = await _sender.Send(new RestoreBackupCommand(staged));
         if (r.IsFailure) { await _dialogs.ToastAsync(_text.Error(r.Error)); return; }
