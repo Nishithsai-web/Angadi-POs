@@ -10,6 +10,9 @@
   <ItemGroup>
     <PackageReference Include="sqlite-net-pcl" />
     <PackageReference Include="SQLitePCLRaw.bundle_green" />
+    <!-- DEPS-1: direct pin — overrides the bundle's transitive lib.e_sqlite3 2.1.11 (GHSA-2m69-gcr7-jv3q,
+         NU1903 warning-as-error) with the patched native build 2.1.12. See Directory.Packages.props. -->
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" />
     <PackageReference Include="Serilog" />
     <PackageReference Include="Serilog.Extensions.Logging" />
     <PackageReference Include="Serilog.Sinks.File" />
