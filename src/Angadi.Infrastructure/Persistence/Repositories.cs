@@ -51,6 +51,9 @@ internal sealed class ItemRepository(AngadiDb db, IClock clock) : IItemRepositor
     {
         var now = clock.Now;
         if (item.CreatedAt == default) item.CreatedAt = now;
+        // DATA-3: how fresh is the caller's copy? Captured BEFORE the overwrite below — a copy loaded
+        // before another writer saved carries the older UpdatedAt and is stale by definition.
+        var loadedUpdatedAtMs = item.UpdatedAt.ToUnixTimeMilliseconds();
         item.UpdatedAt = now;
         var row = ToRow(item);
         // Stock is owned by IStockLedger: never overwrite it from a stale item object.
@@ -59,6 +62,15 @@ internal sealed class ItemRepository(AngadiDb db, IClock clock) : IItemRepositor
             var existing = c.Find<ItemRow>(row.Id);
             if (existing is null) { c.Insert(row); return; }
             row.StockMilli = existing.StockMilli;
+            // FIX(DATA-3, 2026-10-20, FIX-2): Flaw: only stock was protected — a flow holding an Item
+            // across an AliasLearner write (the learner loads fresh, appends, saves) saved its stale copy
+            // and silently reverted LearnedAliasesJson: the voice learning evaporated. Fix: same pattern
+            // as stock — when the caller's copy is stale (its UpdatedAt predates the stored row), the
+            // stored learned aliases win. The learner itself always saves a fresh copy, so its appends,
+            // confidence bumps, demotions and trims write through untouched; manual AliasesJson stays
+            // last-writer-wins (the item editor owns it). Why: learned aliases are accumulated shop data,
+            // exactly like stock — no stale screen may rewind them. Logged in docs/AGENT_FIX_LOG.md.
+            if (loadedUpdatedAtMs != existing.UpdatedAtMs) row.LearnedAliasesJson = existing.LearnedAliasesJson;
             c.Update(row);
             item.Stock = new Qty(existing.StockMilli);
         }, ct);
