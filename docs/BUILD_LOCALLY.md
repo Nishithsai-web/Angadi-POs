@@ -50,6 +50,34 @@ Command-line alternative:
 dotnet build src/Angadi.Maui/Angadi.Maui.csproj -f net10.0-android -t:Run
 ```
 
+## 4b. Keeping Visual Studio 2022? Build from the command line instead
+
+VS 2022 stops .NET 10 builds with `NETSDK1223` ("targeting .NET 10.0 or higher in Visual Studio 2022 is not supported"). Microsoft enforces that, and no project setting can bypass it. The .NET 10 **command line** has no such limit, and it can use the Android emulator VS 2022 already installed. VS 2022 stays your editor; the terminal builds and runs the app.
+
+1. Install the **.NET 10 SDK** (x64) from https://dotnet.microsoft.com/download/dotnet/10.0. It installs alongside .NET 9, and VS 2022 keeps working for your other projects.
+2. In PowerShell:
+   ```powershell
+   dotnet --version                       # 10.0.x
+   dotnet workload install maui-android   # once
+   ```
+3. Start an emulator from VS 2022: **Tools → Android → Android Device Manager → ▶ (Pixel, API 34/35)**. Or plug in a phone with USB debugging on.
+4. From the repo folder (after step 2 above):
+   ```powershell
+   dotnet test tests/Angadi.Tests/Angadi.Tests.csproj
+   dotnet build src/Angadi.Maui/Angadi.Maui.csproj -f net10.0-android -t:Run
+   ```
+   The app installs and opens on the emulator.
+5. If the build says it can't find the Android SDK or Java, point it at the copies VS 2022 installed:
+   ```powershell
+   dotnet build src/Angadi.Maui/Angadi.Maui.csproj -f net10.0-android -t:Run `
+     -p:AndroidSdkDirectory="C:\Program Files (x86)\Android\android-sdk" `
+     -p:JavaSdkDirectory="C:\Program Files\Microsoft\jdk-17.0.12.7-hotspot"
+   ```
+   (Use the JDK folder name that exists under `C:\Program Files\Microsoft\`.)
+6. To install the APK on a real phone without a cable: CI attaches `angadi-debug-apk` to every green run (GitHub → Actions → latest run → Artifacts). Copy it to the phone and open it.
+
+Editing code in VS 2022 works (IntelliSense may be partial for .NET 10 APIs). Build and run with the two commands in step 4.
+
 ## 5. The errors you saw, and what each one means
 
 | Message | Cause | Fix |
@@ -60,6 +88,19 @@ dotnet build src/Angadi.Maui/Angadi.Maui.csproj -f net10.0-android -t:Run
 | `Detected package version outside of dependency constraint: Xamarin.AndroidX.Lifecycle...` (NU1608) | A warning from Android support libraries pulled in by MAUI; the newer version is compatible | Nothing to do; it is not an error |
 
 Still stuck? Copy the **first** error from the Error List (later errors usually follow from it) and send it over.
+
+## How inventory works (what to check once it runs)
+
+1. **Add stock:** Items → + New item. Fill in the name, price, unit and *current stock* (that is the opening stock). For a later delivery, open the item → *Stock in*.
+2. **Sell:** on the Bill screen, add the item by voice, scan, search or tile, then tap Cash / UPI / Udhaar. When the bill is finalized, the stock goes down by exactly what was sold, in the same database transaction as the bill. If anything fails, both are rolled back.
+3. **Void a bill:** Bills → bill → Void. The stock comes back.
+4. **Damage / recount:** item → *Damaged* or *Count correction*.
+5. **Check:** Reports → **Inventory** shows:
+   - stock value, low and out-of-stock counts;
+   - "Stock matches the ledger ✓": every stock number equals the sum of its recorded moves;
+   - today's movements (sale, void, purchase, damage, correction).
+
+Every change is one row in the stock ledger. Nothing edits stock directly, so the numbers can always be traced back. The automated test `Inventory_StockValueLowOut_AndLedgerMatchesAfterEveryKindOfMove` runs that whole sequence on every build.
 
 ## Where things are
 
