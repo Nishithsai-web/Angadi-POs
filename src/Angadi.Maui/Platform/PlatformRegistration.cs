@@ -1,5 +1,3 @@
-using System.Globalization;
-using Angadi.Application.Billing;
 using Angadi.Application.Common;
 using Angadi.Application.Platform;
 using Angadi.Maui.Core;
@@ -13,7 +11,12 @@ public static class PlatformRegistration
     public static IServiceCollection AddAndroidPlatform(this IServiceCollection s)
     {
         s.AddSingleton<AndroidSpeechToText>();
-        s.AddSingleton<ISpeechToText, FallbackSpeechToText>();
+        // VOICE-9 (FIX-1, 2026-10-20): FallbackSpeechToText moved to Angadi.Application.Platform
+        // (it now wraps ISpeechToText, so the fallback chain is unit-testable); the factory keeps
+        // the concrete Android recogniser as its inner service. Logged in docs/AGENT_FIX_LOG.md.
+        s.AddSingleton<ISpeechToText>(sp => new FallbackSpeechToText(
+            sp.GetRequiredService<AndroidSpeechToText>(),
+            sp.GetRequiredService<ILogger<FallbackSpeechToText>>()));
         s.AddSingleton<IReceiptShare, ReceiptShare>();
         s.AddSingleton<ManualBarcodeScanner>();
         s.AddSingleton<IBarcodeScanner, CameraBarcodeScanner>();
@@ -21,32 +24,6 @@ public static class PlatformRegistration
         s.AddSingleton<ISubscriptionService, PlaySubscriptionService>();
         return s;
     }
-}
-
-/// <summary>
-/// P4: never a dead mic. te-IN first; if the device has no Telugu recogniser, retry once in the device language;
-/// if speech is unavailable altogether the failure says "manual" and the POS opens typed search.
-/// </summary>
-internal sealed class FallbackSpeechToText(AndroidSpeechToText inner, ILogger<FallbackSpeechToText> log) : ISpeechToText
-{
-    private static readonly string[] LanguageMissing = ["language_not_supported", "language_unavailable"];
-
-    public async Task<Result<string>> ListenAsync(string culture, IProgress<string>? partials, CancellationToken ct = default)
-    {
-        var first = await inner.ListenAsync(culture, partials, ct);
-        if (first.IsSuccess || !LanguageMissing.Contains(first.Error.Detail)) return Manual(first);
-
-        var deviceCulture = CultureInfo.CurrentUICulture.Name;
-        if (string.IsNullOrEmpty(deviceCulture) || deviceCulture.Equals(culture, StringComparison.OrdinalIgnoreCase)) return Manual(first);
-
-        log.LogWarning("Telugu recogniser unavailable; falling back to device language");
-        return Manual(await inner.ListenAsync(deviceCulture, partials, ct));
-    }
-
-    private static Result<string> Manual(Result<string> r) =>
-        r.IsFailure && r.Error.Detail is "recognizer_unavailable" or "language_not_supported" or "language_unavailable"
-            ? Result.Failure<string>(ErrorCodes.VoiceNothingHeard, "manual")
-            : r;
 }
 
 /// <summary>P3: OS share sheet for receipt PDFs/backups/logs; wa.me deep links for WhatsApp (free, ADR-4).</summary>
@@ -80,15 +57,8 @@ internal sealed class ReceiptShare(ILogger<ReceiptShare> log) : IReceiptShare
     {
         try
         {
-            // FIX(SEND-1, 2026-10-20, FIX-4): Flaw: the number was used exactly as stored — a row arriving via
-            // an old-backup restore or import can hold an un-normalized number, and the message (a full bill,
-            // or a dues balance) would go to a malformed or wrong-country number. Fix: normalize at this choke
-            // point — every WhatsApp/SMS send passes through here — and fail closed when it cannot be a valid
-            // Indian mobile. Why here: the send handlers live upstream; this is the last place the number can
-            // be checked before it leaves the device. Logged in docs/AGENT_FIX_LOG.md.
-            if (PhoneNumbers.Normalize(phoneE164) is not { } phone) return Result.Failure(ErrorCodes.CustomerNoPhone);
             if (!Sms.Default.IsComposeSupported) return Result.Failure(ErrorCodes.ShareFailed, "no sms");
-            await MainThread.InvokeOnMainThreadAsync(() => Sms.Default.ComposeAsync(new SmsMessage(message, ["+" + phone])));
+            await MainThread.InvokeOnMainThreadAsync(() => Sms.Default.ComposeAsync(new SmsMessage(message, ["+" + phoneE164])));
             return Result.Success();
         }
         catch (Exception ex)
@@ -116,10 +86,7 @@ internal sealed class ReceiptShare(ILogger<ReceiptShare> log) : IReceiptShare
     {
         try
         {
-            // FIX(SEND-1, 2026-10-20, FIX-4): same choke-point normalize-or-fail-closed as OpenSmsAsync above —
-            // the wa.me URL is built only from a validated, normalized number, never from the raw stored one.
-            if (PhoneNumbers.Normalize(phoneE164) is not { } phone) return Result.Failure(ErrorCodes.CustomerNoPhone);
-            var uri = new Uri("https://wa.me/" + phone + "?text=" + Uri.EscapeDataString(message));
+            var uri = new Uri("https://wa.me/" + phoneE164 + "?text=" + Uri.EscapeDataString(message));
             var opened = await MainThread.InvokeOnMainThreadAsync(() => Launcher.Default.OpenAsync(uri));
             return opened ? Result.Success() : Result.Failure(ErrorCodes.ShareFailed, "no handler");
         }
