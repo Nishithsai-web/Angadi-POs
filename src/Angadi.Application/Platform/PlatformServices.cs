@@ -64,6 +64,13 @@ public interface IBackupService
     /// made, how much data it holds, and whether its integrity HMAC checks out on THIS device.
     /// Null when the file is missing or not a readable Angadi backup.</summary>
     Task<BackupMetadata?> ReadMetadataAsync(string filePath, CancellationToken ct = default);
+    /// <summary>SEC-1: like ExportAsync, but the file is an AES-256-GCM envelope keyed by the owner's
+    /// passphrase (PBKDF2). Losing the passphrase makes the backup unrecoverable — the UI must say so
+    /// (Telugu warning) before calling this.</summary>
+    Task<Result<string>> ExportEncryptedAsync(string passphrase, CancellationToken ct = default);
+    /// <summary>SEC-1: restore for envelope files from ExportEncryptedAsync. RestoreAsync on an
+    /// envelope fails closed with a "passphrase required" detail so the UI knows to prompt.</summary>
+    Task<Result> RestoreEncryptedAsync(string filePath, string passphrase, CancellationToken ct = default);
 }
 
 /// <summary>SEC-6. <see cref="HmacValid"/> is only meaningful when <see cref="HasHmac"/> is true;

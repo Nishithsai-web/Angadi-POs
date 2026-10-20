@@ -131,7 +131,115 @@ internal sealed class BackupService(AngadiDb db, IClock clock, string exportDire
         }
     }
 
+    // FIX(SEC-1, 2026-10-20, FIX-2): Flaw: manual backup exports were plaintext SQLite files — the shop's
+    // entire books (customers, dues, prices) readable by anyone the file was shared with or who picked up
+    // the phone. Fix: an encrypted export — AES-256-GCM envelope (magic + version byte, so restore can
+    // tell envelope from legacy plaintext at a glance), key from the owner's passphrase via
+    // PBKDF2-HMAC-SHA256 (210k iterations, random salt per export). Wrong passphrase fails closed on the
+    // GCM tag. Legacy plaintext backups still restore exactly as before. Why this shape: the passphrase
+    // never touches disk, the envelope is self-describing, and there is no key escrow — losing the
+    // passphrase means losing the backup, which the export UI must warn about in Telugu before calling
+    // ExportEncryptedAsync (UI wiring is the integrator step; the service API lands here).
+    // Logged in docs/AGENT_FIX_LOG.md.
+    private static readonly byte[] EncMagic = "ANGADI-ENC"u8.ToArray();
+    private const byte EncVersion = 1;
+    private const int EncSaltSize = 16, EncNonceSize = 12, EncTagSize = 16, EncKeySize = 32, EncIterations = 210_000;
+
+    public async Task<Result<string>> ExportEncryptedAsync(string passphrase, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(passphrase)) return Result.Failure<string>(ErrorCodes.BackupFailed, "passphrase required");
+        var plain = await ExportCoreAsync(overwrite: true, ct);
+        if (plain.IsFailure) return plain;
+        try
+        {
+            var encPath = plain.Value + ".enc";
+            EncryptFile(plain.Value, encPath, passphrase);
+            File.Delete(plain.Value);   // the plaintext must not linger beside its encrypted twin
+            log.LogInformation("Encrypted backup exported");
+            return Result.Success(encPath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or CryptographicException)
+        {
+            log.LogError(ex, "Encrypted backup export failed");
+            return Result.Failure<string>(ErrorCodes.BackupFailed, ex.Message);
+        }
+    }
+
+    private static void EncryptFile(string plainPath, string encPath, string passphrase)
+    {
+        var plain = File.ReadAllBytes(plainPath);
+        var salt = RandomNumberGenerator.GetBytes(EncSaltSize);
+        var nonce = RandomNumberGenerator.GetBytes(EncNonceSize);
+        var key = Rfc2898DeriveBytes.Pbkdf2(passphrase, salt, EncIterations, HashAlgorithmName.SHA256, EncKeySize);
+        var cipher = new byte[plain.Length];
+        var tag = new byte[EncTagSize];
+        using (var aes = new AesGcm(key, EncTagSize)) aes.Encrypt(nonce, plain, cipher, tag);
+        using var fs = File.Create(encPath);
+        fs.Write(EncMagic); fs.WriteByte(EncVersion); fs.Write(salt); fs.Write(nonce); fs.Write(tag); fs.Write(cipher);
+    }
+
+    private static bool IsEncryptedEnvelope(string path)
+    {
+        try
+        {
+            if (!File.Exists(path)) return false;
+            using var fs = File.OpenRead(path);
+            var head = new byte[EncMagic.Length + 1];
+            return fs.Read(head, 0, head.Length) == head.Length
+                && head.AsSpan(0, EncMagic.Length).SequenceEqual(EncMagic) && head[EncMagic.Length] == EncVersion;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return false; }
+    }
+
+    private static void DecryptFile(string encPath, string plainPath, string passphrase)
+    {
+        var all = File.ReadAllBytes(encPath);
+        var header = EncMagic.Length + 1 + EncSaltSize + EncNonceSize + EncTagSize;
+        if (all.Length < header || !all.AsSpan(0, EncMagic.Length).SequenceEqual(EncMagic) || all[EncMagic.Length] != EncVersion)
+            throw new CryptographicException("not an Angadi encrypted backup");
+        var at = EncMagic.Length + 1;
+        var salt = all.AsSpan(at, EncSaltSize).ToArray(); at += EncSaltSize;
+        var nonce = all.AsSpan(at, EncNonceSize).ToArray(); at += EncNonceSize;
+        var tag = all.AsSpan(at, EncTagSize).ToArray(); at += EncTagSize;
+        var key = Rfc2898DeriveBytes.Pbkdf2(passphrase, salt, EncIterations, HashAlgorithmName.SHA256, EncKeySize);
+        var plain = new byte[all.Length - at];
+        using (var aes = new AesGcm(key, EncTagSize)) aes.Decrypt(nonce, all.AsSpan(at), tag, plain);   // throws on wrong passphrase
+        File.WriteAllBytes(plainPath, plain);
+    }
+
+    public async Task<Result> RestoreEncryptedAsync(string filePath, string passphrase, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(passphrase)) return Result.Failure(ErrorCodes.RestoreInvalidFile, "passphrase required");
+        var decrypted = db.DatabasePath + ".restore-dec";
+        try
+        {
+            DecryptFile(filePath, decrypted, passphrase);
+            return await RestoreCoreAsync(decrypted, ct);
+        }
+        catch (CryptographicException)
+        {
+            log.LogWarning("Encrypted restore rejected: wrong passphrase or damaged envelope");
+            return Result.Failure(ErrorCodes.RestoreInvalidFile, "wrong passphrase or damaged encrypted backup");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            log.LogError(ex, "Encrypted restore failed before validation; live data unchanged");
+            return Result.Failure(ErrorCodes.RestoreInvalidFile, ex.GetType().Name);
+        }
+        finally
+        {
+            if (File.Exists(decrypted)) File.Delete(decrypted);
+        }
+    }
+
     public async Task<Result> RestoreAsync(string filePath, CancellationToken ct = default)
+    {
+        // SEC-1: an envelope through the plaintext path fails closed with a signal the UI can act on.
+        if (IsEncryptedEnvelope(filePath)) return Result.Failure(ErrorCodes.RestoreInvalidFile, "encrypted backup — passphrase required");
+        return await RestoreCoreAsync(filePath, ct);
+    }
+
+    private async Task<Result> RestoreCoreAsync(string filePath, CancellationToken ct)
     {
         // H3: never touch the live DB with an unvalidated file. Stage a private copy next to it (same volume,
         // so the final swap is an atomic rename), validate the copy, then swap.

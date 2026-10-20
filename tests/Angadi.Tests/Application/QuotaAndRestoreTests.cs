@@ -237,6 +237,44 @@ public class QuotaAndRestoreTests
         Assert.False(meta.HmacValid);
     }
 
+    [Fact]
+    public async Task SEC1_EncryptedBackup_RoundTrips_AndPlaintextPathFailsClosed()
+    {
+        using var t = new TempDb();
+        var rice = new Item { TeluguName = "బియ్యం", EnglishName = "Rice", Unit = Unit.Kilogram, Price = new Paise(6200) };
+        await t.Items.SaveAsync(rice);
+        await t.Ledger.AdjustAsync(rice.Id, Qty.Whole(10), StockMoveReason.Purchase);
+        var backup = new BackupService(t.Db, t.Clock, Path.Combine(t.Folder, "exports"), TempDb.Log<BackupService>());
+
+        var encPath = (await backup.ExportEncryptedAsync("correct horse")).Value;
+        Assert.True(File.Exists(encPath));
+        Assert.False(File.Exists(encPath[..^4]));   // the plaintext twin was deleted
+
+        // The plaintext restore path sees the envelope and fails closed, asking for a passphrase.
+        var plainAttempt = await backup.RestoreAsync(encPath);
+        Assert.Equal(ErrorCodes.RestoreInvalidFile, plainAttempt.Error.Code);
+        Assert.Contains("passphrase", plainAttempt.Error.Detail);
+
+        // Wipe the item locally, then restore from the envelope: the books come back.
+        await t.Db.RunAsync(c => c.Execute("DELETE FROM Item"));
+        Assert.True((await backup.RestoreEncryptedAsync(encPath, "correct horse")).IsSuccess);
+        Assert.Equal(6200, (await t.Items.GetAsync(rice.Id))!.Price.Value);
+    }
+
+    [Fact]
+    public async Task SEC1_EncryptedBackup_WrongPassphrase_FailsClosed_LiveDataUntouched()
+    {
+        using var t = new TempDb();
+        var rice = new Item { TeluguName = "బియ్యం", EnglishName = "Rice", Unit = Unit.Kilogram, Price = new Paise(6200) };
+        await t.Items.SaveAsync(rice);
+        var backup = new BackupService(t.Db, t.Clock, Path.Combine(t.Folder, "exports"), TempDb.Log<BackupService>());
+        var encPath = (await backup.ExportEncryptedAsync("correct horse")).Value;
+
+        var result = await backup.RestoreEncryptedAsync(encPath, "wrong horse");
+        Assert.Equal(ErrorCodes.RestoreInvalidFile, result.Error.Code);
+        Assert.Equal(6200, (await t.Items.GetAsync(rice.Id))!.Price.Value);   // untouched
+    }
+
     private static void Tamper(string backupPath, string sql)
     {
         using var c = new SQLiteConnection(backupPath);
