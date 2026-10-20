@@ -32,6 +32,7 @@ public class Result
     public static Result Failure(string code, string? detail = null) => new(false, new Error(code, detail));
     public static Result<T> Success<T>(T value) => Result<T>.Success(value);
     public static Result<T> Failure<T>(string code, string? detail = null) => Result<T>.Failure(new Error(code, detail));
+    public static Result<T> Failure<T>(Error error) => Result<T>.Failure(error);
 }
 
 public sealed class Result<T> : Result
