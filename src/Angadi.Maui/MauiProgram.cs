@@ -57,6 +57,11 @@ public static class MauiProgram
         // replaced by the app's factory logger after Build. The factory is intentionally not disposed — it
         // shares the provider, whose lifetime is the app's. Logged in docs/AGENT_FIX_LOG.md.
         GlobalExceptions.Logger = new LoggerFactory([logProvider]).CreateLogger("Angadi.Unhandled");
+        // FIX(LOG-2, 2026-10-20, FIX-3): the settings fallback taken in LoadConfiguration is silent no longer —
+        // one startup warning, now that a logger exists (see the catch in LoadConfiguration). Logged in
+        // docs/AGENT_FIX_LOG.md.
+        if (_configProblem is { } problem)
+            GlobalExceptions.Logger.LogWarning("appsettings.json was not used ({Problem}); built-in defaults are in force", problem);
 
         builder.Services.AddAngadiApplication();
         builder.Services.AddAngadiInfrastructure(new InfrastructureOptions

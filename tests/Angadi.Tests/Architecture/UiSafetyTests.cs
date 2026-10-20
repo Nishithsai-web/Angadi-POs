@@ -58,4 +58,19 @@ public class UiSafetyTests
         Assert.Contains("LogError", vm, StringComparison.Ordinal);
         Assert.Contains("LogInformation", vm, StringComparison.Ordinal);   // late completion is logged too
     }
+
+    /// <summary>
+    /// LOG-2: a malformed appsettings.json must degrade to defaults, never crash startup. MauiProgram is
+    /// MAUI-head code (not loadable in this test project), so the guard is asserted at source level:
+    /// the config load's catch filter must include FormatException and the fallback must be surfaced
+    /// as a startup warning once logging exists.
+    /// </summary>
+    [Fact]
+    public void MalformedAppSettings_DegradesToDefaults_NeverCrashesStartup()
+    {
+        var program = MauiFile("MauiProgram.cs");
+        Assert.Contains("IOException or FormatException", program, StringComparison.Ordinal);
+        Assert.Contains("_configProblem", program, StringComparison.Ordinal);
+        Assert.Contains("LogWarning", program, StringComparison.Ordinal);
+    }
 }
