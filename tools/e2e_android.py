@@ -9,6 +9,8 @@ the app is still alive; at the end it reads the app's own log file and fails on 
 Output: screenshots + a UI dump per step in e2e-out/, GitHub annotations for every failure.
 Usage: python3 tools/e2e_android.py path/to/app.apk
 """
+import glob
+import importlib
 import os
 import re
 import subprocess
@@ -395,7 +397,8 @@ def bill_survives_app_kill():
 
 
 def debuggable():
-    return "not debuggable" not in run_as("id") and "unknown package" not in run_as("id")
+    # run-as prints its refusal on stderr (adb() returns stdout only), so look for the positive answer instead.
+    return "uid=" in run_as("id")
 
 
 def damaged_data_recovers():
@@ -493,6 +496,18 @@ def main():
         ("language-switch", language_switch),
         ("bill-survives-app-kill", bill_survives_app_kill),
         ("damaged-data-recovers", damaged_data_recovers),
+    ]:
+        step(name, fn)
+
+    # Feature areas add their own steps in tools/e2e_steps_<area>.py (STEPS = [(name, fn), ...]); they may use
+    # every helper in this module (import e2e_android as e). Run before the final log and freeze checks.
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    for path in sorted(glob.glob(os.path.join(os.path.dirname(os.path.abspath(__file__)), "e2e_steps_*.py"))):
+        module = importlib.import_module(os.path.splitext(os.path.basename(path))[0])
+        for name, fn in getattr(module, "STEPS", []):
+            step(name, fn)
+
+    for name, fn in [
         ("app-log-clean", app_log_has_no_errors),
         ("no-app-freezes", app_never_froze),
     ]:
@@ -509,4 +524,5 @@ def main():
 
 
 if __name__ == "__main__":
+    sys.modules.setdefault("e2e_android", sys.modules[__name__])   # step modules share this module's state
     main()
