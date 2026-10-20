@@ -12,7 +12,13 @@ namespace Angadi.Application.Billing;
 /// FR-13–15, FR-34. Handler: quota check → BillCalculator.Compute → number → save bill →
 /// stock moves (Sale) → dues Charge if udhaar → outbox BillFinalized.
 /// </summary>
-public sealed record FinalizeBillCommand(Bill Draft) : ICommand<Result<FinalizedBill>>;
+public sealed record FinalizeBillCommand(Bill Draft) : ICommand<Result<FinalizedBill>>
+{
+    /// <summary>L-7 (owner decision, 2026-10-20): set by the UI when the shopkeeper explicitly confirms a
+    /// bill whose computed total is ₹0 ("this bill is free"). Without it the validator rejects such a bill —
+    /// a 100%-discount typo must not silently give goods away, burn a bill number and a quota slot.</summary>
+    public bool FreeBillConfirmed { get; init; }
+}
 /// <summary>Saves the counter's unfinished bill after every change (an empty draft clears it).</summary>
 public sealed record SaveBillDraftCommand(BillDraftSnapshot Draft) : ICommand<Result>;
 /// <summary>The unfinished bill left when the app was last closed, or null.</summary>

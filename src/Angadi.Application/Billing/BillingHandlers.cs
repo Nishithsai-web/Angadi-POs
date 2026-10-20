@@ -53,7 +53,42 @@ internal sealed class FinalizeBillValidator : IValidator<FinalizeBillCommand>
         // H8: GST 2.0 abolished 12%/28% (22 Sep 2025); fail closed rather than bill wrong tax.
         var legacy = bill.Lines.FirstOrDefault(l => GstSlabs.IsLegacy(l.GstSlab));
         if (legacy is not null) return new Error(ErrorCodes.BillLegacySlab, legacy.EnglishName);
+        // FIX(L-7, 2026-10-20, FIX-2): Flaw: a ₹0 bill (100% discount, or every line priced ₹0) finalized
+        // silently — burning a bill number + a quota slot and decrementing stock with no confirmation, so a
+        // discount typo looked like a normal sale while the goods left free. Fix: when the computed grand
+        // total is ₹0 (lines are guaranteed non-empty above), the command must carry FreeBillConfirmed,
+        // which the UI sets from an explicit "this bill is free" confirmation (owner decision, 2026-10-20).
+        // Why: free goods must be a decision, never an accident.
+        // TODO-INTEGRATOR: coded as generic VALIDATION_FAILED — the catalog has no dedicated code. Add
+        // BILL_FREE_NOT_CONFIRMED (errors.json + ErrorCodes) so the UI can trigger the confirmation on
+        // exactly this failure instead of matching detail text. Logged in docs/AGENT_FIX_LOG.md.
+        if (!c.FreeBillConfirmed && ComputesToZero(bill))
+            return new Error(ErrorCodes.ValidationFailed, "free bill not confirmed");
         return null;
+    }
+
+    /// <summary>L-7: the draft's grand total, computed on a copy (Compute mutates its bill). A compute
+    /// failure (overflow) means "not provably zero" — the handler will report the real error.</summary>
+    private static bool ComputesToZero(Bill bill)
+    {
+        try
+        {
+            var copy = new Bill
+            {
+                BillDiscount = bill.BillDiscount,
+                Lines = bill.Lines.Select(l => new BillLine
+                {
+                    ItemId = l.ItemId, TeluguName = l.TeluguName, EnglishName = l.EnglishName, Unit = l.Unit,
+                    UnitPrice = l.UnitPrice, GstSlab = l.GstSlab, Qty = l.Qty, LineDiscount = l.LineDiscount, Source = l.Source,
+                }).ToList(),
+            };
+            BillCalculator.Compute(copy, shopHasGstin: false);   // the grand total is GSTIN-independent (prices are tax-inclusive)
+            return copy.GrandTotal.Value == 0;
+        }
+        catch (Exception ex) when (ex is ArgumentException or OverflowException)
+        {
+            return false;
+        }
     }
 }
 
@@ -255,7 +290,14 @@ internal sealed class SendBillToCustomerHandler(
         if (await bills.GetAsync(command.BillId, ct) is not { } bill) return Result.Failure(ErrorCodes.BillNotFound);
         if (bill.CustomerId is not { } customerId || await customers.GetAsync(customerId, ct) is not { } customer)
             return Result.Failure(ErrorCodes.CustomerNotFound);
-        if (string.IsNullOrWhiteSpace(customer.Phone)) return Result.Failure(ErrorCodes.CustomerNoPhone);
+        // FIX(SEND-1, 2026-10-20, FIX-2): Flaw: the stored phone went to the share layer verbatim — a
+        // number stored with a trunk 0 or spaces ("098765 43210", e.g. written by an old backup restore,
+        // which the repository stores raw) produced a dead wa.me link. Fix: normalize here (the handler is
+        // the first line of defence; the share layer also normalizes and fails closed — FIX-4, b4e0a89c)
+        // and send to the normalized number; an un-normalizable number fails as CustomerNoPhone. Why: a
+        // bill or reminder that silently goes nowhere is a collection the shopkeeper thinks happened.
+        // Logged in docs/AGENT_FIX_LOG.md.
+        if (PhoneNumbers.Normalize(customer.Phone) is not { } phone) return Result.Failure(ErrorCodes.CustomerNoPhone);
 
         var profile = await shop.GetAsync(ct);
         var tender = bill.Tender switch
@@ -270,7 +312,7 @@ internal sealed class SendBillToCustomerHandler(
             IndianFormat.Rupees(bill.GrandTotal), tender) + "\n" + items;
         if (customer.DuesBalance.Value > 0)
             message += "\n" + text.Format("receipt.customer.balance", IndianFormat.Rupees(customer.DuesBalance));
-        return await share.OpenWhatsAppAsync(customer.Phone, message, ct);
+        return await share.OpenWhatsAppAsync(phone, message, ct);   // SEND-1: normalized above
     }
 }
 
@@ -302,7 +344,7 @@ internal sealed class SendDuesReminderHandler(
     {
         var customer = await customers.GetAsync(command.CustomerId, ct);
         if (customer is null) return Result.Failure(ErrorCodes.CustomerNotFound);
-        if (string.IsNullOrWhiteSpace(customer.Phone)) return Result.Failure(ErrorCodes.CustomerNoPhone);
+        if (PhoneNumbers.Normalize(customer.Phone) is not { } phone) return Result.Failure(ErrorCodes.CustomerNoPhone);   // SEND-1: see SendBillToCustomerHandler
         if (customer.DuesBalance.Value <= 0) return Result.Failure(ErrorCodes.CustomerNoDues);
 
         var profile = await shop.GetAsync(ct);
@@ -319,8 +361,8 @@ internal sealed class SendDuesReminderHandler(
             message += "\n" + text.Format("customers.remind.promised", text.Short(promised));
 
         var sent = command.Channel == ReminderChannel.Sms
-            ? await share.OpenSmsAsync(customer.Phone, message, ct)
-            : await share.OpenWhatsAppAsync(customer.Phone, message, ct);
+            ? await share.OpenSmsAsync(phone, message, ct)   // SEND-1: normalized above
+            : await share.OpenWhatsAppAsync(phone, message, ct);
         if (sent.IsFailure) return sent;
 
         customer.LastRemindedAt = clock.Now;   // keeps them off "Due for reminder" for a few days
