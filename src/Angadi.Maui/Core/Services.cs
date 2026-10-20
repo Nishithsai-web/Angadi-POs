@@ -47,7 +47,7 @@ internal sealed class DialogService : IDialogService
     public Task ToastAsync(string message) => MainThread.InvokeOnMainThreadAsync(() =>
     {
 #if ANDROID
-        Android.Widget.Toast.MakeText(Platform.AppContext, message, Android.Widget.ToastLength.Long)?.Show();
+        Android.Widget.Toast.MakeText(Microsoft.Maui.ApplicationModel.Platform.AppContext, message, Android.Widget.ToastLength.Long)?.Show();
 #endif
     });
 

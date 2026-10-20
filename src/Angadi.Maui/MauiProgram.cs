@@ -35,9 +35,9 @@ public static class MauiProgram
         // H7: options come from Resources/Raw/appsettings.json, not compile-time constants.
         var config = LoadConfiguration();
         builder.Configuration.AddConfiguration(config);
-        builder.Services.Configure<VoiceOptions>(config.GetSection("Voice"));
-        builder.Services.Configure<BillingOptions>(config.GetSection("Billing"));
-        builder.Services.Configure<InsightsOptions>(config.GetSection("Insights"));
+        builder.Services.Configure<VoiceOptions>(o => config.GetSection("Voice").Bind(o));
+        builder.Services.Configure<BillingOptions>(o => config.GetSection("Billing").Bind(o));
+        builder.Services.Configure<InsightsOptions>(o => config.GetSection("Insights").Bind(o));
 
         // NFR-07/FR-36: rolling file logs on the device, exported from Settings.
         var logs = new LogFiles(Path.Combine(FileSystem.AppDataDirectory, "logs"));

@@ -75,7 +75,7 @@ public sealed class BillsPage : ContentPage
 
     private async Task LoadAsync()
     {
-        var day = DateOnly.FromDateTime(_day.Date);
+        var day = DateOnly.FromDateTime((DateTime?)_day.Date ?? DateTime.Today);
         var bills = await _sender.Send(new ListBillsQuery(day, day));
         _rows.Clear();
         foreach (var b in bills)
@@ -320,7 +320,7 @@ public sealed class ReportsPage : ContentPage
 
     private async Task LoadAsync()
     {
-        var day = DateOnly.FromDateTime(_day.Date);
+        var day = DateOnly.FromDateTime((DateTime?)_day.Date ?? DateTime.Today);
         var r = await _sender.Send(new GetDayEndReportQuery(day));
         var month = new DateOnly(day.Year, day.Month, 1);
         var gst = await _sender.Send(new GetGstSummaryQuery(month, day));
