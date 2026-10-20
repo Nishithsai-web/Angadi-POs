@@ -54,7 +54,8 @@ Development no longer runs through one implementer. Muse's own dev/fix agents no
 - **Why:** This lane's first run was stopped by a GitHub API rate limit (429) before any file was read — nothing in this scope is verified yet, and unverified must never be reported as passed.
 
 ### MONEY-1 (MEDIUM) — Finalize validator never checks `GstSlab` is a defined value; a cast-in slab is taxed at a nonsense rate instead of failing closed
-- **Status:** OPEN · **Found by:** Testing agent T1 (money), 2026-10-20, code-read at HEAD 0b25f05
+- **Status:** FIXED-AWAITING-VERIFY · **Fixed by:** FIX-2, 2026-10-20 (validator check + regression test `T1_04_Finalize_UndefinedGstSlab_FailsClosed`; commit SHA recorded by the verifier — the push carrying this note. CI not observable from the fix agent: UNVERIFIED-CI.)
+- **Found by:** Testing agent T1 (money), 2026-10-20, code-read at HEAD 0b25f05
 - **Evidence:** `FinalizeBillValidator` (BillingHandlers.cs) guards `bill.Tender` with `Enum.IsDefined` and rejects legacy slabs, but has **no equivalent check on `l.GstSlab`**. Entry path: `BillDraft.Restore` copies `l.GstSlab` verbatim from a draft snapshot (JSON), bypassing the item-save guard (`CatalogHandlers.cs:29`). `BillCalculator.SplitFor` trusts the raw value: `(GstSlab)9999` extracts tax at ~50% of net; `(GstSlab)(-500)` yields **negative tax**. Violates the H8 fail-closed principle.
 - **Fix:** in `FinalizeBillValidator.Validate`, before the legacy check: `if (bill.Lines.Any(l => !Enum.IsDefined(l.GstSlab))) return new Error(ErrorCodes.ValidationFailed, "unknown GST slab");` — mirror of CatalogHandlers.cs:29. Regression test: T1-04 (below).
 - **Why:** Wrong tax on a receipt corrupts the shop's GST summary silently. Reachability today is low (tampered/corrupt draft or DB), impact is wrong tax — MEDIUM.

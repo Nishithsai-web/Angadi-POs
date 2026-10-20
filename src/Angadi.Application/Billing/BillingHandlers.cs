@@ -39,6 +39,12 @@ internal sealed class FinalizeBillValidator : IValidator<FinalizeBillCommand>
         // M9: a typo like 150% must stop the bill, never silently clamp to free goods.
         if (IsOver100Percent(bill.BillDiscount) || bill.Lines.Any(l => IsOver100Percent(l.LineDiscount)))
             return new Error(ErrorCodes.BillDiscountTooLarge);
+        // FIX(MONEY-1, 2026-10-20, FIX-2): Flaw: the lines' GstSlab was never Enum.IsDefined-checked (the tender
+        // was). A slab cast in through a restored draft snapshot reached BillCalculator raw: (GstSlab)9999 taxes
+        // ~50% of net and (GstSlab)(-500) makes tax negative. Fix: the same check item save does (CatalogHandlers),
+        // before the legacy check. Why: fail closed on wrong tax, like every other bad enum here (H8 principle).
+        // Logged in docs/AGENT_FIX_LOG.md.
+        if (bill.Lines.Any(l => !Enum.IsDefined(l.GstSlab))) return new Error(ErrorCodes.ValidationFailed, "unknown GST slab");
         // H8: GST 2.0 abolished 12%/28% (22 Sep 2025); fail closed rather than bill wrong tax.
         var legacy = bill.Lines.FirstOrDefault(l => GstSlabs.IsLegacy(l.GstSlab));
         if (legacy is not null) return new Error(ErrorCodes.BillLegacySlab, legacy.EnglishName);

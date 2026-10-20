@@ -1,6 +1,9 @@
 # CHANGELOG.md — Angadi POS v1
 Every meaningful change: date, what, the issue it addresses, and the one-line why. Newest first.
 
+## 2026-10-20 (FIX-2, Muse fix agent) — money & data-integrity fixes from the production audit
+- **Fixed: a bill line with an invented GST slab was taxed at an invented rate.** The finalize validator checked the tender was a real value but never the slab; a slab smuggled in through a restored draft (e.g. 9999) extracted ~50% tax, and a negative one made tax negative. The validator now rejects any undefined slab, exactly like item save does. Why: wrong tax on a receipt silently corrupts the shop's GST summary (MONEY-1).
+
 ## 2026-10-20 (later, Claude Code) — robustness at the counter
 - **Fixed: a slow save could charge a bill twice.** The 45 s watchdog left the bill on screen while it was still committing; paying again made a second bill (second number, stock and dues taken twice). Finalize is now idempotent on the bill's id: a retry returns the bill that saved. Why: money must never be counted twice.
 - **The unfinished bill survives the app being closed** (phone call, Android memory, crash): saved after every change and restored on reopen. Finalize clears it in the same transaction, so a paid bill never comes back. Why: a lost half-built bill means re-scanning everything with a customer waiting.
