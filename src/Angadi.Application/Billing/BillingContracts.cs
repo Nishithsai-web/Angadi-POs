@@ -45,8 +45,53 @@ public sealed record BillQuota(bool IsPro, int UsedThisMonth, int FreeLimit)
 /// Builds a UPI intent URI for the tender QR and the receipt (FR-14/17).
 /// Pure helper, implemented now so the format is fixed by contract.
 /// </summary>
+/// <summary>
+/// The owner's own UPI QR (printed by their bank, PhonePe, Paytm, GPay…). Every shop's QR is unique: it names the
+/// shop's payee address (pa), name (pn) and, for merchant accounts, the merchant code (mc).
+/// </summary>
+public sealed record UpiQr(string PayeeAddress, string? PayeeName, string? MerchantCode)
+{
+    public const int MaxImageBytes = 2 * 1024 * 1024;
+
+    /// <summary>Reads "upi://pay?pa=…" (any case, any parameter order). Null when the text is not a UPI payment QR.</summary>
+    public static UpiQr? Parse(string? scanned)
+    {
+        if (string.IsNullOrWhiteSpace(scanned)) return null;
+        var text = scanned.Trim();
+        if (!text.StartsWith("upi://pay", StringComparison.OrdinalIgnoreCase)) return null;
+        var q = text.IndexOf('?', StringComparison.Ordinal);
+        if (q < 0) return null;
+        var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var part in text[(q + 1)..].Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var eq = part.IndexOf('=', StringComparison.Ordinal);
+            if (eq <= 0) continue;
+            values[part[..eq]] = Uri.UnescapeDataString(part[(eq + 1)..].Replace('+', ' '));
+        }
+        if (!values.TryGetValue("pa", out var pa) || !System.Text.RegularExpressions.Regex.IsMatch(pa.Trim(), @"^[A-Za-z0-9.\-_]{2,256}@[A-Za-z0-9]{2,64}$"))
+            return null;
+        values.TryGetValue("pn", out var pn);
+        values.TryGetValue("mc", out var mc);
+        return new UpiQr(pa.Trim(), string.IsNullOrWhiteSpace(pn) ? null : pn.Trim(), string.IsNullOrWhiteSpace(mc) ? null : mc.Trim());
+    }
+}
+
 public static class UpiLink
 {
+    /// <summary>
+    /// The QR the customer scans at the counter: the shop's own payee (from their scanned QR when there is one,
+    /// else the UPI ID typed at setup) with THIS bill's amount filled in, so the customer types nothing.
+    /// </summary>
+    public static string ForShop(Angadi.Domain.Shop.ShopProfile shop, Paise amount, string? billNumber = null)
+    {
+        if (UpiQr.Parse(shop.UpiQrPayload) is { } own)
+        {
+            var uri = Build(own.PayeeAddress, own.PayeeName ?? shop.Name, amount, billNumber);
+            return own.MerchantCode is { } mc ? uri + "&mc=" + Uri.EscapeDataString(mc) : uri;
+        }
+        return Build(shop.UpiId, shop.Name, amount, billNumber);
+    }
+
     public static string Build(string upiId, string payeeName, Paise amount, string? billNumber = null)
     {
         var rupees = (amount.Value / 100m).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);

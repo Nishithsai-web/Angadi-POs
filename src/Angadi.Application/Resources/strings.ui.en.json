@@ -66,5 +66,14 @@
   "month.9": "Sep",
   "month.10": "Oct",
   "month.11": "Nov",
-  "month.12": "Dec"
+  "month.12": "Dec",
+  "setup.upi.scan": "Scan my UPI QR",
+  "setup.upi.upload": "Upload QR photo",
+  "setup.upi.found": "UPI ID found: {0}",
+  "setup.upi.photo.saved": "QR photo saved",
+  "setup.upi.photo.noqr": "Couldn't read a QR in the photo — it will be shown as is; type the UPI ID",
+  "setup.upi.help": "Scan your shop's QR (bank / PhonePe / Paytm): customers then pay straight into your account, with the bill amount filled in",
+  "upi.show.mine": "Show my shop QR",
+  "upi.show.amount": "Show QR with amount",
+  "upi.mine.note": "The customer types {0} in their UPI app"
 }

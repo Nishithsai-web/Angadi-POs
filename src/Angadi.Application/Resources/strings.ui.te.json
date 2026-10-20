@@ -66,5 +66,14 @@
   "month.9": "సెప్టెంబర్",
   "month.10": "అక్టోబర్",
   "month.11": "నవంబర్",
-  "month.12": "డిసెంబర్"
+  "month.12": "డిసెంబర్",
+  "setup.upi.scan": "నా UPI QR స్కాన్ చేయి",
+  "setup.upi.upload": "QR ఫోటో అప్‌లోడ్ చేయి",
+  "setup.upi.found": "UPI ID దొరికింది: {0}",
+  "setup.upi.photo.saved": "QR ఫోటో సేవ్ అయింది",
+  "setup.upi.photo.noqr": "ఫోటోలో QR చదవలేకపోయాం — ఫోటో అలాగే చూపిస్తాం; UPI ID టైప్ చేయండి",
+  "setup.upi.help": "మీ షాపు QR (బ్యాంక్/PhonePe/Paytm) స్కాన్ చేస్తే, కస్టమర్ స్కాన్ చేసినప్పుడు డబ్బు నేరుగా మీ ఖాతాకే, బిల్లు మొత్తంతో సహా",
+  "upi.show.mine": "నా షాపు QR చూపించు",
+  "upi.show.amount": "మొత్తంతో QR చూపించు",
+  "upi.mine.note": "కస్టమర్ వారి UPI యాప్‌లో {0} టైప్ చేయాలి"
 }

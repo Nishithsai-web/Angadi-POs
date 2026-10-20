@@ -276,7 +276,7 @@ public sealed partial class PosViewModel : ViewModelBase
         if (_shop is null) { await Nav.GoToAsync(Routes.ShopSetup); return; }
         var paid = await Nav.GoForResultAsync<string>(Routes.UpiPay, new Dictionary<string, object>
         {
-            ["payload"] = UpiLink.Build(_shop.UpiId, _shop.Name, _draft.Bill.GrandTotal),
+            ["payload"] = UpiLink.ForShop(_shop, _draft.Bill.GrandTotal),
             ["amount"] = IndianFormat.Rupees(_draft.Bill.GrandTotal),
         });
         if (paid != "paid") return;

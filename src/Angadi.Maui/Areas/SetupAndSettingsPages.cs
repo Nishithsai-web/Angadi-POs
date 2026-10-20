@@ -20,9 +20,12 @@ public sealed class ShopSetupPage : ContentPage
     private readonly CheckBox _kirana = new() { IsChecked = true, Color = Theme.Primary };
     private readonly CheckBox _pharmacy = new() { Color = Theme.Primary };
     private readonly View _seedBox;
+    private readonly Label _qrStatus = Ui.Caption();
     private ShopProfile? _existing;
+    private string? _qrPayload;
+    private byte[]? _qrImage;
 
-    public ShopSetupPage(ISender sender, IDialogService dialogs, ILocalizer text, IAppRestart restart)
+    public ShopSetupPage(ISender sender, IDialogService dialogs, ILocalizer text, IAppRestart restart, IBarcodeScanner scanner)
     {
         _sender = sender;
         _dialogs = dialogs;
@@ -49,6 +52,23 @@ public sealed class ShopSetupPage : ContentPage
                 Labeled(_pharmacy, text["setup.seed.pharmacy"]),
             },
         };
+        // The shop's own UPI QR: scan it (reads the UPI ID and merchant details) or upload a photo of it.
+        var scanQr = Ui.Secondary(text["setup.upi.scan"]);
+        scanQr.Clicked += SafeUi.On(async () =>
+        {
+            var r = await scanner.ScanAsync();
+            if (r.IsFailure) return;
+            if (UpiQr.Parse(r.Value) is not { } qr) { await _dialogs.ToastAsync(_text.Error(new Error(ErrorCodes.UpiQrInvalid))); return; }
+            _qrPayload = r.Value.Trim();
+            _upi.Text = qr.PayeeAddress;
+            _qrStatus.Text = _text.Format("setup.upi.found", qr.PayeeAddress);
+        });
+        var uploadQr = Ui.Secondary(text["setup.upi.upload"]);
+        uploadQr.Clicked += SafeUi.On(UploadQrAsync);
+        var qrRow = new Grid { ColumnDefinitions = { new(GridLength.Star), new(GridLength.Star) }, ColumnSpacing = 8 };
+        qrRow.Add(scanQr, 0, 0);
+        qrRow.Add(uploadQr, 1, 0);
+
         var save = Ui.Button(text["setup.start"], big: true);
         save.Clicked += SafeUi.On(async () => await SaveAsync());
 
@@ -58,6 +78,7 @@ public sealed class ShopSetupPage : ContentPage
             Ui.Caption(text["settings.shop.address"]), _address,
             Ui.Caption(text["settings.shop.phone"]), _phone,
             Ui.Caption(text["settings.shop.upi"]), _upi,
+            Ui.Caption(text["setup.upi.help"]), qrRow, _qrStatus,
             Ui.Caption(text["settings.shop.gstin"]), _gstin,
             Ui.Caption(text["setup.gstin.note"]),
             Ui.Caption(text["setup.prefix"]), _prefix,
@@ -81,6 +102,22 @@ public sealed class ShopSetupPage : ContentPage
         _gstin.Text = _existing.Gstin;
         _prefix.Text = _existing.BillPrefix;
         _language.SelectedIndex = _existing.Language == UiLanguage.English ? 1 : 0;
+        _qrPayload = _existing.UpiQrPayload;
+        _qrImage = _existing.UpiQrImage;
+        if (UpiQr.Parse(_qrPayload) is { } qr) _qrStatus.Text = _text.Format("setup.upi.found", qr.PayeeAddress);
+        else if (_qrImage is not null) _qrStatus.Text = _text["setup.upi.photo.saved"];
+    }
+
+    private async Task UploadQrAsync()
+    {
+        var photo = await MediaPicker.Default.PickPhotoAsync();
+        if (photo is null) return;
+        await using var stream = await photo.OpenReadAsync();
+        using var copy = new MemoryStream();
+        await stream.CopyToAsync(copy);
+        if (copy.Length > UpiQr.MaxImageBytes) { await _dialogs.ToastAsync(_text.Error(new Error(ErrorCodes.UpiQrImageTooLarge))); return; }
+        _qrImage = copy.ToArray();
+        _qrStatus.Text = _text["setup.upi.photo.saved"];
     }
 
     /// <summary>No profile yet → the shop can't bill; back is blocked on first run.</summary>
@@ -98,6 +135,9 @@ public sealed class ShopSetupPage : ContentPage
         profile.Gstin = string.IsNullOrWhiteSpace(_gstin.Text) ? null : _gstin.Text.Trim().ToUpperInvariant();
         profile.BillPrefix = string.IsNullOrWhiteSpace(_prefix.Text) ? "A" : _prefix.Text.Trim();
         profile.Language = _language.SelectedIndex == 1 ? UiLanguage.English : UiLanguage.Telugu;
+        // A scanned QR only counts while the UPI ID still matches it (the owner may have typed a different one).
+        profile.UpiQrPayload = UpiQr.Parse(_qrPayload) is { } own && string.Equals(own.PayeeAddress, profile.UpiId, StringComparison.OrdinalIgnoreCase) ? _qrPayload : null;
+        profile.UpiQrImage = _qrImage;
 
         var saved = await _sender.Send(new SaveShopProfileCommand(profile));
         if (saved.IsFailure) { await _dialogs.ToastAsync(_text.Error(saved.Error) + (saved.Error.Detail is { } d ? " (" + d + ")" : "")); return; }

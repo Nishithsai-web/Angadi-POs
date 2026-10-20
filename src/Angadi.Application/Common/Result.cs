@@ -96,6 +96,8 @@ public static class ErrorCodes
     public const string ItemNameRequired = "ITEM_NAME_REQUIRED";
     public const string ItemPriceInvalid = "ITEM_PRICE_INVALID";
     public const string UpiIdInvalid = "UPI_ID_INVALID";
+    public const string UpiQrInvalid = "UPI_QR_INVALID";
+    public const string UpiQrImageTooLarge = "UPI_QR_IMAGE_TOO_LARGE";
     public const string GstinInvalid = "GSTIN_INVALID";
     public const string PhoneInvalid = "PHONE_INVALID";
     public const string ShopNameRequired = "SHOP_NAME_REQUIRED";

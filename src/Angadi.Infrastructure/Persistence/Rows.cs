@@ -146,6 +146,8 @@ internal sealed class ShopProfileRow
     public int Language { get; set; }
     public long CreatedAtMs { get; set; }
     public long UpdatedAtMs { get; set; }
+    public string? UpiQrPayload { get; set; }
+    public byte[]? UpiQrImage { get; set; }   // in the database, so it travels in backups
 }
 
 [Table("Meta")]

@@ -13,6 +13,12 @@ public sealed class ShopProfile : Entity
     public string BillPrefix { get; set; } = "A";
     public long NextBillSequence { get; set; } = 1;
     public UiLanguage Language { get; set; } = UiLanguage.Telugu;   // FR-02
+
+    /// <summary>The owner's own UPI QR as scanned ("upi://pay?pa=…&amp;pn=…&amp;mc=…"). Payments go to exactly this payee.</summary>
+    public string? UpiQrPayload { get; set; }
+
+    /// <summary>A photo of the owner's printed UPI QR (PNG/JPEG bytes, ≤ 2 MB), shown as-is when they prefer it.</summary>
+    public byte[]? UpiQrImage { get; set; }
 }
 
 public enum UiLanguage { Telugu = 0, English = 1 }

@@ -82,6 +82,10 @@ internal sealed class ScanPage : ContentPage
             string? frame = null;
             foreach (var barcode in e.BarcodeResults)
             {
+                // A QR that carries a link (a shop's UPI QR: "upi://pay?pa=…") is kept exactly as encoded;
+                // product barcodes are normalized and check-digit verified.
+                var raw = (barcode.RawValue ?? barcode.DisplayValue)?.Trim();
+                if (raw is not null && raw.Contains("://", StringComparison.Ordinal)) { frame = raw; break; }
                 var value = Angadi.Domain.Items.Barcodes.Normalize(barcode.DisplayValue);
                 if (value is not null && Angadi.Domain.Items.Barcodes.IsValid(value)) { frame = value; break; }
             }

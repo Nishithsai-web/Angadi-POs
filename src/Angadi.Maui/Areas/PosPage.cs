@@ -247,20 +247,54 @@ internal static class ObjectExtensions
 public sealed class UpiPayPage : ContentPage, IQueryAttributable
 {
     private readonly ShellNavigationService _nav;
+    private readonly ISender _sender;
+    private readonly ILocalizer _text;
     private readonly Image _qr = new() { HeightRequest = 280, WidthRequest = 280, HorizontalOptions = LayoutOptions.Center };
     private readonly Label _amount = Ui.Amount();
+    private readonly Label _note = Ui.Caption();
+    private readonly Button _switch;
+    private ImageSource? _generated;
+    private ImageSource? _ownPhoto;
+    private bool _showingOwn;
     private bool _answered;
 
-    public UpiPayPage(ShellNavigationService nav, ILocalizer text)
+    public UpiPayPage(ShellNavigationService nav, ISender sender, ILocalizer text)
     {
         _nav = nav;
+        _sender = sender;
+        _text = text;
         Title = text["tender.upi"];
         _amount.HorizontalTextAlignment = TextAlignment.Center;
+        _note.HorizontalTextAlignment = TextAlignment.Center;
+        // The owner's uploaded QR photo (if any) can be shown instead; the generated one carries the amount.
+        _switch = Ui.Secondary(text["upi.show.mine"]);
+        _switch.IsVisible = false;
+        _switch.Clicked += (_, _) => Show(!_showingOwn);
         var paid = Ui.Button(text["pos.upi.paid"], Theme.Success, big: true);
         paid.Clicked += SafeUi.On(async () => { _answered = true; await _nav.ReturnAsync<string>("paid"); });
         var cancel = Ui.Secondary(text["common.cancel"]);
         cancel.Clicked += SafeUi.On(async () => { _answered = true; await _nav.ReturnAsync<string>(null); });
-        Content = Ui.Scroll(Ui.Title(text["tender.upi.scan"]), _qr, _amount, paid, cancel);
+        Content = Ui.Scroll(Ui.Title(text["tender.upi.scan"]), _qr, _amount, _note, _switch, paid, cancel);
+    }
+
+    private void Show(bool own)
+    {
+        _showingOwn = own && _ownPhoto is not null;
+        _qr.Source = _showingOwn ? _ownPhoto : _generated;
+        _switch.Text = _showingOwn ? _text["upi.show.amount"] : _text["upi.show.mine"];
+        _note.Text = _showingOwn ? _text.Format("upi.mine.note", _amount.Text ?? "") : "";
+    }
+
+    private async Task LoadOwnPhotoAsync()
+    {
+        try
+        {
+            var shop = await _sender.Send(new Angadi.Application.Catalog.GetShopProfileQuery());
+            if (shop?.UpiQrImage is not { Length: > 0 } bytes) return;
+            _ownPhoto = ImageSource.FromStream(() => new MemoryStream(bytes));
+            _switch.IsVisible = true;
+        }
+        catch (Exception ex) { GlobalExceptions.Report(ex, "UpiPayPage.photo"); }
     }
 
     public void ApplyQueryAttributes(IDictionary<string, object> query)
@@ -271,8 +305,10 @@ public sealed class UpiPayPage : ContentPage, IQueryAttributable
             using var generator = new QRCodeGenerator();
             using var data = generator.CreateQrCode(upi, QRCodeGenerator.ECCLevel.M);
             var png = new PngByteQRCode(data).GetGraphic(12);
-            _qr.Source = ImageSource.FromStream(() => new MemoryStream(png));
+            _generated = ImageSource.FromStream(() => new MemoryStream(png));
+            Show(false);
         }
+        _ = LoadOwnPhotoAsync();
     }
 
     protected override void OnDisappearing()

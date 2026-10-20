@@ -58,6 +58,8 @@ internal sealed partial class SaveShopProfileValidator : IValidator<SaveShopProf
         var p = c.Profile;
         if (string.IsNullOrWhiteSpace(p.Name)) return new Error(ErrorCodes.ShopNameRequired);
         if (!Vpa().IsMatch(p.UpiId.Trim())) return new Error(ErrorCodes.UpiIdInvalid);
+        if (p.UpiQrPayload is { Length: > 0 } qr && UpiQr.Parse(qr) is null) return new Error(ErrorCodes.UpiQrInvalid);
+        if (p.UpiQrImage is { Length: > UpiQr.MaxImageBytes }) return new Error(ErrorCodes.UpiQrImageTooLarge);
         if (!string.IsNullOrWhiteSpace(p.Gstin) && !Gstin().IsMatch(p.Gstin.Trim().ToUpperInvariant()))
             return new Error(ErrorCodes.GstinInvalid);
         return null;

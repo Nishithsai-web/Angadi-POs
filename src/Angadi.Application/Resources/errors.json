@@ -178,5 +178,13 @@
   "BARCODE_INVALID": {
     "te": "బార్‌కోడ్ సరిగ్గా చదవలేదు — మళ్ళీ స్కాన్ చేయండి లేదా సరిగ్గా టైప్ చేయండి",
     "en": "That barcode doesn't look right — scan again or check the digits"
+  },
+  "UPI_QR_INVALID": {
+    "te": "ఇది UPI చెల్లింపు QR కాదు — బ్యాంక్ / PhonePe / Paytm ఇచ్చిన QR ని స్కాన్ చేయండి",
+    "en": "That isn't a UPI payment QR — scan the QR your bank / PhonePe / Paytm gave you"
+  },
+  "UPI_QR_IMAGE_TOO_LARGE": {
+    "te": "ఫోటో చాలా పెద్దది — QR దగ్గరగా మళ్ళీ ఫోటో తీయండి",
+    "en": "The photo is too large — take a closer photo of just the QR"
   }
 }

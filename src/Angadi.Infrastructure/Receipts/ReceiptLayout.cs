@@ -174,7 +174,7 @@ public static class ReceiptLayout
             rows.Add(new(ReceiptRowKind.Separator));
             rows.Add(new(ReceiptRowKind.Qr)
             {
-                Text = UpiLink.Build(shop.UpiId, shop.Name, bill.GrandTotal, bill.Number),
+                Text = UpiLink.ForShop(shop, bill.GrandTotal, bill.Number),
                 Secondary = text["tender.upi.scan"],
             });
         }

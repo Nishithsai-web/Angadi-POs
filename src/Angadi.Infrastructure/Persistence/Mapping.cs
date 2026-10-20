@@ -146,6 +146,7 @@ internal static class Mapping
         Gstin = NullIfBlank(s.Gstin)?.ToUpperInvariant(), BillPrefix = string.IsNullOrWhiteSpace(s.BillPrefix) ? "A" : s.BillPrefix.Trim(),
         NextBillSequence = Math.Max(1, s.NextBillSequence), Language = (int)s.Language,
         CreatedAtMs = Ms(s.CreatedAt), UpdatedAtMs = Ms(s.UpdatedAt),
+        UpiQrPayload = NullIfBlank(s.UpiQrPayload), UpiQrImage = s.UpiQrImage is { Length: > 0 } img ? img : null,
     };
 
     public static ShopProfile ToDomain(ShopProfileRow r) => new()
@@ -153,5 +154,6 @@ internal static class Mapping
         Id = r.Id, Name = r.Name, Address = r.Address, Phone = r.Phone, UpiId = r.UpiId, Gstin = r.Gstin,
         BillPrefix = r.BillPrefix, NextBillSequence = r.NextBillSequence, Language = (UiLanguage)r.Language,
         CreatedAt = At(r.CreatedAtMs), UpdatedAt = At(r.UpdatedAtMs),
+        UpiQrPayload = r.UpiQrPayload, UpiQrImage = r.UpiQrImage,
     };
 }

@@ -10,8 +10,8 @@ namespace Angadi.Infrastructure.Persistence;
 /// </summary>
 public sealed class AngadiDb : IUnitOfWork, IDisposable
 {
-    /// <summary>2: customer account columns + Note table (additive). Bump on every schema change.</summary>
-    public const int SchemaVersion = 2;
+    /// <summary>2: customer account columns + Note table. 3: shop's own UPI QR. Bump on every schema change.</summary>
+    public const int SchemaVersion = 3;
     public const string AppMarker = "angadi";
 
     private readonly SemaphoreSlim _gate = new(1, 1);
