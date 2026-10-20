@@ -24,6 +24,9 @@ public sealed partial class TeluguParser(VoiceRules rules) : ITeluguParser
     [GeneratedRegex(@"^[0-9]+(?:\.[0-9]+)?$")]
     private static partial Regex Decimal();
 
+    [GeneratedRegex(@"^[0-9][0-9,]*(\.[0-9]+)?$")]
+    private static partial Regex GroupedDigits();
+
     [GeneratedRegex(@"^([0-9]+)/([0-9]+)$")]
     private static partial Regex Fraction();
 
@@ -208,6 +211,13 @@ public sealed partial class TeluguParser(VoiceRules rules) : ITeluguParser
         // Why: "half a kilo" is a top counter phrase; billing double on it is a money error.
         // Logged in docs/AGENT_FIX_LOG.md.
         if (Fraction().IsMatch(token)) return [token];
+
+        // FIX(VOICE-2, 2026-10-20, FIX-1): Flaw: MarkPunctuationSeparators keeps "2,500" whole (the
+        // comma sits between digits), but Decimal() rejects commas, so DigitsThenWord split it into
+        // "2" + ",500" — quantity 2 and a polluted name. Fix: a digit/comma group is one number with
+        // the grouping commas stripped. Why: Indian-locale speech recognisers emit comma-grouped
+        // digits ("2,500 రూపాయలు" is ₹2,500, not 2). Logged in docs/AGENT_FIX_LOG.md.
+        if (token.Contains(',') && GroupedDigits().IsMatch(token)) return [token.Replace(",", "")];
 
         var m = DigitsThenWord().Match(token);
         if (m.Success) return [m.Groups[1].Value, m.Groups[2].Value];

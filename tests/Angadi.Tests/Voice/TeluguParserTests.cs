@@ -70,6 +70,18 @@ public class TeluguParserTests
         Assert.Equal(Unit.Kilogram, line.Unit);
     }
 
+    [Theory]
+    [InlineData("2,500 రూపాయల బియ్యం", 250_000L)]      // ₹2,500
+    [InlineData("1,00,000 రూపాయల బియ్యం", 10_000_000L)] // ₹1,00,000 (Indian grouping)
+    public void T2_ThousandsComma_ParsesAsAmount(string phrase, long amountPaise)
+    {
+        // VOICE-2 regression: "2,500" was kept whole by the separator rule, then split by
+        // Explode into "2" + ",500" — quantity 2 and ",500" in the item name.
+        var line = Assert.Single(_parser.Parse(phrase));
+        Assert.Equal("బియ్యం", line.Name);
+        Assert.Equal(amountPaise, line.Amount?.Value);
+    }
+
     [Fact]
     public void T2_NumberPlusVeyyi_IsCompoundNotRange()
     {
