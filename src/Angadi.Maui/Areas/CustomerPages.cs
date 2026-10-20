@@ -151,6 +151,7 @@ public sealed class CustomerDetailPage : ContentPage, IQueryAttributable
     private readonly ISender _sender;
     private readonly IDialogService _dialogs;
     private readonly ILocalizer _text;
+    private readonly IPinService _pin;
     private readonly Entry _name;
     private readonly Entry _phone;
     private readonly Entry _address;
@@ -165,11 +166,12 @@ public sealed class CustomerDetailPage : ContentPage, IQueryAttributable
     private Customer? _customer;
     private bool _loading;
 
-    public CustomerDetailPage(ISender sender, IDialogService dialogs, ILocalizer text)
+    public CustomerDetailPage(ISender sender, IDialogService dialogs, ILocalizer text, IPinService pin)
     {
         _sender = sender;
         _dialogs = dialogs;
         _text = text;
+        _pin = pin;
         Title = text["customers.account"];
 
         _name = Ui.Entry(text["customers.name"]);
@@ -337,6 +339,10 @@ public sealed class CustomerDetailPage : ContentPage, IQueryAttributable
     private async Task PayAsync()
     {
         if (_customer is null) return;
+        // FIX(SEC-4, 2026-10-20, FIX-3): recording a dues payment is a sensitive action — gated by the
+        // owner PIN when one is set. Why: a fake "payment" is how udhaar quietly disappears from the
+        // books. Logged in docs/AGENT_FIX_LOG.md.
+        if (!await PinGate.CheckAsync(_pin, _dialogs, _text)) return;
         var value = await _dialogs.PromptAsync(_text["customers.pay"], _text["customers.pay.amount"], _text["common.ok"], _text["common.cancel"],
             IndianFormat.Rupees(_customer.DuesBalance).Replace("₹", "", StringComparison.Ordinal).Replace(",", "", StringComparison.Ordinal), Keyboard.Numeric);
         if (value is null || !PosInput.TryParseRupees(value, out var amount) || amount.Value <= 0) return;

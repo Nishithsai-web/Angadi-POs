@@ -87,4 +87,29 @@ public class UiSafetyTests
         Assert.Contains("pos.freebill.confirm", vm, StringComparison.Ordinal);
         Assert.Contains("GrandTotal.Value == 0", vm, StringComparison.Ordinal);
     }
+
+    /// <summary>
+    /// SEC-4: every sensitive action must pass the PIN gate (the service half — hash, lockout — is
+    /// behaviourally tested in PinServiceTests; the gate is MAUI code, so its wiring is asserted here):
+    /// void (LedgerPages), dues payment (CustomerPages), backup export + restore + UPI/GSTIN edit
+    /// (SetupAndSettingsPages), and the gate itself must let actions proceed when no PIN is set.
+    /// </summary>
+    [Fact]
+    public void PinGate_CoversEverySensitiveAction()
+    {
+        var gate = MauiFile(Path.Combine("Core", "PinGate.cs"));
+        Assert.Contains("HasPinAsync", gate, StringComparison.Ordinal);   // no PIN set → proceed
+
+        var ledger = MauiFile(Path.Combine("Areas", "LedgerPages.cs"));
+        Assert.Contains("PinGate.CheckAsync", ledger, StringComparison.Ordinal);   // void bill
+
+        var customers = MauiFile(Path.Combine("Areas", "CustomerPages.cs"));
+        Assert.Contains("PinGate.CheckAsync", customers, StringComparison.Ordinal);   // record dues payment
+
+        var settings = MauiFile(Path.Combine("Areas", "SetupAndSettingsPages.cs"));
+        Assert.True(settings.Split("PinGate.CheckAsync").Length - 1 >= 3,
+            "backup export, restore and UPI/GSTIN edits must all be PIN-gated");
+        Assert.Contains("PinGate.SetPinAsync", settings, StringComparison.Ordinal);   // set-PIN entry + pharmacy prompt
+        Assert.Contains("settings.pin.nudge", settings, StringComparison.Ordinal);   // persistent no-PIN nudge
+    }
 }
