@@ -97,14 +97,25 @@ internal sealed class BillRepository(AngadiDb db, IClock clock) : IBillRepositor
         => db.RunAsync<IReadOnlyList<Bill>>(c => Load(c,
             c.Query<BillRow>("SELECT * FROM Bill WHERE CustomerId = ? AND Status <> 0 ORDER BY FinalizedAtMs DESC LIMIT ?", customerId, limit)), ct);
 
+    internal const int LineQueryChunk = 500;
+
     private static List<Bill> Load(SQLite.SQLiteConnection c, List<BillRow> rows)
     {
         if (rows.Count == 0) return [];
-        var ids = rows.Select(r => r.Id).ToHashSet();
-        var lines = c.Query<BillLineRow>(
-                $"SELECT * FROM BillLine WHERE BillId IN ({string.Join(",", rows.Select(_ => "?"))})",
-                rows.Select(r => (object)r.Id).ToArray())
-            .GroupBy(l => l.BillId).ToDictionary(g => g.Key, g => g.ToList());
+        // One "?" per bill would break past SQLite's host-parameter limit (999 on older builds) on a busy month:
+        // fetch the lines in chunks instead.
+        var lines = new Dictionary<Guid, List<BillLineRow>>();
+        foreach (var chunk in rows.Chunk(LineQueryChunk))
+        {
+            var found = c.Query<BillLineRow>(
+                $"SELECT * FROM BillLine WHERE BillId IN ({string.Join(",", chunk.Select(_ => "?"))})",
+                chunk.Select(r => (object)r.Id).ToArray());
+            foreach (var l in found)
+            {
+                if (!lines.TryGetValue(l.BillId, out var list)) lines[l.BillId] = list = [];
+                list.Add(l);
+            }
+        }
         return rows.Select(r => ToDomain(r, lines.TryGetValue(r.Id, out var l) ? l : [])).ToList();
     }
 

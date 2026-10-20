@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 6-11 Auto Backup to the owner's own Google account. Only the shop's data: the database (+ its WAL, which
+     may hold the latest bills) and preferences (language, subscription cache). Safety copies, logs, damaged-file copies
+     and the cache are left out: they would multiply the size and Android stops backing up an app past 25 MB. -->
+<full-backup-content>
+  <include domain="file" path="angadi.db" />
+  <include domain="file" path="angadi.db-wal" />
+  <include domain="sharedpref" path="." />
+</full-backup-content>

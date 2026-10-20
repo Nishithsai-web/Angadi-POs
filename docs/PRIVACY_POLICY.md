@@ -19,17 +19,18 @@ Angadi keeps your shop's data **on your phone or tablet only**. There is no Anga
 - **Voice billing:** the mic button uses Android's built-in speech recognition. Depending on your phone, Google may process the audio to turn it into text, under [Google's privacy policy](https://policies.google.com/privacy). Angadi receives only the text. If you don't want this, type instead; billing works fully without voice.
 - **Receipts and reminders:** when you tap *Share* or *WhatsApp*, the receipt PDF or message goes to the app you pick (WhatsApp, etc.). Angadi does not send anything by itself.
 - **Backups and log export:** only when you tap *Backup* or *Export logs*, and only to the place you choose.
+- **Android's own phone backup:** if backup is turned on in your phone's settings, Android copies Angadi's data (the shop database and app settings, nothing else) to **your own** Google account, encrypted, and puts it back when you install Angadi on a new phone with the same account. Angadi's makers cannot see these backups. Turn it off in Android Settings → Google → Backup.
 - **Subscription (when enabled):** payments are handled by Google Play. Angadi never sees card or UPI details.
 
 ## What we don't do
-No ads. No selling or sharing data. No location tracking. No contacts access. No background uploads.
+No ads. No selling or sharing data. No location tracking. No contacts access. No uploads to Angadi's makers, ever.
 
 ## Permissions
 - **Microphone:** only while you hold the voice button.
 - **Camera:** only while the barcode scanner is open. Barcodes are read on the device; no images are saved or sent.
 
 ## Deleting your data
-Uninstalling the app deletes everything on the device. Backups you saved elsewhere stay where you put them.
+Uninstalling the app deletes everything on the device. Backups you saved elsewhere stay where you put them; Android's phone backup in your Google account can be deleted from Google Drive → Backups.
 
 ## Children
 Angadi is a business tool for shop owners and is not directed at children.

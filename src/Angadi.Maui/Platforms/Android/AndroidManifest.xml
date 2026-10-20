@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-  <!-- minSdk 28 (Android 9) comes from <SupportedOSPlatformVersion>28.0 in Angadi.Maui.csproj;
-       the build writes uses-sdk, so it is deliberately not repeated here. -->
+  <!-- minSdk 28 (Android 9) comes from <SupportedOSPlatformVersion>28.0 in Angadi.Maui.csproj.
+       targetSdk is pinned: Google Play requires API 36 (Android 16) for new apps and updates from 31 Aug 2026.
+       CI fails the build if the APK's targetSdk is ever lower (tools/play_policy_check.py). -->
+  <uses-sdk android:targetSdkVersion="36" />
 
   <!-- Why each permission is needed: docs/PLATFORM_NOTES.md -->
   <uses-permission android:name="android.permission.INTERNET" />
@@ -47,8 +49,11 @@
     </intent>
   </queries>
 
+  <!-- Auto Backup to the owner's Google account: only the database and preferences (rules in Resources/xml). -->
   <application
       android:allowBackup="true"
+      android:fullBackupContent="@xml/backup_rules"
+      android:dataExtractionRules="@xml/data_extraction_rules"
       android:icon="@mipmap/appicon"
       android:roundIcon="@mipmap/appicon_round"
       android:supportsRtl="true">

@@ -1,6 +1,12 @@
 # CHANGELOG.md — Angadi POS v1
 Every meaningful change: date, what, the issue it addresses, and the one-line why. Newest first.
 
+## 2026-10-20 (afternoon, Claude Code) — production audit, round 1
+- **The shipped build is now tested:** CI builds the Release APK (trimmed, as users get it) and runs the full emulator test on it next to the debug build. Why: every earlier E2E ran the debug build only; trimming bugs would have reached users first.
+- **Google Play policy gate:** targetSdk pinned to 36 (required from 31 Aug 2026) and checked on every build, with debuggable releases and sensitive library permissions failing CI. Why: a rejected upload costs days.
+- **Android Auto Backup scoped** to the database and settings. Why: by default it also copied safety copies and logs, and Android stops backing up an app past 25 MB, so a busy shop would silently lose its free Google backup.
+- **Reports on a busy month:** bill lines are loaded in chunks of 500 instead of one query parameter per bill. Why: older SQLite builds fail past 999 parameters (33 bills a day for a month).
+
 ## 2026-10-20 (later, Claude Code) — robustness at the counter
 - **Fixed: a slow save could charge a bill twice.** The 45 s watchdog left the bill on screen while it was still committing; paying again made a second bill (second number, stock and dues taken twice). Finalize is now idempotent on the bill's id: a retry returns the bill that saved. Why: money must never be counted twice.
 - **The unfinished bill survives the app being closed** (phone call, Android memory, crash): saved after every change and restored on reopen. Finalize clears it in the same transaction, so a paid bill never comes back. Why: a lost half-built bill means re-scanning everything with a customer waiting.

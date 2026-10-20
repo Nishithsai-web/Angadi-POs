@@ -394,7 +394,14 @@ def bill_survives_app_kill():
     wait_for("Bill done", timeout=60)                  # and it pays normally
 
 
+def debuggable():
+    return "not debuggable" not in run_as("id") and "unknown package" not in run_as("id")
+
+
 def damaged_data_recovers():
+    if not debuggable():
+        print("    release build: app files are private to the app (no run-as); covered by the debug run", flush=True)
+        return
     recover()
     goto_tab("Bill")
     background_then_kill()

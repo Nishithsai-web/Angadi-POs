@@ -37,7 +37,7 @@ If export itself fails ("couldn't prepare the log file"), the phone is out of st
 | "Data repaired… no safety copy" | First day of use, or storage too full for copies | Settings → Restore from backup with the last shared backup. Then free storage space. |
 | Restore says "not an Angadi backup" | File was edited, truncated or is from another app | Use an untouched backup. The live data was not changed (H3). |
 | Data looks wrong after restore | `angadi.db.pre-restore` is kept next to the database | Support can swap it back via a debug build; never delete it on the phone. |
-| New phone | Old phone: Settings → Backup → share the file | New phone: install, Settings → Restore. |
+| New phone | Same Google account and Android backup on? | Install Angadi from Play: Android restores the data by itself. Otherwise: old phone Settings → Backup → share the file; new phone: install, Settings → Restore. |
 
 ## Escalate to development when
 A crash repeats, totals don't match the receipt, or stock doesn't match bills. Send the logs zip, the bill number and the time. These are bugs, not support questions.

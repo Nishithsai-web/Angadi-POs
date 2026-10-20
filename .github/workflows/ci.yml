@@ -74,7 +74,7 @@ jobs:
   android:
     name: Android app build
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
 
@@ -112,11 +112,39 @@ jobs:
           path: src/Angadi.Maui/bin/Debug/net10.0-android/*-Signed.apk
           if-no-files-found: warn
 
+      # The build users get: Release (trimmed, optimised), as an APK signed with the debug key so the emulator can
+      # install it. Same code path as the Play bundle in release.yml; only the package format and key differ.
+      - name: Build Android (Release, as shipped)
+        run: |
+          set +e
+          dotnet publish src/Angadi.Maui/Angadi.Maui.csproj -c Release -f net10.0-android \
+            -p:AndroidSdkDirectory=$ANDROID_SDK_ROOT -p:ContinuousIntegrationBuild=true \
+            -p:AndroidPackageFormat=apk -o release-apk 2>&1 | tee release-build.log
+          code=${PIPESTATUS[0]}
+          python3 tools/ci_report.py release-build.log "android release build"
+          exit $code
+
+      - name: Google Play policy gate (target API, debuggable, sensitive permissions)
+        run: |
+          python3 tools/play_policy_check.py "$(ls src/Angadi.Maui/bin/Debug/net10.0-android/*-Signed.apk | head -1)"
+          python3 tools/play_policy_check.py "$(ls release-apk/*-Signed.apk | head -1)" --release
+
+      - name: Upload release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: angadi-release-apk
+          path: release-apk/*-Signed.apk
+          if-no-files-found: error
+
   e2e:
-    name: Emulator end-to-end
+    name: Emulator end-to-end (${{ matrix.build }})
     needs: android
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        build: [debug, release]   # debug: every check incl. file-level ones; release: exactly what users install
     permissions:
       contents: write   # pushes the step screenshots to the ci-e2e branch for review
     steps:
@@ -124,7 +152,7 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: angadi-debug-apk
+          name: angadi-${{ matrix.build }}-apk
           path: apk
 
       - name: Enable KVM
@@ -147,7 +175,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: e2e-results
+          name: e2e-results-${{ matrix.build }}
           path: e2e-out/**
 
       - name: Publish screenshots for review
@@ -164,8 +192,15 @@ jobs:
           else
             git worktree add -q --orphan -b ci-e2e "$work"
           fi
-          find "$work" -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
-          cp -r "$GITHUB_WORKSPACE/e2e-out/." "$work/"
-          echo "E2E run for $sha" > "$work/README.md"
+          # One folder per branch and build, so parallel runs (debug/release, several branches) never overwrite each other.
+          dest="$work/${GITHUB_REF_NAME//\//-}/${{ matrix.build }}"
+          rm -rf "$dest" && mkdir -p "$dest"
+          cp -r "$GITHUB_WORKSPACE/e2e-out/." "$dest/"
+          echo "E2E run for $sha (${{ matrix.build }})" > "$dest/README.md"
           git -C "$work" add -A
-          git -C "$work" commit -qm "E2E screenshots for $sha" && git -C "$work" push -q origin ci-e2e || echo "nothing to publish"
+          git -C "$work" commit -qm "E2E screenshots for $sha (${{ matrix.build }})" || { echo "nothing to publish"; exit 0; }
+          for i in 1 2 3 4 5; do
+            git -C "$work" push -q origin ci-e2e && exit 0
+            git -C "$work" pull -q --rebase origin ci-e2e || true
+          done
+          echo "screenshots not published (branch busy)"

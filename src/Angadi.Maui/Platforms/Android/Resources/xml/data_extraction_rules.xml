@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+: the same rules for cloud backup and for moving to a new phone (device-to-device transfer). -->
+<data-extraction-rules>
+  <cloud-backup>
+    <include domain="file" path="angadi.db" />
+    <include domain="file" path="angadi.db-wal" />
+    <include domain="sharedpref" path="." />
+  </cloud-backup>
+  <device-transfer>
+    <include domain="file" path="angadi.db" />
+    <include domain="file" path="angadi.db-wal" />
+    <include domain="sharedpref" path="." />
+  </device-transfer>
+</data-extraction-rules>
