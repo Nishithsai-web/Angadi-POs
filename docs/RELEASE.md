@@ -31,7 +31,7 @@ GitHub → the repo → **Settings → Secrets and variables → Actions → New
 2. **App integrity → Play App Signing:** accept (Google manages the signing key).
 3. **Policy → App content:**
    - **Privacy policy:** the public URL of `docs/PRIVACY_POLICY.md` (fill in its two `[…]` fields first).
-   - **Data safety:** no data collected or shared by Angadi. Data is stored only on the device. Note that voice input may be processed by Google's speech service (Android). Diagnostics are shared only when the user taps Export logs.
+   - **Data safety:** no data collected or shared by Angadi itself; app data is stored only on the device. Third-party SDK: the barcode scanner's **Google ML Kit** sends Google diagnostics/usage data — declare exactly the categories listed on https://developers.google.com/ml-kit/android-data-disclosure (device or other IDs; app info and performance). Voice input may be processed by Google's speech service (Android). Angadi's own logs leave the phone only when the user taps Export logs.
    - **Target API:** the app targets API 36 (Android 16), which Play requires for new apps and updates from 31 Aug 2026. CI's *Google Play policy gate* fails any build below that, any debuggable release, and any library-added sensitive permission (advertising ID, SMS, location, all-packages).
    - **Android backup:** only the database and settings go to the owner's own Google account (Android Auto Backup); this is not "collection" by Angadi.
    - **Ads:** no ads. **Target audience:** 18+ (business users). **Content rating:** fill in the questionnaire (utility app).
