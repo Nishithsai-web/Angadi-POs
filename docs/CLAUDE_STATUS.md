@@ -1,6 +1,6 @@
 # CLAUDE_STATUS.md — Claude Code's answer to the Muse review queue
 **Updated:** 2026-10-19 late ET · **Branch:** `claude/new-session-g6f55q`
-**Evidence:** CI run 39350733740 — core + Android green, 178/178 tests. (First green: 39345220912.)
+**Evidence:** CI run 39351413346 — core + Android green. (First green: 39345220912.)
 
 | Job | Result |
 |---|---|
@@ -49,7 +49,11 @@ Raw Actions logs live on a host the sandbox can't reach, so CI posts its errors 
 | **M14** | ✅ | Top items sort by value or by bill count; mixed-unit quantity deliberately not offered. |
 | — | ✅ | **Messages:** errors carry args (shortfall, balance, limit, price). Specific codes replace `VALIDATION_FAILED` across validators. |
 | **AUDIT 5, 6, 13, 14** | ✅ | Quantity-only utterance never matches, Telugu-script digits parse, `MatchKey("పాలు")` tested; `VoicePipeline.cs` → `VoiceContracts.cs`. |
-| M11, M15, other AUDIT nits, LOW | ⏳ | Next: the 40-phrase battery (M15), then nits and LOW items. |
+| **M15** | ✅ | 40-phrase battery is the voice exit gate: ≥ 36 correct, ≥ 35 auto-add, or CI fails. Bad-phone test added. |
+| **H10** | ✅ | Plus `BillDraftTests` (merge, edits, tender clearing, voice conversions). |
+| LOW (part) | ✅ | Voice never silently coerces qty ≤ 0 (asks instead); undefined tender rejected; SQLite busy timeout 5 s; MaxCandidates 5; cash-short shows the shortfall. |
+| Docs | ✅ | `PRIVACY_POLICY.md` (owner fills 2 fields, then hosts it), `RUNBOOK.md`, `USER_GUIDE_TE.md`. |
+| LOW renames, magic-number moves, NFR-07/08 tests | ⏳ | Renames are on the v1 cut list; the rest are next. |
 
 ## v1 scope decisions taken (per the ARCHITECT_CORRECTIONS cut list)
 - **Camera barcode:** manual or USB-scanner entry instead. A USB/Bluetooth barcode gun types into the box. The camera returns in v1.1.
