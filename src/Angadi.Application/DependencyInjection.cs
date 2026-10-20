@@ -58,6 +58,9 @@ public static class DependencyInjection
         services.AddTransient<IRequestHandler<SendDuesReminderCommand, Result>, SendDuesReminderHandler>();
         services.AddTransient<IRequestHandler<AdjustStockCommand, Result>, AdjustStockHandler>();
         services.AddTransient<IRequestHandler<GetBillQuotaQuery, BillQuota>, GetBillQuotaHandler>();
+        services.AddTransient<BillDraftHandlers>();
+        services.AddTransient<IRequestHandler<SaveBillDraftCommand, Result>>(sp => sp.GetRequiredService<BillDraftHandlers>());
+        services.AddTransient<IRequestHandler<GetBillDraftQuery, BillDraftSnapshot?>>(sp => sp.GetRequiredService<BillDraftHandlers>());
 
         // Catalog
         services.AddTransient<IRequestHandler<SaveItemCommand, Result<Guid>>, SaveItemHandler>();
@@ -83,6 +86,9 @@ public static class DependencyInjection
         services.AddTransient<IRequestHandler<ExportBackupCommand, Result<string>>>(sp => sp.GetRequiredService<ShopHandlers>());
         services.AddTransient<IRequestHandler<RestoreBackupCommand, Result>>(sp => sp.GetRequiredService<ShopHandlers>());
         services.AddTransient<IRequestHandler<ExportLogsCommand, Result<string>>, ExportLogsHandler>();
+        services.AddTransient<DataSafetyHandlers>();
+        services.AddTransient<IRequestHandler<TakeSafetySnapshotCommand, Result>>(sp => sp.GetRequiredService<DataSafetyHandlers>());
+        services.AddTransient<IRequestHandler<GetDataRecoveryQuery, DataRecoveryReport?>>(sp => sp.GetRequiredService<DataSafetyHandlers>());
         services.AddTransient<IRequestHandler<SetItemBarcodeCommand, Result>, SetItemBarcodeHandler>();
 
         // Notes & feedback

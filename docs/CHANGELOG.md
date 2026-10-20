@@ -1,6 +1,13 @@
 # CHANGELOG.md — Angadi POS v1
 Every meaningful change: date, what, the issue it addresses, and the one-line why. Newest first.
 
+## 2026-10-20 (later, Claude Code) — robustness at the counter
+- **Fixed: a slow save could charge a bill twice.** The 45 s watchdog left the bill on screen while it was still committing; paying again made a second bill (second number, stock and dues taken twice). Finalize is now idempotent on the bill's id: a retry returns the bill that saved. Why: money must never be counted twice.
+- **The unfinished bill survives the app being closed** (phone call, Android memory, crash): saved after every change and restored on reopen. Finalize clears it in the same transaction, so a paid bill never comes back. Why: a lost half-built bill means re-scanning everything with a customer waiting.
+- **A damaged database repairs itself at startup.** Validated safety copies are kept automatically (one per day, refreshed whenever the app goes to the background, 3 days). A file that fails SQLite's checks is moved aside, never deleted, and the newest good copy is put back, with a plain message. Before, a damaged file stopped the app at launch. Why: power cuts and cheap storage are normal in small shops.
+- **Clear messages for a full phone and a busy database** instead of "something went wrong". Why: the shopkeeper can fix a full phone; a generic error tells them nothing.
+- **Emulator test** now kills the app mid-bill and corrupts the data file, and checks both recover. Why: proven on the real app, not only in unit tests.
+
 ## 2026-10-20 (Claude Code) — the counter freeze, barcodes, reminders, release readiness
 - **Fixed: the counter froze after the first payment.** The subscription status was fetched from Google Play inside the bill's database transaction. Without Play services (emulator, some phones) the transaction never ended, so every later action waited forever. Now status comes from the on-device cache; Play is checked in the background, every Play call has a time limit, and the database lock wait is bounded. Why: billing must never depend on the network.
 - **Never-fail UI:** every button and event goes through one safety net (logged, a message on screen, double taps ignored). Tapping a payment button on an empty bill now says so. Why: a button must never look dead.

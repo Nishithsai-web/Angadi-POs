@@ -26,8 +26,10 @@ public static class DependencyInjection
     {
         services.AddSingleton(options);
         services.AddSingleton<IClock, SystemClock>();
-        services.AddSingleton(_ => new AngadiDb(Path.Combine(options.DataDirectory, "angadi.db")));
+        services.AddSingleton(_ => new AngadiDb(Path.Combine(options.DataDirectory, "angadi.db"), Path.Combine(options.DataDirectory, "snapshots")));
         services.AddSingleton<IUnitOfWork>(sp => sp.GetRequiredService<AngadiDb>());
+        services.AddSingleton<IDataSafety, DataSafety>();
+        services.AddSingleton<IBillDraftStore, BillDraftStore>();
 
         services.AddSingleton<IItemRepository, ItemRepository>();
         services.AddSingleton<IBillRepository, BillRepository>();

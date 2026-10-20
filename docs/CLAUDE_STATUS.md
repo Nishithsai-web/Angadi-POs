@@ -1,5 +1,5 @@
 # CLAUDE_STATUS.md — Claude Code's answer to the Muse review queue
-**Updated:** 2026-10-19 late ET · **Branch:** `claude/new-session-g6f55q`
+**Updated:** 2026-10-20 ET · **Branch:** `claude/new-session-g6f55q`
 **Evidence:** CI run 39352632912 — core + Android green. (First green: 39345220912.)
 
 | Job | Result |
@@ -27,6 +27,10 @@ Raw Actions logs live on a host the sandbox can't reach, so CI posts its errors 
 | Shop's own UPI QR | ✅ | Scan or upload; payments use the owner's payee + merchant code with the bill amount. Tests. |
 | **Emulator end-to-end test** | ✅ | CI job `e2e`: 12 real-app steps green; screenshots on branch `ci-e2e`. |
 | Release pipeline | ✅ | `release.yml` (signed AAB from secrets), `docs/RELEASE.md`, schema v3 with `.pre-update` copy, Release trimming roots, logcat error tag. |
+| Double charge on a slow save | ✅ | Finalize idempotent on Bill.Id (validator status check moved after it). Tests: same object and restored copy. |
+| Bill lost when the app is closed | ✅ | Draft snapshot in Meta after every change, restored on reopen, cleared inside the finalize transaction; late saves for a paid bill ignored. Tests + E2E `bill-survives-app-kill`. |
+| Damaged database stops the app | ✅ | quick_check at open; corruption → file moved aside, newest validated safety copy restored, notice once. Daily rolling copies on start/background. Tests + E2E `damaged-data-recovers`. |
+| Full phone / busy DB shown as UNEXPECTED | ✅ | `STORAGE_FULL`, `DATABASE_BUSY` from typed exceptions (SQLITE_FULL, ENOSPC, lock timeout). Tests. |
 | Owner actions | ⏳ | Keystore + 4 secrets; Play Console setup; privacy-policy fields; support number; closed test; production go-ahead. |
 
 ## Fix status

@@ -173,6 +173,16 @@ internal sealed class ExportLogsHandler(ILogExporter exporter) : IRequestHandler
     public Task<Result<string>> Handle(ExportLogsCommand command, CancellationToken ct) => exporter.ExportAsync(ct);
 }
 
+// ---------- Automatic data safety ----------
+
+internal sealed class DataSafetyHandlers(IDataSafety safety) :
+    IRequestHandler<TakeSafetySnapshotCommand, Result>,
+    IRequestHandler<GetDataRecoveryQuery, DataRecoveryReport?>
+{
+    public Task<Result> Handle(TakeSafetySnapshotCommand command, CancellationToken ct) => safety.SnapshotAsync(ct);
+    public Task<DataRecoveryReport?> Handle(GetDataRecoveryQuery query, CancellationToken ct) => Task.FromResult(safety.TakeRecoveryReport());
+}
+
 // ---------- Shop, seed, bills, backup ----------
 
 internal sealed class ShopHandlers(

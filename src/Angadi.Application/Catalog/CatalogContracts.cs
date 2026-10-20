@@ -41,6 +41,10 @@ public sealed record ExportBackupCommand : ICommand<Result<string>>, INoTransact
 public sealed record RestoreBackupCommand(string FilePath) : ICommand<Result>, INoTransaction;
 
 /// <summary>H11: Settings → Export logs goes through the dispatcher like every other action, so it is logged and testable.</summary>
+/// <summary>Background safety copy (app start, app going to the background). Never waits on the user.</summary>
+public sealed record TakeSafetySnapshotCommand : ICommand<Result>, INoTransaction;
+/// <summary>The startup recovery report, once; null when there is nothing to tell the shopkeeper.</summary>
+public sealed record GetDataRecoveryQuery : IQuery<Angadi.Application.Platform.DataRecoveryReport?>;
 public sealed record ExportLogsCommand : ICommand<Result<string>>, INoTransaction;
 
 /// <summary>H8: active items still on a pre-GST-2.0 slab (12/28%). They cannot be billed until re-slabbed.</summary>

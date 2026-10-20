@@ -103,5 +103,11 @@ public static class ErrorCodes
     public const string ShopNameRequired = "SHOP_NAME_REQUIRED";
     public const string BillAmountTooLarge = "BILL_AMOUNT_TOO_LARGE";
     public const string ValidationFailed = "VALIDATION_FAILED";
+    /// <summary>The watchdog fired while a bill was still saving. Tapping pay again is safe (finalize is idempotent).</summary>
+    public const string BillSaveSlow = "BILL_SAVE_SLOW";
+    /// <summary>The phone's storage is full: SQLite could not write.</summary>
+    public const string StorageFull = "STORAGE_FULL";
+    /// <summary>The database lock was not released in time (something else is still saving).</summary>
+    public const string DatabaseBusy = "DATABASE_BUSY";
     public const string Unexpected = "UNEXPECTED";
 }

@@ -62,6 +62,22 @@ public interface IBackupService
     Task<Result> RestoreAsync(string filePath, CancellationToken ct = default);
 }
 
+/// <summary>
+/// Automatic data safety. Rolling validated copies of the database are kept on the phone; if the live file is ever
+/// found damaged at startup it is moved aside and the newest good copy is put back automatically.
+/// </summary>
+public interface IDataSafety
+{
+    /// <summary>Saves a validated copy if anything changed since the last one. Cheap when nothing changed.</summary>
+    Task<Result> SnapshotAsync(CancellationToken ct = default);
+    /// <summary>What startup recovery did, returned once (null when the data opened normally or it was already shown).</summary>
+    DataRecoveryReport? TakeRecoveryReport();
+}
+
+/// <param name="RestoredFrom">When the copy that was put back was saved; null when no good copy existed.</param>
+/// <param name="Reason">Why the live file was rejected (for the log, not shown to the shopkeeper).</param>
+public sealed record DataRecoveryReport(DateTimeOffset At, DateTimeOffset? RestoredFrom, string Reason);
+
 /// <summary>H11: zips the rolling log files into the shareable cache folder; returns the zip path.</summary>
 public interface ILogExporter
 {

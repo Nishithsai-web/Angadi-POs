@@ -16,6 +16,9 @@ If export itself fails ("couldn't prepare the log file"), the phone is out of st
 | Owner wants their printed QR on screen | Settings → Shop details | **Upload QR photo**; at payment tap **Show my shop QR** (the customer then types the amount). |
 | Scanner opens the typing box instead | Camera permission denied, or no camera | Android Settings → Apps → Angadi → Permissions → Camera → Allow. |
 | "Old GST slab" when billing | Items page shows an orange notice listing them | Open each item, pick 0/5/18/40%. 12% and 28% ended with GST 2.0. |
+| "The bill is still saving…" | The phone was slow (very old phone, storage nearly full) | Tap the payment again. It is safe: a bill that already saved is shown again, never charged twice. |
+| Bill lines came back after reopening | The app was closed mid-bill (call, Android memory) | By design: the unfinished bill is kept. Pay it, or tap **New bill** to drop it. |
+| "Phone storage is full" | Android Settings → Storage | Delete photos/videos/WhatsApp media. Nothing was lost; the action that failed was not saved, so repeat it. |
 | "₹X short" | Cash typed is less than the bill | Re-enter cash, or switch tender to UPI/udhaar. |
 | "Amount too large" | A typo like 1,00,000 kg | Fix the quantity. Limits: 1,00,000 units per line, ₹1 crore per item price. |
 | Void refused: "payments already recorded" | The udhaar bill's customer has paid part | By design (H1): no refunds in v1. Record a correcting entry instead. |
@@ -30,6 +33,8 @@ If export itself fails ("couldn't prepare the log file"), the phone is out of st
 ## Data
 | Symptom | Check | Fix |
 |---|---|---|
+| "Data repaired" message at startup | The data file was damaged (power cut while writing, failing storage) | Angadi already put back its newest safety copy (taken whenever the app goes to the background; 3 days kept). Re-enter only bills made after the time shown. The damaged file is kept as `angadi.db.damaged-<time>` for a developer. |
+| "Data repaired… no safety copy" | First day of use, or storage too full for copies | Settings → Restore from backup with the last shared backup. Then free storage space. |
 | Restore says "not an Angadi backup" | File was edited, truncated or is from another app | Use an untouched backup. The live data was not changed (H3). |
 | Data looks wrong after restore | `angadi.db.pre-restore` is kept next to the database | Support can swap it back via a debug build; never delete it on the phone. |
 | New phone | Old phone: Settings → Backup → share the file | New phone: install, Settings → Restore. |

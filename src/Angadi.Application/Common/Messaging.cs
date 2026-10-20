@@ -100,7 +100,9 @@ internal sealed class Sender(IServiceProvider services) : ISender
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 log.LogError(ex, "{Request} threw after {Ms} ms", name, sw.ElapsedMilliseconds);
-                if (ResultFactory.IsResultType<TResult>()) return ResultFactory.Failure<TResult>(new Error(ErrorCodes.Unexpected, ex.GetType().Name));
+                // Storage problems get their own message ("phone storage is full", "busy, try again"), not UNEXPECTED.
+                var code = StorageFailures.Classify(ex) ?? ErrorCodes.Unexpected;
+                if (ResultFactory.IsResultType<TResult>()) return ResultFactory.Failure<TResult>(new Error(code, ex.GetType().Name));
                 throw;
             }
         }

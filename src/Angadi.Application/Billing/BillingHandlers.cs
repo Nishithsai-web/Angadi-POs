@@ -1,3 +1,5 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using Angadi.Application.Common;
 using Angadi.Application.Persistence;
@@ -8,6 +10,7 @@ using Angadi.Domain.Customers;
 using Angadi.Domain.Events;
 using Angadi.Domain.Inventory;
 using Angadi.Domain.Items;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Angadi.Application.Billing;
@@ -29,7 +32,7 @@ internal sealed class FinalizeBillValidator : IValidator<FinalizeBillCommand>
         if (bill.Lines.Any(l => l.UnitPrice.Value < 0)) return new Error(ErrorCodes.ValidationFailed, "negative price");
         if (bill.Tender is null || !Enum.IsDefined(bill.Tender.Value)) return new Error(ErrorCodes.BillTenderMissing);   // LOW: no cast-in tenders
         if (bill.Tender == TenderType.Udhaar && bill.CustomerId is null) return new Error(ErrorCodes.BillUdhaarNeedsCustomer);
-        if (bill.Status != BillStatus.Draft) return new Error(ErrorCodes.ValidationFailed, "bill already finalized");
+        // Status is checked in the handler, after the idempotency check: a retry of a bill that already saved is not an error.
         // B1: only a cash tender may carry cash received.
         if (bill.Tender != TenderType.Cash && bill.CashReceived.Value != 0) return new Error(ErrorCodes.ValidationFailed, "cash received on a non-cash tender");
         if (bill.Tender != TenderType.Upi && !string.IsNullOrWhiteSpace(bill.UpiRef)) return new Error(ErrorCodes.ValidationFailed, "UPI reference on a non-UPI tender");
@@ -75,6 +78,7 @@ internal sealed class FinalizeBillHandler(
     IOutbox outbox,
     ISubscriptionService subscription,
     IQuotaStore quota,
+    IBillDraftStore drafts,
     IClock clock,
     IOptions<BillingOptions> options) : IRequestHandler<FinalizeBillCommand, Result<FinalizedBill>>
 {
@@ -82,6 +86,16 @@ internal sealed class FinalizeBillHandler(
     {
         var bill = command.Draft;
         var now = clock.Now;
+
+        // Idempotent: a retry of a bill that already saved (the watchdog fired while it was still committing, or a
+        // double tap) returns that bill. Never a second bill number, never stock or dues taken twice.
+        if (await bills.GetAsync(bill.Id, ct) is { Status: not BillStatus.Draft } saved)
+        {
+            await drafts.ClearAsync(ct);
+            return Result.Success(new FinalizedBill(saved.Id, saved.Number, saved.GrandTotal,
+                saved.Tender == TenderType.Cash ? BillCalculator.ChangeDue(saved) : Paise.Zero));
+        }
+        if (bill.Status != BillStatus.Draft) return Result.Failure<FinalizedBill>(ErrorCodes.ValidationFailed, "bill already finalized");
 
         // FR-34 free-tier quota. Defence in depth: a status that doesn't answer at once counts as free (fail closed),
         // so billing can never hang on the subscription service while this transaction holds the database.
@@ -135,6 +149,7 @@ internal sealed class FinalizeBillHandler(
                 await outbox.AppendAsync("Customer", new DuesCharged(bill.CustomerId!.Value, now, bill.GrandTotal.Value, bill.Id), ct);
             await outbox.AppendAsync("Bill", new BillFinalized(bill.Id, now, bill.GrandTotal.Value), ct);
             await quota.IncrementAsync(now, ct);   // B2: same transaction as the check above
+            await drafts.ClearAsync(ct);           // same transaction: a paid bill's draft can never come back
         }
         catch
         {
@@ -359,3 +374,37 @@ public static partial class PhoneNumbers
         };
     }
 }
+
+/// <summary>Keeps the counter's unfinished bill across the app being closed (phone call, Android memory, crash).</summary>
+internal sealed class BillDraftHandlers(IBillDraftStore store, ILogger<BillDraftHandlers> log)
+    : IRequestHandler<SaveBillDraftCommand, Result>, IRequestHandler<GetBillDraftQuery, BillDraftSnapshot?>
+{
+    public async Task<Result> Handle(SaveBillDraftCommand command, CancellationToken ct)
+    {
+        // An empty draft, or one whose bill already saved (a late write racing finalize), is cleared instead.
+        if (command.Draft.IsEmpty || await store.BillExistsAsync(command.Draft.BillId, ct))
+            await store.ClearAsync(ct);
+        else
+            await store.SaveAsync(JsonSerializer.Serialize(command.Draft, DraftJson.Default.BillDraftSnapshot), ct);
+        return Result.Success();
+    }
+
+    public async Task<BillDraftSnapshot?> Handle(GetBillDraftQuery query, CancellationToken ct)
+    {
+        var json = await store.LoadAsync(ct);
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        BillDraftSnapshot? draft;
+        try { draft = JsonSerializer.Deserialize(json, DraftJson.Default.BillDraftSnapshot); }
+        catch (JsonException ex)
+        {
+            log.LogWarning(ex, "Unreadable saved draft discarded");
+            await store.ClearAsync(ct);
+            return null;
+        }
+        if (draft is null || draft.Lines is null || draft.IsEmpty || await store.BillExistsAsync(draft.BillId, ct)) return null;
+        return draft;
+    }
+}
+
+[JsonSerializable(typeof(BillDraftSnapshot))]
+internal sealed partial class DraftJson : JsonSerializerContext;

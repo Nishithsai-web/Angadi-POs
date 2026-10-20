@@ -1,4 +1,5 @@
 using Angadi.Application.Persistence;
+using Angadi.Application.Platform;
 using SQLite;
 
 namespace Angadi.Infrastructure.Persistence;
@@ -18,13 +19,58 @@ public sealed class AngadiDb : IUnitOfWork, IDisposable
     private readonly AsyncLocal<bool> _inTransaction = new();
     private SQLiteConnection _conn;
 
-    public AngadiDb(string databasePath)
+    /// <param name="snapshotDirectory">Where the automatic safety copies live (default: "snapshots" beside the file).</param>
+    public AngadiDb(string databasePath, string? snapshotDirectory = null)
     {
         DatabasePath = databasePath;
-        _conn = Open(databasePath);
+        SnapshotDirectory = snapshotDirectory ?? Path.Combine(Path.GetDirectoryName(databasePath) ?? ".", "snapshots");
+        try
+        {
+            _conn = OpenVerified(databasePath);
+        }
+        catch (DamagedDatabaseException ex)
+        {
+            // A damaged file must never stop the counter: move it aside (kept for support), put back the newest good
+            // copy, and tell the shopkeeper once (IDataSafety.TakeRecoveryReport).
+            _recovery = DatabaseRecovery.Recover(databasePath, SnapshotDirectory, ex.Message, DateTimeOffset.Now);
+            _conn = OpenVerified(databasePath);
+        }
     }
 
     public string DatabasePath { get; }
+    public string SnapshotDirectory { get; }
+
+    private DataRecoveryReport? _recovery;
+
+    /// <summary>What startup recovery did, handed out once.</summary>
+    public DataRecoveryReport? TakeRecovery() => Interlocked.Exchange(ref _recovery, null);
+
+    /// <summary>Opens, migrates and runs SQLite's quick_check. Corruption becomes <see cref="DamagedDatabaseException"/>.</summary>
+    private static SQLiteConnection OpenVerified(string path)
+    {
+        SQLiteConnection? conn = null;
+        try
+        {
+            conn = Open(path);
+            var check = conn.ExecuteScalar<string>("PRAGMA quick_check");
+            if (!string.Equals(check, "ok", StringComparison.OrdinalIgnoreCase))
+                throw new DamagedDatabaseException("quick_check: " + check);
+            return conn;
+        }
+        catch (SQLiteException ex) when (IsDamage(ex))
+        {
+            conn?.Close();
+            throw new DamagedDatabaseException(ex.Result + ": " + ex.Message, ex);
+        }
+        catch (DamagedDatabaseException)
+        {
+            conn?.Close();
+            throw;
+        }
+    }
+
+    /// <summary>Only real damage moves the file aside — never a full disk, a permission problem or a lock.</summary>
+    internal static bool IsDamage(SQLiteException ex) => ex.Result is SQLite3.Result.Corrupt or SQLite3.Result.NonDBFile;
 
     private static SQLiteConnection Open(string path)
     {
@@ -34,11 +80,19 @@ public sealed class AngadiDb : IUnitOfWork, IDisposable
 
         var conn = new SQLiteConnection(path,
             SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.Create | SQLiteOpenFlags.FullMutex);
-        conn.ExecuteScalar<string>("PRAGMA journal_mode=WAL");
-        conn.Execute("PRAGMA foreign_keys=ON");
-        conn.BusyTimeout = TimeSpan.FromSeconds(5);   // LOW: a backup checkpoint racing a bill waits instead of failing
-        Migrate(conn);
-        return conn;
+        try
+        {
+            conn.ExecuteScalar<string>("PRAGMA journal_mode=WAL");
+            conn.Execute("PRAGMA foreign_keys=ON");
+            conn.BusyTimeout = TimeSpan.FromSeconds(5);   // LOW: a backup checkpoint racing a bill waits instead of failing
+            Migrate(conn);
+            return conn;
+        }
+        catch
+        {
+            conn.Close();
+            throw;
+        }
     }
 
     /// <summary>
@@ -82,10 +136,17 @@ public sealed class AngadiDb : IUnitOfWork, IDisposable
     /// <summary>Runs a read or write; joins the open transaction when called inside ExecuteAsync.</summary>
     public async Task<T> RunAsync<T>(Func<SQLiteConnection, T> action, CancellationToken ct = default)
     {
-        if (_inTransaction.Value) return action(_conn);
+        if (_inTransaction.Value) return Guarded(action);
         await EnterAsync(ct).ConfigureAwait(false);
-        try { return action(_conn); }
+        try { return Guarded(action); }
         finally { _gate.Release(); }
+    }
+
+    /// <summary>A full disk surfaces as <see cref="StorageFullException"/> ("phone storage is full"), not a driver error.</summary>
+    private T Guarded<T>(Func<SQLiteConnection, T> action)
+    {
+        try { return action(_conn); }
+        catch (SQLiteException ex) when (ex.Result is SQLite3.Result.Full) { throw new StorageFullException("database or disk is full", ex); }
     }
 
     public Task RunAsync(Action<SQLiteConnection> action, CancellationToken ct = default)
@@ -111,7 +172,15 @@ public sealed class AngadiDb : IUnitOfWork, IDisposable
                 throw;
             }
 
-            if (shouldCommit(result)) _conn.Commit();
+            if (shouldCommit(result))
+            {
+                try { _conn.Commit(); }
+                catch (SQLiteException ex) when (ex.Result is SQLite3.Result.Full)
+                {
+                    _conn.Rollback();
+                    throw new StorageFullException("database or disk is full", ex);
+                }
+            }
             else _conn.Rollback();
             return result;
         }
@@ -131,14 +200,13 @@ public sealed class AngadiDb : IUnitOfWork, IDisposable
     private async Task EnterAsync(CancellationToken ct)
     {
         if (!await _gate.WaitAsync(LockTimeout, ct).ConfigureAwait(false))
-            throw new TimeoutException("Database busy: lock not released within " + LockTimeout.TotalSeconds + " s");
+            throw new DatabaseBusyException("Database busy: lock not released within " + LockTimeout.TotalSeconds + " s");
     }
 
     /// <summary>Flushes WAL into the main file so a plain file copy is a complete backup (FR-37).</summary>
     public Task CheckpointAsync(CancellationToken ct = default)
         => RunAsync(c => c.ExecuteScalar<int>("PRAGMA wal_checkpoint(TRUNCATE)"), ct);
 
-    /// <summary>FR-37 restore: closes, swaps the file, reopens and migrates. Caller validated the file.</summary>
     /// <summary>
     /// H3: atomic swap. <paramref name="validatedPath"/> must be a validated copy on the same volume; it is moved
     /// into place with File.Replace (the live file is kept as ".pre-restore"). Any failure puts the live file back.

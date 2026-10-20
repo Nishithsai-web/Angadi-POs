@@ -27,7 +27,9 @@ public sealed partial class PosViewModel : ViewModelBase
     private readonly IAliasLearner _aliases;
     private readonly IBarcodeScanner _scanner;
     private readonly VoiceOptions _voiceOptions;
-    private BillDraft _draft = new(shopHasGstin: false);
+    private BillDraft _draft;
+    private bool _draftChecked;
+    private readonly SemaphoreSlim _draftSave = new(1, 1);
     private Angadi.Domain.Shop.ShopProfile? _shop;
     private CancellationTokenSource? _searchCts;
 
@@ -40,7 +42,34 @@ public sealed partial class PosViewModel : ViewModelBase
         _aliases = aliases;
         _scanner = scanner;
         _voiceOptions = voiceOptions.Value;
-        _draft.Changed += (_, _) => Refresh();
+        UseDraft(new BillDraft(shopHasGstin: false));
+    }
+
+    /// <summary>Every draft refreshes the screen and is saved after each change, so closing the app never loses it.</summary>
+    [System.Diagnostics.CodeAnalysis.MemberNotNull(nameof(_draft))]
+    private void UseDraft(BillDraft draft)
+    {
+        _draft = draft;
+        draft.Changed += (_, _) =>
+        {
+            if (!ReferenceEquals(draft, _draft)) return;   // an old draft's late event
+            Refresh();
+            _ = SaveDraftAsync();
+        };
+    }
+
+    private async Task SaveDraftAsync()
+    {
+        try
+        {
+            await _draftSave.WaitAsync();
+            try { await Sender.Send(new SaveBillDraftCommand(_draft.ToSnapshot())); }   // the newest state at write time
+            finally { _draftSave.Release(); }
+        }
+        catch (Exception ex)
+        {
+            GlobalExceptions.Report(ex, "draft-save");   // never breaks billing; the bill on screen is unaffected
+        }
     }
 
     public ObservableCollection<ItemTile> QuickSale { get; } = [];
@@ -67,11 +96,20 @@ public sealed partial class PosViewModel : ViewModelBase
     public override async Task OnAppearingAsync()
     {
         _shop = await Sender.Send(new GetShopProfileQuery());
-        if (_draft.IsEmpty)
+        var gst = !string.IsNullOrWhiteSpace(_shop?.Gstin);
+        var restored = false;
+        if (!_draftChecked)
         {
-            _draft = new BillDraft(shopHasGstin: !string.IsNullOrWhiteSpace(_shop?.Gstin));
-            _draft.Changed += (_, _) => Refresh();
+            // The bill that was on screen when the app was closed (phone call, Android memory, crash) comes back.
+            _draftChecked = true;
+            if (_draft.IsEmpty && await Sender.Send(new GetBillDraftQuery()) is { } saved)
+            {
+                UseDraft(BillDraft.Restore(saved, gst));
+                _customer = saved.CustomerId is { } cid ? await Sender.Send(new GetCustomerQuery(cid)) : null;
+                restored = !_draft.IsEmpty;
+            }
         }
+        if (_draft.IsEmpty) UseDraft(new BillDraft(gst));
         SetCustomer(_customer);   // label text, and keeps an attached customer on a fresh draft
         QuickSale.Clear();
         foreach (var i in await Sender.Send(new GetQuickSaleItemsQuery())) QuickSale.Add(Tile(i));
@@ -80,6 +118,7 @@ public sealed partial class PosViewModel : ViewModelBase
         var due = await Sender.Send(new Angadi.Application.Customers.GetDueRemindersQuery());
         DueBanner = due.Count > 0 ? Text.Format("pos.due.banner", due.Count) : "";
         Refresh();
+        if (restored) await Dialogs.ToastAsync(Text["pos.draft.restored"]);
     }
 
     private ItemTile Tile(Item i) => new(i.Id, Text.Name(i), IndianFormat.Rupees(i.Price) + " / " + Text.UnitLabel(i.Unit), i);
@@ -350,7 +389,8 @@ public sealed partial class PosViewModel : ViewModelBase
             try { result = await Sender.Send(new FinalizeBillCommand(_draft.Bill)).WaitAsync(FinalizeTimeout); }
             catch (TimeoutException)
             {
-                await Dialogs.ToastAsync(Text.Error(new Error(ErrorCodes.Unexpected)));
+                // Still saving in the background. Paying again is safe: finalize returns the same bill if it saved.
+                await Dialogs.ToastAsync(Text.Error(new Error(ErrorCodes.BillSaveSlow)));
                 return;
             }
             if (result.IsFailure)
@@ -360,8 +400,7 @@ public sealed partial class PosViewModel : ViewModelBase
                 return;
             }
             var done = result.Value;
-            _draft = new BillDraft(shopHasGstin: !string.IsNullOrWhiteSpace(_shop?.Gstin));
-            _draft.Changed += (_, _) => Refresh();
+            UseDraft(new BillDraft(shopHasGstin: !string.IsNullOrWhiteSpace(_shop?.Gstin)));
             SetCustomer(null);
             Refresh();
             await Nav.GoToAsync(Routes.Receipt, new Dictionary<string, object>

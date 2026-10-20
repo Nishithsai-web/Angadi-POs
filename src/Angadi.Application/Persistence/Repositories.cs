@@ -48,6 +48,16 @@ public interface IBillRepository
     Task SaveAsync(Bill bill, CancellationToken ct = default);   // bill + lines together
 }
 
+/// <summary>The one unfinished bill at the counter, kept as JSON so it survives the app being closed.</summary>
+public interface IBillDraftStore
+{
+    Task<string?> LoadAsync(CancellationToken ct = default);
+    Task SaveAsync(string json, CancellationToken ct = default);
+    Task ClearAsync(CancellationToken ct = default);
+    /// <summary>True once a bill with this id has been saved (finalized or voided): its draft must never come back.</summary>
+    Task<bool> BillExistsAsync(Guid billId, CancellationToken ct = default);
+}
+
 public interface ICustomerRepository
 {
     Task<Customer?> GetAsync(Guid id, CancellationToken ct = default);

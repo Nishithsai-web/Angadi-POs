@@ -13,6 +13,11 @@ namespace Angadi.Application.Billing;
 /// stock moves (Sale) → dues Charge if udhaar → outbox BillFinalized.
 /// </summary>
 public sealed record FinalizeBillCommand(Bill Draft) : ICommand<Result<FinalizedBill>>;
+/// <summary>Saves the counter's unfinished bill after every change (an empty draft clears it).</summary>
+public sealed record SaveBillDraftCommand(BillDraftSnapshot Draft) : ICommand<Result>;
+/// <summary>The unfinished bill left when the app was last closed, or null.</summary>
+public sealed record GetBillDraftQuery : IQuery<BillDraftSnapshot?>;
+
 public sealed record FinalizedBill(Guid BillId, string Number, Paise GrandTotal, Paise ChangeDue);
 
 /// <summary>FR-16. Restores stock (VoidRestore), reverses dues, outbox BillVoided.</summary>

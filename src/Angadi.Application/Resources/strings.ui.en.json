@@ -75,5 +75,9 @@
   "setup.upi.help": "Scan your shop's QR (bank / PhonePe / Paytm): customers then pay straight into your account, with the bill amount filled in",
   "upi.show.mine": "Show my shop QR",
   "upi.show.amount": "Show QR with amount",
-  "upi.mine.note": "The customer types {0} in their UPI app"
+  "upi.mine.note": "The customer types {0} in their UPI app",
+  "pos.draft.restored": "Your unfinished bill is back",
+  "data.recovered.title": "Data repaired",
+  "data.recovered": "The data file on this phone was damaged. Angadi put back the safety copy from {0} at {1}. Check the bills made after that time.",
+  "data.recovered.none": "The data file on this phone was damaged and no safety copy was found. Go to Settings → Restore from backup and choose your last shared backup."
 }

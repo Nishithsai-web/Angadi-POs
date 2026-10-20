@@ -3,7 +3,7 @@
 End-to-end test of the real Angadi app on an Android emulator (CI job `e2e`).
 
 Drives the UI the way a shopkeeper would — first run, shop setup, cash / UPI / udhaar bills, an unknown barcode
-attached to an item, reports, the language switch — using only adb + uiautomator. After every step it checks
+attached to an item, reports, the language switch, the app being killed mid-bill, a damaged data file — using only adb + uiautomator. After every step it checks
 the app is still alive; at the end it reads the app's own log file and fails on any logged error.
 
 Output: screenshots + a UI dump per step in e2e-out/, GitHub annotations for every failure.
@@ -360,6 +360,69 @@ def language_switch():
     wait_for("Cash", exact=True, timeout=60)
 
 
+def run_as(command, timeout=60):
+    # One string: adb joins arguments with spaces, so a separate 'sh -c' would split the command.
+    return adb("shell", f"run-as {PKG} sh -c '{command}'", check=False, timeout=timeout)
+
+
+def launch():
+    adb("shell", "monkey", "-p", PKG, "-c", "android.intent.category.LAUNCHER", "1")
+    time.sleep(8)
+    dismiss_system_popups()
+
+
+def background_then_kill():
+    """Home button (the app saves its safety copy), then Android closes the app the hard way."""
+    adb("shell", "input", "keyevent", "3")
+    time.sleep(5)
+    adb("shell", "am", "force-stop", PKG)
+    time.sleep(2)
+
+
+def bill_survives_app_kill():
+    goto_tab("Bill")
+    new_bill()
+    add_item("Rice", "Rice (Sona")
+    add_item("Milk", "Milk (500")
+    time.sleep(2)
+    background_then_kill()
+    launch()
+    wait_for("Rice (Sona", timeout=90)                 # the unfinished bill came back, both lines
+    wait_for("Milk (500", timeout=10)
+    tap("Cash", exact=True)
+    tap("Pay", exact=True, timeout=20)
+    wait_for("Bill done", timeout=60)                  # and it pays normally
+
+
+def damaged_data_recovers():
+    recover()
+    goto_tab("Bill")
+    background_then_kill()
+    copies = run_as("ls files/snapshots")
+    print(f"    safety copies: {copies.split()}", flush=True)
+    if "angadi-" not in copies:
+        raise AssertionError("no safety copy was saved when the app went to the background")
+    # Overwrite the live database with junk: what a power cut mid-write or a failing SD card can leave behind.
+    run_as("dd if=/dev/zero of=files/angadi.db bs=1024 count=64; rm -f files/angadi.db-wal files/angadi.db-shm")
+    launch()
+    wait_for("Data repaired", timeout=120)             # told plainly, once
+    shot("damaged-data-notice")
+    tap("OK", exact=True, timeout=20)
+    wait_for("Cash", exact=True, timeout=60)
+    if find("Welcome to Angadi") is not None:
+        raise AssertionError("shop setup reappeared: the shop's data was not restored")
+    goto_tab("Bills")
+    wait_for("-000004", timeout=40)                    # bills from before the damage are still there
+    damaged = run_as("ls files")
+    if "angadi.db.damaged-" not in damaged:
+        raise AssertionError("the damaged file was not kept for support: " + damaged)
+    goto_tab("Bill")
+    add_item("Sugar", "Sugar")
+    tap("Cash", exact=True)
+    tap("Pay", exact=True, timeout=20)
+    wait_for("Bill done", timeout=60)                  # and the counter keeps working
+
+
 def app_never_froze():
     anr = adb("shell", "dumpsys", "activity", "anr", check=False) + adb("logcat", "-d", "-s", "ActivityManager:E", check=False)
     hits = [l for l in anr.splitlines() if "ANR in " + PKG in l]
@@ -375,8 +438,7 @@ def app_log_has_no_errors():
         print(f"::error::logcat: {line[:500]}")
     if errors_tagged:
         raise AssertionError(f"{len(errors_tagged)} unhandled error(s) in logcat")
-    # One string: adb joins arguments with spaces, so a separate 'sh -c' would run a bare 'cat' that waits forever.
-    log = adb("shell", f"run-as {PKG} sh -c 'cat files/logs/*.log'", check=False, timeout=60)
+    log = run_as("cat files/logs/*.log")
     if not log.strip():
         print("::warning::app log not readable (non-debuggable build?)")
         return
@@ -422,6 +484,8 @@ def main():
         ("reports-inventory-ledger", reports),
         ("customer-account", customer_account),
         ("language-switch", language_switch),
+        ("bill-survives-app-kill", bill_survives_app_kill),
+        ("damaged-data-recovers", damaged_data_recovers),
         ("app-log-clean", app_log_has_no_errors),
         ("no-app-freezes", app_never_froze),
     ]:

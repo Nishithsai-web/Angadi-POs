@@ -186,5 +186,17 @@
   "UPI_QR_IMAGE_TOO_LARGE": {
     "te": "ఫోటో చాలా పెద్దది — QR దగ్గరగా మళ్ళీ ఫోటో తీయండి",
     "en": "The photo is too large — take a closer photo of just the QR"
+  },
+  "BILL_SAVE_SLOW": {
+    "te": "బిల్లు ఇంకా సేవ్ అవుతోంది. కొంచెం ఆగి మళ్ళీ చెల్లింపు నొక్కండి — రెండు సార్లు పడదు",
+    "en": "The bill is still saving. Wait a moment and tap the payment again — it will not be charged twice"
+  },
+  "STORAGE_FULL": {
+    "te": "ఫోన్ మెమరీ నిండిపోయింది. కొన్ని ఫోటోలు/వీడియోలు తీసేసి మళ్ళీ ప్రయత్నించండి — మీ డేటా సురక్షితం",
+    "en": "Phone storage is full. Delete some photos or videos and try again — your data is safe"
+  },
+  "DATABASE_BUSY": {
+    "te": "యాప్ ఇంకో పని చేస్తోంది. కొన్ని సెకన్లు ఆగి మళ్ళీ ప్రయత్నించండి",
+    "en": "The app is busy saving. Wait a few seconds and try again"
   }
 }

@@ -6,8 +6,8 @@ using Angadi.Domain.Items;
 namespace Angadi.Application.Billing;
 
 /// <summary>
-/// The bill being built at the counter (ADR-13). Held by the POS ViewModel, never persisted until
-/// FinalizeBillCommand. All edits go through here so the ViewModel stays thin and this stays tested.
+/// The bill being built at the counter (ADR-13). Held by the POS ViewModel; a snapshot is saved after every change
+/// (SaveBillDraftCommand) so a phone call or Android closing the app never loses a half-built bill. All edits go through here so the ViewModel stays thin and this stays tested.
 /// Totals are recomputed after every change with the same BillCalculator used at finalize.
 /// </summary>
 public sealed class BillDraft
@@ -147,6 +147,38 @@ public sealed class BillDraft
         Changed?.Invoke(this, EventArgs.Empty);
     }
 
+    /// <summary>
+    /// What survives the app being closed mid-bill: lines, discounts and the attached customer, under the same
+    /// Bill.Id (so finalize stays idempotent). The tender is chosen at pay time and is not kept.
+    /// </summary>
+    public BillDraftSnapshot ToSnapshot() => new(
+        Bill.Id,
+        [.. Bill.Lines.Select(l => new BillDraftLine(l.Id, l.ItemId, l.TeluguName, l.EnglishName, l.Unit, l.UnitPrice.Value,
+            l.GstSlab, l.Qty.Milli, l.LineDiscount.Kind, l.LineDiscount.Amount, l.Source))],
+        Bill.BillDiscount.Kind, Bill.BillDiscount.Amount, Bill.CustomerId);
+
+    /// <summary>Rebuilds a draft from a snapshot. Lines with a non-positive quantity or negative price are dropped.</summary>
+    public static BillDraft Restore(BillDraftSnapshot snapshot, bool shopHasGstin)
+    {
+        var draft = new BillDraft(shopHasGstin);
+        draft.Bill.Id = snapshot.BillId;
+        draft.Bill.CustomerId = snapshot.CustomerId;
+        draft.Bill.BillDiscount = new Discount(snapshot.BillDiscountKind, snapshot.BillDiscountAmount);
+        foreach (var l in snapshot.Lines)
+        {
+            if (l.QtyMilli <= 0 || l.UnitPricePaise < 0) continue;
+            draft.Bill.Lines.Add(new BillLine
+            {
+                Id = l.LineId, ItemId = l.ItemId, TeluguName = l.TeluguName, EnglishName = l.EnglishName, Unit = l.Unit,
+                UnitPrice = new Paise(l.UnitPricePaise), GstSlab = l.GstSlab, Qty = new Qty(l.QtyMilli),
+                LineDiscount = new Discount(l.DiscountKind, l.DiscountAmount), Source = l.Source,
+            });
+        }
+        try { draft.Recompute(); }
+        catch (OverflowException) { return new BillDraft(shopHasGstin); }   // a tampered snapshot never crashes the counter
+        return draft;
+    }
+
     private BillLine Line(Guid id) => Bill.Lines.First(l => l.Id == id);
 
     private void Recompute()
@@ -162,4 +194,14 @@ public sealed class BillDraft
         }
         Changed?.Invoke(this, EventArgs.Empty);
     }
+}
+
+public sealed record BillDraftLine(
+    Guid LineId, Guid ItemId, string TeluguName, string EnglishName, Unit Unit, long UnitPricePaise,
+    GstSlab GstSlab, long QtyMilli, DiscountKind DiscountKind, long DiscountAmount, LineSource Source);
+
+public sealed record BillDraftSnapshot(
+    Guid BillId, IReadOnlyList<BillDraftLine> Lines, DiscountKind BillDiscountKind, long BillDiscountAmount, Guid? CustomerId)
+{
+    public bool IsEmpty => Lines.Count == 0;
 }
