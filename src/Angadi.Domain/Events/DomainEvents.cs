@@ -11,6 +11,8 @@ public sealed record BillFinalized(Guid AggregateId, DateTimeOffset OccurredAt, 
 public sealed record BillVoided(Guid AggregateId, DateTimeOffset OccurredAt, string Reason) : IDomainEvent;
 public sealed record StockAdjusted(Guid AggregateId, DateTimeOffset OccurredAt, long DeltaMilli, int Reason) : IDomainEvent;
 public sealed record DuesPaymentRecorded(Guid AggregateId, DateTimeOffset OccurredAt, long AmountPaise) : IDomainEvent;
+/// <summary>SEC-5: bad debt forgiven — kept distinct from DuesPaymentRecorded so collections never count it.</summary>
+public sealed record DuesWrittenOff(Guid AggregateId, DateTimeOffset OccurredAt, long AmountPaise) : IDomainEvent;
 // FIX(SEC-3, 2026-10-20, FIX-4): Flaw: ItemChanged carried no values, so an item price edit left no trace
 // anywhere (price-shrinkage: staff lowers a price, sells to an accomplice, restores it — invisible).
 // Fix: the payload carries the price before/after the save (old price null = newly created item).

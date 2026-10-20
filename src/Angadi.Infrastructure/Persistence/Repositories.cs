@@ -178,7 +178,7 @@ internal sealed class CustomerRepository(AngadiDb db, IClock clock) : ICustomerR
         }, ct);
     }
 
-    /// <summary>Writes the ledger row and moves the balance atomically (Charge +, Payment/Reversal −).</summary>
+    /// <summary>Writes the ledger row and moves the balance atomically (Charge +, Payment/Reversal/WriteOff −; SEC-5).</summary>
     public Task AddDuesEntryAsync(DuesEntry entry, CancellationToken ct = default)
     {
         if (entry.CreatedAt == default) entry.CreatedAt = clock.Now;

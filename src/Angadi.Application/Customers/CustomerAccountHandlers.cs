@@ -50,7 +50,9 @@ internal sealed class CustomerAccountHandlers(
             new Paise(ledger.Where(e => e.Kind == DuesEntryKind.Payment).Sum(e => e.Amount.Value)),
             DuesAging.OldestUnpaidDays(ledger, clock.Today),
             customer.PromisedPayDate,
-            top);
+            top,
+            // SEC-5: write-offs are reported on their own line — DuesPaidSoFar above counts payments only.
+            new Paise(ledger.Where(e => e.Kind == DuesEntryKind.WriteOff).Sum(e => e.Amount.Value)));
     }
 
     public async Task<Result> Handle(SetPromisedPayDateCommand command, CancellationToken ct)
@@ -96,7 +98,8 @@ public static class DuesAging
         var reversed = entries.Where(e => e.Kind == DuesEntryKind.Reversal && e.BillId is not null).Select(e => e.BillId!.Value).ToHashSet();
         var charges = entries.Where(e => e.Kind == DuesEntryKind.Charge && (e.BillId is null || !reversed.Contains(e.BillId.Value)))
             .OrderBy(e => e.CreatedAt).ToList();
-        var paid = entries.Where(e => e.Kind == DuesEntryKind.Payment).Sum(e => e.Amount.Value)
+        // SEC-5: a write-off settles charges exactly like a payment for aging — the debt is gone, just not paid.
+        var paid = entries.Where(e => e.Kind is DuesEntryKind.Payment or DuesEntryKind.WriteOff).Sum(e => e.Amount.Value)
                  + entries.Where(e => e.Kind == DuesEntryKind.Reversal && e.BillId is null).Sum(e => e.Amount.Value);
         var open = new List<(DateTimeOffset, Guid?, Paise)>();
         foreach (var charge in charges)
@@ -114,7 +117,8 @@ public static class DuesAging
         var reversed = entries.Where(e => e.Kind == DuesEntryKind.Reversal && e.BillId is not null).Select(e => e.BillId!.Value).ToHashSet();
         var charges = entries.Where(e => e.Kind == DuesEntryKind.Charge && (e.BillId is null || !reversed.Contains(e.BillId.Value)))
             .OrderBy(e => e.CreatedAt).ToList();
-        var paid = entries.Where(e => e.Kind == DuesEntryKind.Payment).Sum(e => e.Amount.Value)
+        // SEC-5: write-offs settle charges like payments (see UnpaidCharges).
+        var paid = entries.Where(e => e.Kind is DuesEntryKind.Payment or DuesEntryKind.WriteOff).Sum(e => e.Amount.Value)
                  + entries.Where(e => e.Kind == DuesEntryKind.Reversal && e.BillId is null).Sum(e => e.Amount.Value);
 
         foreach (var charge in charges)
@@ -123,5 +127,47 @@ public static class DuesAging
             return Math.Max(0, today.DayNumber - DateOnly.FromDateTime(charge.CreatedAt.ToLocalTime().DateTime).DayNumber);
         }
         return null;
+    }
+}
+
+// ---------- Dues write-off (SEC-5) ----------
+
+internal sealed class RecordDuesWriteOffValidator : IValidator<RecordDuesWriteOffCommand>
+{
+    public Error? Validate(RecordDuesWriteOffCommand c)
+    {
+        if (c.Amount.Value <= 0) return new Error(ErrorCodes.AmountInvalid);
+        // The reason is the whole point of the kind: an unexplained forgiveness is indistinguishable
+        // from the fake payment this command exists to replace.
+        if (string.IsNullOrWhiteSpace(c.Reason)) return new Error(ErrorCodes.ValidationFailed, "write-off reason required");
+        return null;
+    }
+}
+
+/// <summary>SEC-5: bad debt is forgiven as a WriteOff entry — never as a fake payment.</summary>
+internal sealed class RecordDuesWriteOffHandler(ICustomerRepository customers, IOutbox outbox, IClock clock)
+    : IRequestHandler<RecordDuesWriteOffCommand, Result>
+{
+    public async Task<Result> Handle(RecordDuesWriteOffCommand command, CancellationToken ct)
+    {
+        var customer = await customers.GetAsync(command.CustomerId, ct);
+        if (customer is null) return Result.Failure(ErrorCodes.CustomerNotFound);
+        if (command.Amount > customer.DuesBalance)
+            return Result.Failure(Error.With(ErrorCodes.DuesExceedsBalance,
+                customer.DuesBalance.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+
+        // FIX(SEC-5, 2026-10-20, FIX-4): Flaw: with no WriteOff kind, forgiving bad debt meant recording a
+        // fake Payment — collections totals overstated money that actually arrived, and real payment fraud
+        // could hide in the same bucket. Fix: a WriteOff ledger entry carrying the mandatory reason in its
+        // Note; AddDuesEntryAsync already moves the balance down for every non-Charge kind, report totals
+        // count only Kind == Payment as collected, and DuesAging settles charges with write-offs like
+        // payments. Why: the ledger stays the single truth — forgiveness is visible as itself, forever.
+        // Logged in docs/AGENT_FIX_LOG.md.
+        await customers.AddDuesEntryAsync(new DuesEntry
+        {
+            CustomerId = customer.Id, Kind = DuesEntryKind.WriteOff, Amount = command.Amount, Note = command.Reason.Trim(),
+        }, ct);
+        await outbox.AppendAsync("Customer", new DuesWrittenOff(customer.Id, clock.Now, command.Amount.Value), ct);
+        return Result.Success();
     }
 }

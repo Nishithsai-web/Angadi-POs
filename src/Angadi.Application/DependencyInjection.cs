@@ -108,6 +108,8 @@ public static class DependencyInjection
         services.AddTransient<IRequestHandler<GetCustomerReportQuery, CustomerReport?>>(sp => sp.GetRequiredService<CustomerAccountHandlers>());
         services.AddTransient<IRequestHandler<SetPromisedPayDateCommand, Result>>(sp => sp.GetRequiredService<CustomerAccountHandlers>());
         services.AddTransient<IRequestHandler<GetDueRemindersQuery, IReadOnlyList<DueReminder>>>(sp => sp.GetRequiredService<CustomerAccountHandlers>());
+        services.AddSingleton<IValidator<RecordDuesWriteOffCommand>, RecordDuesWriteOffValidator>();   // SEC-5 (FIX-4)
+        services.AddTransient<IRequestHandler<RecordDuesWriteOffCommand, Result>, RecordDuesWriteOffHandler>();   // SEC-5 (FIX-4)
 
         // Inventory
         services.AddTransient<InventoryHandlers>();
