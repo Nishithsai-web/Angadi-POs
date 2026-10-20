@@ -139,6 +139,21 @@ public sealed partial class TeluguParser(VoiceRules rules) : ITeluguParser
                     ambiguous = true;
                     continue;
                 }
+                // FIX(VOICE-5, 2026-10-20, FIX-1): Flaw: two descending BARE quantities added
+                // silently — "మూడు రెండు కేజీలు" billed 5 kg as if it were a compound number.
+                // Fix: when the running total is still a single bare number under ten (number ==
+                // lastPlace, nothing scaled or compounded yet) and the new value is another whole
+                // bare number under ten, flag ambiguous and keep the first — the pipeline asks.
+                // Tens compounds ("ఇరవై ఐదు" = 25) start at ≥ 10_000, scale compounds
+                // ("రెండు వందల యాభై") move lastPlace off the total, and fraction tails
+                // ("రెండు అర" = 2.5) are < 1000 — none of them can trip this guard.
+                // Why: a doubled quantity word is an ASR stutter or two items mushed together;
+                // summing it bills the wrong amount. Logged in docs/AGENT_FIX_LOG.md.
+                if (sawNumber && number == lastPlace && number is > 0 and < 10_000 && value is >= 1000 and < 10_000)
+                {
+                    ambiguous = true;
+                    continue;
+                }
                 number += value;
                 lastPlace = value;
                 sawNumber = true;

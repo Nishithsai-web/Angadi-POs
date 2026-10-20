@@ -70,6 +70,26 @@ public class TeluguParserTests
         Assert.Equal(Unit.Kilogram, line.Unit);
     }
 
+    [Fact]
+    public void T2_DescendingBarePair_IsAmbiguous_KeepsFirst()
+    {
+        // VOICE-5 regression: "మూడు రెండు" used to add silently into 5000 milli (5 kg).
+        // Two bare quantities are not a compound number — keep the first and ask.
+        var line = Assert.Single(_parser.Parse("మూడు రెండు కేజీల బియ్యం"));
+        Assert.Equal("బియ్యం", line.Name);
+        Assert.True(line.IsAmbiguous);
+        Assert.Equal(3000L, line.Quantity?.Value);
+    }
+
+    [Fact]
+    public void T2_NumberPlusFractionTail_IsNotAmbiguous()
+    {
+        // VOICE-5 guard-rail: "రెండు అర" is 2.5 — a fraction tail (< 1000 milli) is not a bare pair.
+        var line = Assert.Single(_parser.Parse("రెండు అర కేజీల బియ్యం"));
+        Assert.False(line.IsAmbiguous);
+        Assert.Equal(2500L, line.Quantity?.Value);
+    }
+
     [Theory]
     [InlineData("2,500 రూపాయల బియ్యం", 250_000L)]      // ₹2,500
     [InlineData("1,00,000 రూపాయల బియ్యం", 10_000_000L)] // ₹1,00,000 (Indian grouping)
