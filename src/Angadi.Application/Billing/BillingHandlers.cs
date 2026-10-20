@@ -33,6 +33,11 @@ internal sealed class FinalizeBillValidator : IValidator<FinalizeBillCommand>
         if (bill.Tender is null || !Enum.IsDefined(bill.Tender.Value)) return new Error(ErrorCodes.BillTenderMissing);   // LOW: no cast-in tenders
         if (bill.Tender == TenderType.Udhaar && bill.CustomerId is null) return new Error(ErrorCodes.BillUdhaarNeedsCustomer);
         // Status is checked in the handler, after the idempotency check: a retry of a bill that already saved is not an error.
+        // FIX(MONEY-3, 2026-10-20, FIX-2): Flaw: nothing validated CashReceived >= 0, so −₹500 on a ₹120 bill
+        // reported a shortfall of ₹620 — more than the bill. Fix: reject negative cash here. Why: it failed
+        // closed, but a wrong number at the counter reads as an app bug and erodes trust in every other number.
+        // Logged in docs/AGENT_FIX_LOG.md.
+        if (bill.CashReceived.Value < 0) return new Error(ErrorCodes.ValidationFailed, "negative cash received");
         // B1: only a cash tender may carry cash received.
         if (bill.Tender != TenderType.Cash && bill.CashReceived.Value != 0) return new Error(ErrorCodes.ValidationFailed, "cash received on a non-cash tender");
         if (bill.Tender != TenderType.Upi && !string.IsNullOrWhiteSpace(bill.UpiRef)) return new Error(ErrorCodes.ValidationFailed, "UPI reference on a non-UPI tender");

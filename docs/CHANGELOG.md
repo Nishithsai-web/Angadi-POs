@@ -2,6 +2,7 @@
 Every meaningful change: date, what, the issue it addresses, and the one-line why. Newest first.
 
 ## 2026-10-20 (FIX-2, Muse fix agent) — money & data-integrity fixes from the production audit
+- **Fixed: negative cash received showed a shortfall bigger than the bill.** Typing −₹500 against a ₹120 bill said "₹620 short". Negative cash is now rejected at validation. Why: numbers at the counter must always make sense (MONEY-3).
 - **Fixed: a broken subscription service could have stopped every sale.** The guard inside billing only handled a slow Play service; one that throws would have failed every bill as "something went wrong" — the counter freeze one layer up. Any failure now falls back to the free tier, and both fallbacks write a warning to the log so support can see it happened. Why: billing must never depend on Google Play behaving (MONEY-2, LOG-3a).
 - **Fixed: a bill line with an invented GST slab was taxed at an invented rate.** The finalize validator checked the tender was a real value but never the slab; a slab smuggled in through a restored draft (e.g. 9999) extracted ~50% tax, and a negative one made tax negative. The validator now rejects any undefined slab, exactly like item save does. Why: wrong tax on a receipt silently corrupts the shop's GST summary (MONEY-1).
 

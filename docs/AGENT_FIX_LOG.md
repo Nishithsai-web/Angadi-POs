@@ -67,7 +67,8 @@ Development no longer runs through one implementer. Muse's own dev/fix agents no
 - **Fix:** `catch (Exception ex when (ex is not OperationCanceledException))` → log + return Free.
 
 ### MONEY-3 (LOW, cosmetic, fail-closed) — Negative `CashReceived` produces a shortfall message larger than the bill
-- **Status:** OPEN · **Found by:** T1, 2026-10-20
+- **Status:** FIXED-AWAITING-VERIFY · **Fixed by:** FIX-2, 2026-10-20 (validator rejects negative cash; test `MONEY3_NegativeCashReceived_IsRejected`. UNVERIFIED-CI.)
+- **Found by:** T1, 2026-10-20
 - **Evidence:** Nothing validates `CashReceived >= 0`; −₹500 on a ₹120 bill reports "short ₹620". No money moves (fails closed).
 - **Fix:** validator: `if (bill.CashReceived.Value < 0) return new Error(ErrorCodes.ValidationFailed, "negative cash received");`
 

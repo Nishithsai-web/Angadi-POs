@@ -181,6 +181,20 @@ public class HandlerTests : IDisposable
     }
 
     [Fact]
+    public async Task MONEY3_NegativeCashReceived_IsRejected()
+    {
+        await _h.SeedShopAsync();
+        var rice = await _h.AddItemAsync("బియ్యం", 6000);
+        var draft = AppHost.Draft(TenderType.Cash, (rice, 2000));   // ₹120 bill
+        draft.CashReceived = new Paise(-50_000);                    // −₹500: was reported as "short ₹620"
+
+        var r = await _h.Sender.Send(new FinalizeBillCommand(draft));
+
+        Assert.Equal(ErrorCodes.ValidationFailed, r.Error.Code);
+        Assert.Equal(10_000, await _h.StockAsync(rice.Id));
+    }
+
+    [Fact]
     public async Task B1_CashReceivedOnUpi_IsRejected()
     {
         await _h.SeedShopAsync();
