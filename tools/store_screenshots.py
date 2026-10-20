@@ -68,6 +68,7 @@ def clean_frame():
             break
         e2e.hide_keyboard()
     e2e.dismiss_system_popups()
+    demo_status_bar()   # again: SystemUI drops demo mode when it re-lays out after the screen-size change
     time.sleep(3.5)   # a toast lasts at most 3.5 s
 
 
@@ -110,8 +111,10 @@ def on_tab_bar():
 def recover():
     """Back out of dialogs to a screen with the tab bar, in the current language. e2e_android.recover() only knows the
     English tab names, and in Telugu it would press Back until the app closed."""
-    for _ in range(4):
-        if on_tab_bar():
+    for _ in range(5):
+        # A pushed page (receipt, bill detail, customer) keeps the tab bar but shows "Navigate up": pop it, since
+        # tapping the current tab does not.
+        if on_tab_bar() and e2e.find("Navigate up", exact=True) is None:
             return
         adb("shell", "input", "keyevent", "4")
         time.sleep(1.2)
@@ -142,8 +145,8 @@ def fresh_app():
     adb("shell", "pm", "clear", PKG)
     adb("shell", "wm", "size", f"{WIDTH}x{HEIGHT}")
     adb("shell", "wm", "density", str(DENSITY))   # 480 x 853 dp: a common phone, so the bill keeps room for its lines
+    time.sleep(8)       # SystemUI re-lays out after the size change; demo mode set before that is lost
     demo_status_bar()
-    time.sleep(3)
     adb("shell", "monkey", "-p", PKG, "-c", "android.intent.category.LAUNCHER", "1")
     time.sleep(8)
     e2e.dismiss_system_popups()
@@ -158,7 +161,8 @@ def restore_device():
 # ------------------------------------------------------------------ the shop's data
 
 def language_picker():
-    e2e.wait_for("English", exact=True, timeout=120)
+    # The first-run action sheet (both scripts), not the top bar's "English" switch behind it.
+    e2e.wait_for("Choose language", timeout=120)
 
 
 def setup_shop():
