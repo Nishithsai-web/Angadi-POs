@@ -73,4 +73,18 @@ public class UiSafetyTests
         Assert.Contains("_configProblem", program, StringComparison.Ordinal);
         Assert.Contains("LogWarning", program, StringComparison.Ordinal);
     }
+
+    /// <summary>
+    /// L-7 (UI half): a ₹0 bill with lines must be an explicit decision — PosViewModel asks in the app
+    /// language and passes the answer on the finalize command's FreeBillConfirmed flag (the validator
+    /// half is FIX-2's). Source-level for the same reason as the watchdog test: no MAUI head here.
+    /// </summary>
+    [Fact]
+    public void FreeBill_RequiresAnExplicitConfirmation()
+    {
+        var vm = MauiFile(Path.Combine("Areas", "PosViewModel.cs"));
+        Assert.Contains("FreeBillConfirmed", vm, StringComparison.Ordinal);
+        Assert.Contains("pos.freebill.confirm", vm, StringComparison.Ordinal);
+        Assert.Contains("GrandTotal.Value == 0", vm, StringComparison.Ordinal);
+    }
 }

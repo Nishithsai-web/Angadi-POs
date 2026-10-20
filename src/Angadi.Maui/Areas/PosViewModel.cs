@@ -416,7 +416,20 @@ public sealed partial class PosViewModel : ViewModelBase
         {
             // Watchdog: if anything ever stalls, the counter gets a message instead of a dead screen.
             var bill = _draft.Bill;
-            var send = Sender.Send(new FinalizeBillCommand(bill));
+            // FIX(L-7, 2026-10-20, FIX-3): Flaw: a bill whose lines total ₹0 (100% discount, or a free item)
+            // finalized silently — burning a bill number and a quota slot and decrementing stock with no
+            // warning. Fix: a ₹0 bill WITH lines needs an explicit "give it free?" confirmation in the app
+            // language; cancelling returns before anything is sent, so there is no quota/stock effect. The
+            // answer rides on the command's FreeBillConfirmed flag (FIX-2's validator enforces the same rule
+            // on the handler side). Why: a free bill is legitimate (a goodwill packet) but must be a decision,
+            // never an accident. Logged in docs/AGENT_FIX_LOG.md.
+            var freeConfirmed = false;
+            if (bill.Lines.Count > 0 && bill.GrandTotal.Value == 0)
+            {
+                if (!await Dialogs.ConfirmAsync(Text["pos.freebill.title"], Text["pos.freebill.confirm"], Text["common.yes"], Text["common.no"])) return;
+                freeConfirmed = true;
+            }
+            var send = Sender.Send(new FinalizeBillCommand(bill) { FreeBillConfirmed = freeConfirmed });
             Result<FinalizedBill> result;
             try { result = await send.WaitAsync(FinalizeTimeout); }
             catch (TimeoutException)

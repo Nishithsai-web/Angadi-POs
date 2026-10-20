@@ -78,6 +78,8 @@
   "upi.mine.note": "The customer types {0} in their UPI app",
   "pos.draft.restored": "Your unfinished bill is back",
   "settings.restore.meta": "This backup holds {0} bills (newest {1}), {2} customers and {3} items. Restoring replaces the current data — a safety copy of it is kept. Continue?",
+  "pos.freebill.title": "Free bill?",
+  "pos.freebill.confirm": "This bill totals ₹0. Give it free, with no charge?",
   "data.recovered.title": "Data repaired",
   "data.recovered": "The data file on this phone was damaged. Angadi put back the safety copy from {0} at {1}. Check the bills made after that time.",
   "data.recovered.none": "The data file on this phone was damaged and no safety copy was found. Go to Settings → Restore from backup and choose your last shared backup."
