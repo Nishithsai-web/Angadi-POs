@@ -17,6 +17,7 @@ public sealed class PosPage : PageBase
     private readonly Grid _root = new() { Padding = new Thickness(12), ColumnSpacing = 12, RowSpacing = 12 };
     private readonly View _left;
     private readonly View _right;
+    private readonly ScrollView _leftScroll = new();
     private CollectionView? _results;
     private CollectionView? _quick;
     private View? _totals;
@@ -40,6 +41,7 @@ public sealed class PosPage : PageBase
         if (_results is not null) _results.MaximumHeightRequest = wide ? 240 : 150;
         if (_totals is not null) _totals.IsVisible = wide;                          // phone: the total alone
         _root.Children.Clear();
+        _leftScroll.Content = null;
         _root.ColumnDefinitions.Clear();
         _root.RowDefinitions.Clear();
         if (wide)
@@ -51,10 +53,12 @@ public sealed class PosPage : PageBase
         }
         else
         {
-            // Phone: the catalogue takes only what it needs (2 rows of tiles); the bill gets the rest.
-            _root.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
-            _root.RowDefinitions.Add(new RowDefinition(new GridLength(1, GridUnitType.Star)));
-            _root.Add(_left, 0, 0);
+            // Phone: the bill ALWAYS gets 58% of the height (its lines must never be squeezed out, whatever the
+            // catalogue holds); the catalogue scrolls inside the other 42%.
+            _root.RowDefinitions.Add(new RowDefinition(new GridLength(0.42, GridUnitType.Star)));
+            _root.RowDefinitions.Add(new RowDefinition(new GridLength(0.58, GridUnitType.Star)));
+            _leftScroll.Content = _left;
+            _root.Add(_leftScroll, 0, 0);
             _root.Add(_right, 0, 1);
         }
     }
@@ -80,6 +84,8 @@ public sealed class PosPage : PageBase
         search.SetBinding(Entry.TextProperty, nameof(PosViewModel.SearchText));
 
         var results = _results = new CollectionView { SelectionMode = SelectionMode.Single, ItemTemplate = TileTemplate(), MaximumHeightRequest = 240 };
+        // No results, no space: the list only exists while a search has found something.
+        results.SetBinding(VisualElement.IsVisibleProperty, new Binding("SearchResults.Count", converter: new Positive()));
         results.SetBinding(ItemsView.ItemsSourceProperty, nameof(PosViewModel.SearchResults));
         results.SelectionChanged += (_, e) => Pick(vm, results, e);
 
@@ -226,6 +232,12 @@ public sealed class PosPage : PageBase
         g.Add(amount, 3, 0);
         return g;
     });
+}
+
+internal sealed class Positive : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture) => value is int n && n > 0;
+    public object ConvertBack(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture) => throw new NotSupportedException();
 }
 
 internal sealed class NotEmpty : IValueConverter
