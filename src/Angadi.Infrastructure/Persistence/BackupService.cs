@@ -166,7 +166,7 @@ internal sealed class BackupService(AngadiDb db, IClock clock, string exportDire
                     if (m.Key.StartsWith("quota.", StringComparison.Ordinal)
                         && long.TryParse(m.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var v))
                         liveQuota[m.Key] = v;
-            });
+            }, ct);
 
             await db.ReplaceWithAsync(staged, ct);
             await db.RunAsync(c =>
@@ -189,7 +189,7 @@ internal sealed class BackupService(AngadiDb db, IClock clock, string exportDire
                 // device's full lifetime — stamp the watermark, or QuotaStore would floor the count a
                 // second time from the lifetime counter.
                 c.InsertOrReplace(new MetaRow { Key = QuotaStore.WatermarkKey, Value = LifetimeBillCounter.Read(db.DatabasePath).ToString(CultureInfo.InvariantCulture) });
-            });
+            }, ct);
             log.LogInformation("Restore completed; previous data kept at {Path}", Path.GetFileName(safety.Value));
             return Result.Success();
         }
