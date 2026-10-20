@@ -191,7 +191,7 @@ public class HandlerTests : IDisposable
     [Fact]
     public async Task FR16_Void_RequiresReason()
     {
-        Assert.Equal(ErrorCodes.ValidationFailed, (await _h.Sender.Send(new VoidBillCommand(Guid.NewGuid(), "  "))).Error.Code);
+        Assert.Equal(ErrorCodes.VoidReasonRequired, (await _h.Sender.Send(new VoidBillCommand(Guid.NewGuid(), "  "))).Error.Code);
     }
 
     [Fact]
@@ -225,8 +225,10 @@ public class HandlerTests : IDisposable
         await _h.SeedShopAsync();
         var customer = new Customer { Name = "రవి" };
         await _h.Sender.Send(new SaveCustomerCommand(customer));
-        Assert.Equal(ErrorCodes.ValidationFailed, (await _h.Sender.Send(new RecordDuesPaymentCommand(customer.Id, Paise.FromRupees(1), null))).Error.Code);
-        Assert.Equal(ErrorCodes.ValidationFailed, (await _h.Sender.Send(new RecordDuesPaymentCommand(customer.Id, Paise.Zero, null))).Error.Code);
+        var over = await _h.Sender.Send(new RecordDuesPaymentCommand(customer.Id, Paise.FromRupees(1), null));
+        Assert.Equal(ErrorCodes.DuesExceedsBalance, over.Error.Code);
+        Assert.NotNull(over.Error.Args);   // the balance is shown to the shopkeeper
+        Assert.Equal(ErrorCodes.AmountInvalid, (await _h.Sender.Send(new RecordDuesPaymentCommand(customer.Id, Paise.Zero, null))).Error.Code);
     }
 
     [Fact]
@@ -235,7 +237,10 @@ public class HandlerTests : IDisposable
         await _h.SeedShopAsync();
         var noPhone = new Customer { Name = "రవి" };
         await _h.Sender.Send(new SaveCustomerCommand(noPhone));
-        Assert.True((await _h.Sender.Send(new SendDuesReminderCommand(noPhone.Id))).IsFailure);
+        Assert.Equal(ErrorCodes.CustomerNoPhone, (await _h.Sender.Send(new SendDuesReminderCommand(noPhone.Id))).Error.Code);
+        var noDues = new Customer { Name = "సీత", Phone = "9876543210" };
+        await _h.Sender.Send(new SaveCustomerCommand(noDues));
+        Assert.Equal(ErrorCodes.CustomerNoDues, (await _h.Sender.Send(new SendDuesReminderCommand(noDues.Id))).Error.Code);
         Assert.Empty(_h.Share.WhatsApp);
     }
 
@@ -253,8 +258,9 @@ public class HandlerTests : IDisposable
     [Fact]
     public async Task FR03_ItemWithoutName_OrNegativePrice_IsRejected()
     {
-        Assert.Equal(ErrorCodes.ValidationFailed, (await _h.Sender.Send(new SaveItemCommand(new Item { Price = new Paise(100) }))).Error.Code);
-        Assert.Equal(ErrorCodes.ValidationFailed, (await _h.Sender.Send(new SaveItemCommand(new Item { TeluguName = "x", Price = new Paise(-1) }))).Error.Code);
+        Assert.Equal(ErrorCodes.ItemNameRequired, (await _h.Sender.Send(new SaveItemCommand(new Item { Price = new Paise(100) }))).Error.Code);
+        Assert.Equal(ErrorCodes.ItemPriceInvalid, (await _h.Sender.Send(new SaveItemCommand(new Item { TeluguName = "x", Price = new Paise(-1) }))).Error.Code);
+        Assert.Equal(ErrorCodes.ItemPriceInvalid, (await _h.Sender.Send(new SaveItemCommand(new Item { TeluguName = "x", Price = Paise.FromRupees(10_000_001) }))).Error.Code);
     }
 
     [Fact]
@@ -262,7 +268,9 @@ public class HandlerTests : IDisposable
     {
         var badUpi = await _h.Sender.Send(new SaveShopProfileCommand(new Angadi.Domain.Shop.ShopProfile { Name = "x", UpiId = "not-a-vpa" }));
         var badGstin = await _h.Sender.Send(new SaveShopProfileCommand(new Angadi.Domain.Shop.ShopProfile { Name = "x", UpiId = "a@okaxis", Gstin = "123" }));
-        Assert.Equal(ErrorCodes.ValidationFailed, badUpi.Error.Code);
-        Assert.Equal(ErrorCodes.ValidationFailed, badGstin.Error.Code);
+        var noName = await _h.Sender.Send(new SaveShopProfileCommand(new Angadi.Domain.Shop.ShopProfile { Name = " ", UpiId = "a@okaxis" }));
+        Assert.Equal(ErrorCodes.UpiIdInvalid, badUpi.Error.Code);
+        Assert.Equal(ErrorCodes.GstinInvalid, badGstin.Error.Code);
+        Assert.Equal(ErrorCodes.ShopNameRequired, noName.Error.Code);
     }
 }

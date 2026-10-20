@@ -58,3 +58,22 @@ public sealed class LogFiles(string directory)
         return zipPath;
     }
 }
+
+/// <summary>H11 adapter: LogFiles behind the Application port, IO failures turned into a Result.</summary>
+public sealed class LogExporter(LogFiles files, string outputDirectory, Angadi.Application.Platform.IClock clock, ILogger<LogExporter> log)
+    : Angadi.Application.Platform.ILogExporter
+{
+    public Task<Angadi.Application.Common.Result<string>> ExportAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            return Task.FromResult(Angadi.Application.Common.Result.Success(files.ExportZip(outputDirectory, clock.Now)));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            log.LogError(ex, "Log export failed");
+            return Task.FromResult(Angadi.Application.Common.Result.Failure<string>(
+                Angadi.Application.Common.ErrorCodes.LogExportFailed));
+        }
+    }
+}

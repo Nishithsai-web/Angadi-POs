@@ -12,3 +12,8 @@ public sealed record BillVoided(Guid AggregateId, DateTimeOffset OccurredAt, str
 public sealed record StockAdjusted(Guid AggregateId, DateTimeOffset OccurredAt, long DeltaMilli, int Reason) : IDomainEvent;
 public sealed record DuesPaymentRecorded(Guid AggregateId, DateTimeOffset OccurredAt, long AmountPaise) : IDomainEvent;
 public sealed record ItemChanged(Guid AggregateId, DateTimeOffset OccurredAt) : IDomainEvent;
+public sealed record CustomerChanged(Guid AggregateId, DateTimeOffset OccurredAt) : IDomainEvent;
+public sealed record ShopProfileChanged(Guid AggregateId, DateTimeOffset OccurredAt) : IDomainEvent;
+public sealed record ItemsSeeded(Guid AggregateId, DateTimeOffset OccurredAt, int Count) : IDomainEvent;
+/// <summary>Customer-aggregate dues move (ARCHITECT_CORRECTIONS data medium): v2 can rebuild a ledger from these.</summary>
+public sealed record DuesCharged(Guid AggregateId, DateTimeOffset OccurredAt, long AmountPaise, Guid BillId) : IDomainEvent;

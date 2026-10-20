@@ -40,8 +40,8 @@
     "en": "Choose a payment: cash, UPI or udhaar"
   },
   "BILL_CASH_SHORT": {
-    "te": "తీసుకున్న నగదు బిల్లు మొత్తం కంటే తక్కువ",
-    "en": "Cash received is less than the bill total"
+    "te": "ఇంకా {0} కావాలి — తీసుకున్న నగదు బిల్లు కంటే తక్కువ",
+    "en": "{0} short — cash received is less than the bill"
   },
   "BILL_UDHAAR_NEEDS_CUSTOMER": {
     "te": "ఉద్దెర కోసం కస్టమర్‌ను ఎంచుకోండి",
@@ -56,8 +56,8 @@
     "en": "Bill not found"
   },
   "FREE_LIMIT_REACHED": {
-    "te": "ఈ నెల ఉచిత 50 బిల్లులు అయిపోయాయి — ₹200/నెలతో అపరిమితం",
-    "en": "This month's 50 free bills are used — go unlimited for ₹200/month"
+    "te": "ఈ నెల ఉచిత {0} బిల్లులు అయిపోయాయి — ₹{1}/నెలతో అపరిమితం",
+    "en": "This month's {0} free bills are used — go unlimited for ₹{1}/month"
   },
   "PURCHASE_FAILED": {
     "te": "చెల్లింపు పూర్తి కాలేదు — మళ్ళీ ప్రయత్నించండి",
@@ -106,5 +106,57 @@
   "BILL_DISCOUNT_TOO_LARGE": {
     "te": "తగ్గింపు 100% కంటే ఎక్కువ ఉండకూడదు",
     "en": "Discount can't be more than 100%"
+  },
+  "DUES_EXCEEDS_BALANCE": {
+    "te": "బాకీ {0} మాత్రమే — అంతకంటే ఎక్కువ తీసుకోలేం",
+    "en": "Dues are only {0} — can't take more than that"
+  },
+  "AMOUNT_INVALID": {
+    "te": "మొత్తం సున్నా కంటే ఎక్కువ ఉండాలి",
+    "en": "Amount must be more than zero"
+  },
+  "CUSTOMER_NO_PHONE": {
+    "te": "ఈ కస్టమర్‌కు ఫోన్ నంబర్ లేదు — ముందు చేర్చండి",
+    "en": "This customer has no phone number — add one first"
+  },
+  "CUSTOMER_NO_DUES": {
+    "te": "ఈ కస్టమర్‌కు బాకీ లేదు",
+    "en": "This customer has no dues"
+  },
+  "VOID_REASON_REQUIRED": {
+    "te": "రద్దు చేయడానికి కారణం రాయండి",
+    "en": "Enter a reason for the void"
+  },
+  "ITEM_NAME_REQUIRED": {
+    "te": "సరుకు పేరు రాయండి (తెలుగు లేదా ఇంగ్లీష్)",
+    "en": "Enter the item name (Telugu or English)"
+  },
+  "ITEM_PRICE_INVALID": {
+    "te": "ధర సరిగా లేదు — సున్నా లేదా అంతకంటే ఎక్కువ, ₹1 కోటి లోపు",
+    "en": "The price isn't valid — zero or more, under ₹1 crore"
+  },
+  "UPI_ID_INVALID": {
+    "te": "UPI ID తప్పుగా ఉంది (ఉదా: ramu@okaxis)",
+    "en": "UPI ID looks wrong (e.g. ramu@okaxis)"
+  },
+  "GSTIN_INVALID": {
+    "te": "GSTIN 15 అక్షరాలు ఉండాలి — లేకపోతే ఖాళీగా వదలండి",
+    "en": "GSTIN must be 15 characters — or leave it empty"
+  },
+  "PHONE_INVALID": {
+    "te": "10 అంకెల మొబైల్ నంబర్ ఇవ్వండి",
+    "en": "Enter a 10-digit mobile number"
+  },
+  "SHOP_NAME_REQUIRED": {
+    "te": "అంగడి పేరు రాయండి",
+    "en": "Enter the shop name"
+  },
+  "BILL_AMOUNT_TOO_LARGE": {
+    "te": "బిల్లు మొత్తం చాలా పెద్దది — పరిమాణం, ధర సరిచూడండి",
+    "en": "The bill amount is too large — check quantity and price"
+  },
+  "LOG_EXPORT_FAILED": {
+    "te": "లాగ్ ఫైల్ తయారు కాలేదు — ఫోన్‌లో స్థలం చూడండి",
+    "en": "Couldn't prepare the log file — check phone storage"
   }
 }

@@ -31,6 +31,7 @@ public sealed class ItemMatcher(IItemRepository items, IOptions<VoiceOptions> op
         // M1-CORRECTION: "650 పారాసెటమాల్" — a dosage spoken first; also try it rotated to the end of the name.
         var rotated = RotateLeadingDigits(line.Name) is { } r ? TeluguText.MatchKey(r) : null;
 
+        // PERF: scores every active item per phrase — fine to ~2k items; add a first-letter prefilter beyond that.
         var ranked = active
             .Select(item => (item, score: Math.Max(ScoreItem(query, item), rotated is null ? 0 : ScoreItem(rotated, item))))
             .Where(x => x.score >= MinCandidateScore)
@@ -55,6 +56,9 @@ public sealed class ItemMatcher(IItemRepository items, IOptions<VoiceOptions> op
         return new MatchResult(line, kind, ranked);
     }
 
+    /// <summary>Learned aliases below auto-confidence top out just under the auto threshold: they ask (M2).</summary>
+    internal const double UnconfirmedLearnedCap = 0.89;
+
     internal static double ScoreItem(string query, Item item)
     {
         var best = 0.0;
@@ -63,7 +67,14 @@ public sealed class ItemMatcher(IItemRepository items, IOptions<VoiceOptions> op
             var key = TeluguText.MatchKey(name);
             if (key.Length == 0) continue;
             best = Math.Max(best, Score(query, key));
-            if (best >= 1.0) break;
+            if (best >= 1.0) return best;
+        }
+        foreach (var learned in item.LearnedAliases)
+        {
+            var key = TeluguText.MatchKey(learned.Text);
+            if (key.Length == 0) continue;
+            var score = Score(query, key);
+            best = Math.Max(best, learned.CanAutoAdd ? score : Math.Min(score, UnconfirmedLearnedCap));
         }
         return best;
     }

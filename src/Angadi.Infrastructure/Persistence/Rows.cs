@@ -12,6 +12,7 @@ internal sealed class ItemRow
     [NotNull] public string TeluguName { get; set; } = "";
     [NotNull] public string EnglishName { get; set; } = "";
     [NotNull] public string AliasesJson { get; set; } = "[]";
+    public string LearnedAliasesJson { get; set; } = "[]";
     public string Category { get; set; } = "";
     public int Unit { get; set; }
     public long PricePaise { get; set; }
@@ -49,6 +50,7 @@ internal sealed class BillRow
     public int FinalizedOffsetMinutes { get; set; }
     [Indexed] public int Day { get; set; }   // yyyymmdd in the shop's local time at finalize
     public long? VoidedAtMs { get; set; }
+    public int VoidedOffsetMinutes { get; set; }
     public string? VoidReason { get; set; }
     public long CreatedAtMs { get; set; }
     public long UpdatedAtMs { get; set; }
@@ -120,6 +122,8 @@ internal sealed class OutboxRow
     public Guid AggregateId { get; set; }
     public string EventType { get; set; } = "";
     public string PayloadJson { get; set; } = "";
+    /// <summary>v2 retrofit: bump when an event's JSON shape changes; EventType names are stable contracts.</summary>
+    public int PayloadVersion { get; set; } = 1;
     public long CreatedAtMs { get; set; }
     [Indexed] public int SyncState { get; set; }   // 0 = pending; v2 ISyncService drains
 }

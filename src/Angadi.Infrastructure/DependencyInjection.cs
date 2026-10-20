@@ -50,6 +50,9 @@ public static class DependencyInjection
         services.AddSingleton<ISubscriptionService, StubSubscriptionService>();
 
         services.AddSingleton(new LogFiles(Path.Combine(options.DataDirectory, "logs")));
+        services.AddSingleton<ILogExporter>(sp => new LogExporter(
+            sp.GetRequiredService<LogFiles>(), Path.Combine(options.CacheDirectory, "logs"),
+            sp.GetRequiredService<IClock>(), sp.GetRequiredService<ILogger<LogExporter>>()));
         return services;
     }
 }

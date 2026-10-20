@@ -53,6 +53,21 @@ public interface IBackupService
     Task<Result> RestoreAsync(string filePath, CancellationToken ct = default);
 }
 
+/// <summary>H11: zips the rolling log files into the shareable cache folder; returns the zip path.</summary>
+public interface ILogExporter
+{
+    Task<Result<string>> ExportAsync(CancellationToken ct = default);
+}
+
+/// <summary>
+/// M4: the v2 sync seam. v1 registers nothing, so no code path can pretend to sync. A v2 implementation drains
+/// unsent Outbox rows (in order, by PayloadVersion) and returns how many it delivered.
+/// </summary>
+public interface ISyncService
+{
+    Task<Result<int>> DrainAsync(CancellationToken ct = default);
+}
+
 /// <summary>Looks up Telugu/English strings from Resources/strings.*.json (FR-02, NFR-04).</summary>
 public interface ILocalizer
 {

@@ -16,13 +16,16 @@ namespace Angadi.Application.Billing;
 
 internal sealed class FinalizeBillValidator : IValidator<FinalizeBillCommand>
 {
+    internal const long MaxLineQtyMilli = 100_000_000;   // 1,00,000 whole units
+
     private static bool IsOver100Percent(Discount d) => d.Kind == DiscountKind.PercentBasisPoints && d.Amount > 10_000;
 
     public Error? Validate(FinalizeBillCommand c)
     {
         var bill = c.Draft;
         if (bill.Lines.Count == 0) return new Error(ErrorCodes.BillEmpty);
-        if (bill.Lines.Any(l => l.Qty.Milli <= 0)) return new Error(ErrorCodes.BillQtyInvalid);
+        // M7: 1,00,000 units per line is far past any counter sale; beyond it is a typo, and it bounds the maths.
+        if (bill.Lines.Any(l => l.Qty.Milli <= 0 || l.Qty.Milli > MaxLineQtyMilli)) return new Error(ErrorCodes.BillQtyInvalid);
         if (bill.Lines.Any(l => l.UnitPrice.Value < 0)) return new Error(ErrorCodes.ValidationFailed, "negative price");
         if (bill.Tender is null) return new Error(ErrorCodes.BillTenderMissing);
         if (bill.Tender == TenderType.Udhaar && bill.CustomerId is null) return new Error(ErrorCodes.BillUdhaarNeedsCustomer);
@@ -43,13 +46,13 @@ internal sealed class FinalizeBillValidator : IValidator<FinalizeBillCommand>
 internal sealed class VoidBillValidator : IValidator<VoidBillCommand>
 {
     public Error? Validate(VoidBillCommand c) =>
-        string.IsNullOrWhiteSpace(c.Reason) ? new Error(ErrorCodes.ValidationFailed, "void reason required") : null;
+        string.IsNullOrWhiteSpace(c.Reason) ? new Error(ErrorCodes.VoidReasonRequired) : null;
 }
 
 internal sealed class RecordDuesPaymentValidator : IValidator<RecordDuesPaymentCommand>
 {
     public Error? Validate(RecordDuesPaymentCommand c) =>
-        c.Amount.Value <= 0 ? new Error(ErrorCodes.ValidationFailed, "payment must be positive") : null;
+        c.Amount.Value <= 0 ? new Error(ErrorCodes.AmountInvalid) : null;
 }
 
 internal sealed class AdjustStockValidator : IValidator<AdjustStockCommand>
@@ -83,7 +86,8 @@ internal sealed class FinalizeBillHandler(
         // FR-34 free-tier quota.
         var status = await subscription.GetStatusAsync(ct);
         if (!status.IsPro && await quota.UsedThisMonthAsync(now, ct) >= options.Value.FreeBillsPerMonth)
-            return Result.Failure<FinalizedBill>(ErrorCodes.FreeLimitReached);
+            return Result.Failure<FinalizedBill>(Error.With(ErrorCodes.FreeLimitReached,
+                options.Value.FreeBillsPerMonth, options.Value.MonthlyPriceRupees));
 
         var profile = await shop.GetAsync(ct);
         if (profile is null) return Result.Failure<FinalizedBill>(ErrorCodes.ValidationFailed, "shop profile missing");
@@ -92,14 +96,16 @@ internal sealed class FinalizeBillHandler(
             if (await items.GetAsync(itemId, ct) is null)
                 return Result.Failure<FinalizedBill>(ErrorCodes.ItemNotFound, itemId.ToString("D", System.Globalization.CultureInfo.InvariantCulture));
 
-        BillCalculator.Compute(bill, shopHasGstin: !string.IsNullOrWhiteSpace(profile.Gstin));
+        try { BillCalculator.Compute(bill, shopHasGstin: !string.IsNullOrWhiteSpace(profile.Gstin)); }
+        catch (OverflowException) { return Result.Failure<FinalizedBill>(ErrorCodes.BillAmountTooLarge); }   // M7: checked maths
 
         var cashTyped = bill.CashReceived;
         switch (bill.Tender)
         {
             case TenderType.Cash:
                 if (bill.CashReceived < bill.GrandTotal && bill.CashReceived.Value != 0)
-                    return Result.Failure<FinalizedBill>(ErrorCodes.BillCashShort);
+                    return Result.Failure<FinalizedBill>(Error.With(ErrorCodes.BillCashShort,
+                        IndianFormat.Rupees(new Paise(bill.GrandTotal.Value - bill.CashReceived.Value))));
                 if (bill.CashReceived.Value == 0) bill.CashReceived = bill.GrandTotal;   // exact cash, nothing typed
                 break;
             case TenderType.Udhaar:
@@ -125,6 +131,8 @@ internal sealed class FinalizeBillHandler(
                     CustomerId = bill.CustomerId!.Value, Kind = DuesEntryKind.Charge, Amount = bill.GrandTotal, BillId = bill.Id,
                 }, ct);
 
+            if (bill.Tender == TenderType.Udhaar && bill.GrandTotal.Value > 0)   // M6: sync seam sees the dues side too
+                await outbox.AppendAsync("Customer", new DuesCharged(bill.CustomerId!.Value, now, bill.GrandTotal.Value, bill.Id), ct);
             await outbox.AppendAsync("Bill", new BillFinalized(bill.Id, now, bill.GrandTotal.Value), ct);
             await quota.IncrementAsync(now, ct);   // B2: same transaction as the check above
         }
@@ -216,7 +224,7 @@ internal sealed class RecordDuesPaymentHandler(ICustomerRepository customers, IO
         var customer = await customers.GetAsync(command.CustomerId, ct);
         if (customer is null) return Result.Failure(ErrorCodes.CustomerNotFound);
         if (command.Amount > customer.DuesBalance)
-            return Result.Failure(ErrorCodes.ValidationFailed, "payment exceeds dues");
+            return Result.Failure(Error.With(ErrorCodes.DuesExceedsBalance, IndianFormat.Rupees(customer.DuesBalance)));
 
         await customers.AddDuesEntryAsync(new DuesEntry
         {
@@ -236,8 +244,8 @@ internal sealed class SendDuesReminderHandler(
     {
         var customer = await customers.GetAsync(command.CustomerId, ct);
         if (customer is null) return Result.Failure(ErrorCodes.CustomerNotFound);
-        if (string.IsNullOrWhiteSpace(customer.Phone)) return Result.Failure(ErrorCodes.ValidationFailed, "customer has no phone");
-        if (customer.DuesBalance.Value <= 0) return Result.Failure(ErrorCodes.ValidationFailed, "no dues");
+        if (string.IsNullOrWhiteSpace(customer.Phone)) return Result.Failure(ErrorCodes.CustomerNoPhone);
+        if (customer.DuesBalance.Value <= 0) return Result.Failure(ErrorCodes.CustomerNoDues);
 
         var profile = await shop.GetAsync(ct);
         var message = text.Format("customers.remind.message", customer.Name, profile?.Name ?? "", IndianFormat.Rupees(customer.DuesBalance));

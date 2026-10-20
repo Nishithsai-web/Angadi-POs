@@ -3,7 +3,6 @@ using Angadi.Application.Catalog;
 using Angadi.Application.Common;
 using Angadi.Application.Platform;
 using Angadi.Domain.Shop;
-using Angadi.Infrastructure.Logging;
 using Angadi.Maui.Core;
 using Microsoft.Extensions.Options;
 
@@ -163,18 +162,14 @@ public sealed class SettingsPage : ContentPage
     private readonly IDialogService _dialogs;
     private readonly ILocalizer _text;
     private readonly IAppRestart _restart;
-    private readonly LogFiles _logs;
-    private readonly IClock _clock;
 
-    public SettingsPage(ISender sender, IReceiptShare share, IDialogService dialogs, ILocalizer text, IAppRestart restart, LogFiles logs, IClock clock)
+    public SettingsPage(ISender sender, IReceiptShare share, IDialogService dialogs, ILocalizer text, IAppRestart restart)
     {
         _sender = sender;
         _share = share;
         _dialogs = dialogs;
         _text = text;
         _restart = restart;
-        _logs = logs;
-        _clock = clock;
         Title = text["nav.settings"];
 
         Button Item(string key, Func<Task> action, bool danger = false)
@@ -221,7 +216,9 @@ public sealed class SettingsPage : ContentPage
 
     private async Task ExportLogsAsync()
     {
-        var zip = _logs.ExportZip(FileSystem.CacheDirectory, _clock.Now);
-        await _share.ShareFileAsync(zip, _text["settings.logs"]);
+        // H11: through the dispatcher — logged, Result-shaped, and a full disk shows a Telugu message instead of crashing.
+        var zip = await _sender.Send(new ExportLogsCommand());
+        if (zip.IsFailure) { await _dialogs.ToastAsync(_text.Error(zip.Error)); return; }
+        await _share.ShareFileAsync(zip.Value, _text["settings.logs"]);
     }
 }

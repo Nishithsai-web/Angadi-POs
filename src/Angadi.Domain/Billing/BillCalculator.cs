@@ -12,7 +12,8 @@ namespace Angadi.Domain.Billing;
 ///   4. Per slab: Taxable = round(Net × 10000 / (10000 + slabBp)); Tax = Net − Taxable.
 ///   5. GrandTotal = nearest whole rupee, half up; difference → RoundingAdjustment.
 ///   6. Bill of Supply (no GSTIN): no TaxSplits, TaxTotal = 0, totals otherwise identical.
-/// All rounding is half-up on non-negative integers.
+/// All rounding is half-up on non-negative integers. All arithmetic is checked (M7): overflow throws
+/// OverflowException, which FinalizeBill maps to BILL_AMOUNT_TOO_LARGE — never a silent wrap.
 /// </summary>
 public static class BillCalculator
 {
@@ -29,12 +30,12 @@ public static class BillCalculator
             if (line.Qty.Milli <= 0) throw new ArgumentException($"Line {line.Id}: quantity must be positive.");
             if (line.UnitPrice.Value < 0) throw new ArgumentException($"Line {line.Id}: price cannot be negative.");
 
-            line.Gross = new Paise(DivHalfUp(line.UnitPrice.Value * line.Qty.Milli, 1000));
+            line.Gross = new Paise(DivHalfUp(checked(line.UnitPrice.Value * line.Qty.Milli), 1000));
             line.LineTotal = line.Gross - new Paise(DiscountAmount(line.Gross.Value, line.LineDiscount));
             line.BillDiscountShare = Paise.Zero;
         }
 
-        var subTotal = bill.Lines.Sum(l => l.LineTotal.Value);
+        var subTotal = bill.Lines.Sum(l => l.LineTotal.Value);   // Enumerable.Sum(long) is checked
         bill.SubTotal = new Paise(subTotal);
 
         // 3. Bill discount, apportioned by largest remainder.
@@ -71,13 +72,13 @@ public static class BillCalculator
     internal static TaxSplit SplitFor(GstSlab slab, long gross)
     {
         var bp = (long)slab;
-        var taxable = bp == 0 ? gross : DivHalfUp(gross * 10000, 10000 + bp);
+        var taxable = bp == 0 ? gross : DivHalfUp(checked(gross * 10000), 10000 + bp);
         return new TaxSplit(slab, new Paise(taxable), new Paise(gross - taxable));
     }
 
     internal static long DiscountAmount(long baseAmount, Discount discount) => discount.Kind switch
     {
-        DiscountKind.PercentBasisPoints => DivHalfUp(baseAmount * Math.Clamp(discount.Amount, 0, 10000), 10000),
+        DiscountKind.PercentBasisPoints => DivHalfUp(checked(baseAmount * Math.Clamp(discount.Amount, 0, 10000)), 10000),
         DiscountKind.FlatPaise => Math.Clamp(discount.Amount, 0, baseAmount),
         _ => 0,
     };
@@ -88,7 +89,7 @@ public static class BillCalculator
         var rem = new long[lines.Count];
         for (var i = 0; i < lines.Count; i++)
         {
-            var weighted = lines[i].LineTotal.Value * discount;
+            var weighted = checked(lines[i].LineTotal.Value * discount);
             raw[i] = weighted / subTotal;
             rem[i] = weighted % subTotal;
         }
@@ -104,6 +105,6 @@ public static class BillCalculator
     internal static long DivHalfUp(long numerator, long denominator)
     {
         if (numerator < 0) throw new ArgumentOutOfRangeException(nameof(numerator), "Money math works on non-negative amounts.");
-        return (2 * numerator + denominator) / (2 * denominator);
+        return checked(2 * numerator + denominator) / checked(2 * denominator);   // M7: absurd inputs fail loud
     }
 }

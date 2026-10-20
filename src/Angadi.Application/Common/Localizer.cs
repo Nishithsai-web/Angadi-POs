@@ -9,16 +9,25 @@ using Angadi.Domain.Shop;
 namespace Angadi.Application.Common;
 
 /// <summary>Reads Resources/strings.te.json, strings.en.json and errors.json (FR-02, NFR-04).</summary>
-public sealed class JsonLocalizer : ILocalizer
+public sealed partial class JsonLocalizer : ILocalizer
 {
     private readonly Dictionary<string, string> _te;
     private readonly Dictionary<string, string> _en;
     private readonly Dictionary<string, (string te, string en)> _errors;
 
+    /// <summary>Last-resort text if errors.json itself is unreadable (M8): the app must still open.</summary>
+    private static readonly (string te, string en) Fallback =
+        ("ఏదో తప్పు జరిగింది — మళ్ళీ ప్రయత్నించండి", "Something went wrong — please try again");
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"\{\d+\}")]
+    private static partial System.Text.RegularExpressions.Regex Placeholder();
+
     public JsonLocalizer()
     {
-        _te = LoadAll("te");
-        _en = LoadAll("en");
+        // M8: lenient at runtime — a corrupt or duplicated key never stops the app from opening.
+        // CI runs LoadAll(strict: true), so duplicates are still caught before release.
+        _te = LoadAll("te", strict: false);
+        _en = LoadAll("en", strict: false);
         _errors = LoadErrors();
     }
 
@@ -38,8 +47,13 @@ public sealed class JsonLocalizer : ILocalizer
 
     public string Error(Error error)
     {
-        var entry = _errors.TryGetValue(error.Code, out var e) ? e : _errors[ErrorCodes.Unexpected];
-        return Language == UiLanguage.Telugu ? entry.te : entry.en;
+        var entry = _errors.TryGetValue(error.Code, out var e) ? e
+            : _errors.TryGetValue(ErrorCodes.Unexpected, out var u) ? u : Fallback;
+        var template = Language == UiLanguage.Telugu ? entry.te : entry.en;
+        // A templated message raised without its values must not show "{0}" to a shopkeeper: drop the slot.
+        if (error.Args is not { Length: > 0 } args) return Placeholder().Replace(template, "").Replace("  ", " ", StringComparison.Ordinal).Trim();
+        try { return string.Format(CultureInfo.InvariantCulture, template, args); }
+        catch (FormatException) { return template; }
     }
 
     public string Format(string key, params object[] args) => string.Format(CultureInfo.InvariantCulture, this[key], args);
@@ -54,7 +68,7 @@ public sealed class JsonLocalizer : ILocalizer
     /// Merges strings.te.json with every per-area file strings.&lt;area&gt;.te.json (one per UI area, so
     /// parallel work never edits the same file). A key defined twice is a bug and throws.
     /// </summary>
-    internal static Dictionary<string, string> LoadAll(string lang)
+    internal static Dictionary<string, string> LoadAll(string lang, bool strict = true)
     {
         var asm = typeof(JsonLocalizer).Assembly;
         var names = asm.GetManifestResourceNames()
@@ -64,23 +78,42 @@ public sealed class JsonLocalizer : ILocalizer
         var all = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var name in names)
         {
-            using var s = asm.GetManifestResourceStream(name)!;
-            using var doc = JsonDocument.Parse(s);
-            foreach (var p in doc.RootElement.EnumerateObject())
-                if (!all.TryAdd(p.Name, p.Value.GetString() ?? ""))
-                    throw new InvalidOperationException($"String key '{p.Name}' is defined twice ({name}).");
+            try
+            {
+                using var s = asm.GetManifestResourceStream(name)!;
+                using var doc = JsonDocument.Parse(s);
+                foreach (var p in doc.RootElement.EnumerateObject())
+                    if (!all.TryAdd(p.Name, p.Value.ValueKind == JsonValueKind.String ? p.Value.GetString() ?? "" : "") && strict)
+                        throw new InvalidOperationException($"String key '{p.Name}' is defined twice ({name}).");
+            }
+            catch (JsonException) when (!strict)
+            {
+                // A truncated area file loses only its own keys; the indexer falls back to the other language/key.
+            }
         }
         return all;
     }
 
     private static Dictionary<string, (string, string)> LoadErrors()
     {
-        using var s = Open("errors.json");
-        using var doc = JsonDocument.Parse(s);
-        return doc.RootElement.EnumerateObject().ToDictionary(
-            p => p.Name,
-            p => (p.Value.GetProperty("te").GetString() ?? "", p.Value.GetProperty("en").GetString() ?? ""),
-            StringComparer.Ordinal);
+        var result = new Dictionary<string, (string, string)>(StringComparer.Ordinal);
+        try
+        {
+            using var s = Open("errors.json");
+            using var doc = JsonDocument.Parse(s);
+            foreach (var p in doc.RootElement.EnumerateObject())
+            {
+                // M8: a missing te/en entry falls back to the other language instead of throwing at startup.
+                var te = p.Value.TryGetProperty("te", out var t) && t.ValueKind == JsonValueKind.String ? t.GetString() ?? "" : "";
+                var en = p.Value.TryGetProperty("en", out var n) && n.ValueKind == JsonValueKind.String ? n.GetString() ?? "" : "";
+                result[p.Name] = (te.Length > 0 ? te : en, en.Length > 0 ? en : te);
+            }
+        }
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException)
+        {
+            // Unreadable errors.json: every error shows the hardcoded fallback.
+        }
+        return result;
     }
 }
 

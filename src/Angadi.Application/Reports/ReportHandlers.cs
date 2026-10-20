@@ -45,15 +45,19 @@ internal sealed class ReportHandlers(IBillRepository bills, ICustomerRepository 
     public async Task<IReadOnlyList<TopItem>> Handle(GetTopItemsQuery q, CancellationToken ct)
     {
         var sold = (await bills.ListByDayAsync(q.From, q.To, ct)).Where(b => b.Status == BillStatus.Finalized);
-        return sold.SelectMany(b => b.Lines)
-            .GroupBy(l => l.ItemId)
+        var items = sold.SelectMany(b => b.Lines.Select(l => (bill: b.Id, line: l)))
+            .GroupBy(x => x.line.ItemId)
             .Select(g =>
             {
-                var first = g.First();
+                var first = g.First().line;
                 var name = string.IsNullOrWhiteSpace(first.TeluguName) ? first.EnglishName : first.TeluguName;
-                return new TopItem(g.Key, name, first.Unit, new Qty(g.Sum(l => l.Qty.Milli)), new Paise(g.Sum(l => l.Net.Value)));
-            })
-            .OrderByDescending(t => t.Value.Value)
+                return new TopItem(g.Key, name, first.Unit, new Qty(g.Sum(x => x.line.Qty.Milli)),
+                    new Paise(g.Sum(x => x.line.Net.Value)), g.Select(x => x.bill).Distinct().Count());
+            });
+        var ordered = q.Sort == TopItemsSort.BillCount
+            ? items.OrderByDescending(t => t.BillCount).ThenByDescending(t => t.Value.Value)
+            : items.OrderByDescending(t => t.Value.Value).ThenByDescending(t => t.BillCount);
+        return ordered
             .ThenBy(t => t.DisplayName, StringComparer.Ordinal)
             .Take(Math.Max(1, q.Limit))
             .ToList();

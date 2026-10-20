@@ -4,9 +4,12 @@ namespace Angadi.Application.Common;
 /// An expected failure. <see cref="Code"/> is a key into Resources/errors.json, which holds the
 /// Telugu and English message shown to the shopkeeper. <see cref="Detail"/> is for logs only.
 /// </summary>
-public sealed record Error(string Code, string? Detail = null)
+public sealed record Error(string Code, string? Detail = null, object[]? Args = null)
 {
     public static readonly Error None = new("");
+
+    /// <summary>M11: an error whose message template takes values ("{0} short", "dues are only {0}").</summary>
+    public static Error With(string code, params object[] args) => new(code, null, args);
 }
 
 /// <summary>Service-boundary result. Exceptions are for programmer errors only.</summary>
@@ -76,8 +79,21 @@ public static class ErrorCodes
     public const string ReceiptRenderFailed = "RECEIPT_RENDER_FAILED";
     public const string BackupFailed = "BACKUP_FAILED";
     public const string RestoreInvalidFile = "RESTORE_INVALID_FILE";
+    public const string LogExportFailed = "LOG_EXPORT_FAILED";
     public const string ItemNotFound = "ITEM_NOT_FOUND";
     public const string CustomerNotFound = "CUSTOMER_NOT_FOUND";
+    public const string DuesExceedsBalance = "DUES_EXCEEDS_BALANCE";
+    public const string AmountInvalid = "AMOUNT_INVALID";
+    public const string CustomerNoPhone = "CUSTOMER_NO_PHONE";
+    public const string CustomerNoDues = "CUSTOMER_NO_DUES";
+    public const string VoidReasonRequired = "VOID_REASON_REQUIRED";
+    public const string ItemNameRequired = "ITEM_NAME_REQUIRED";
+    public const string ItemPriceInvalid = "ITEM_PRICE_INVALID";
+    public const string UpiIdInvalid = "UPI_ID_INVALID";
+    public const string GstinInvalid = "GSTIN_INVALID";
+    public const string PhoneInvalid = "PHONE_INVALID";
+    public const string ShopNameRequired = "SHOP_NAME_REQUIRED";
+    public const string BillAmountTooLarge = "BILL_AMOUNT_TOO_LARGE";
     public const string ValidationFailed = "VALIDATION_FAILED";
     public const string Unexpected = "UNEXPECTED";
 }

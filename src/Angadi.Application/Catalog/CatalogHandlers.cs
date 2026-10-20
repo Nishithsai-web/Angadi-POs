@@ -16,12 +16,14 @@ namespace Angadi.Application.Catalog;
 
 internal sealed class SaveItemValidator : IValidator<SaveItemCommand>
 {
+    internal const long MaxPricePaise = 1_00_00_000_00;   // ₹1,00,00,000
     public Error? Validate(SaveItemCommand c)
     {
         var i = c.Item;
         if (string.IsNullOrWhiteSpace(i.TeluguName) && string.IsNullOrWhiteSpace(i.EnglishName))
-            return new Error(ErrorCodes.ValidationFailed, "item needs a name");
-        if (i.Price.Value < 0) return new Error(ErrorCodes.ValidationFailed, "negative price");
+            return new Error(ErrorCodes.ItemNameRequired);
+        // M7: a price above ₹1 crore is a typo, and keeps every line far from long overflow.
+        if (i.Price.Value < 0 || i.Price.Value > MaxPricePaise) return new Error(ErrorCodes.ItemPriceInvalid);
         if (i.LowStockThreshold.Milli < 0) return new Error(ErrorCodes.ValidationFailed, "negative threshold");
         if (c.OpeningStock is { Milli: < 0 }) return new Error(ErrorCodes.ValidationFailed, "negative opening stock");
         if (!Enum.IsDefined(i.GstSlab)) return new Error(ErrorCodes.ValidationFailed, "unknown GST slab");
@@ -35,7 +37,7 @@ internal sealed class SaveCustomerValidator : IValidator<SaveCustomerCommand>
     {
         if (string.IsNullOrWhiteSpace(c.Customer.Name)) return new Error(ErrorCodes.ValidationFailed, "customer needs a name");
         if (!string.IsNullOrWhiteSpace(c.Customer.Phone) && PhoneNumbers.Normalize(c.Customer.Phone) is null)
-            return new Error(ErrorCodes.ValidationFailed, "phone must be a 10-digit Indian mobile");
+            return new Error(ErrorCodes.PhoneInvalid);
         return null;
     }
 }
@@ -52,10 +54,10 @@ internal sealed partial class SaveShopProfileValidator : IValidator<SaveShopProf
     public Error? Validate(SaveShopProfileCommand c)
     {
         var p = c.Profile;
-        if (string.IsNullOrWhiteSpace(p.Name)) return new Error(ErrorCodes.ValidationFailed, "shop needs a name");
-        if (!Vpa().IsMatch(p.UpiId.Trim())) return new Error(ErrorCodes.ValidationFailed, "UPI ID looks wrong (name@bank)");
+        if (string.IsNullOrWhiteSpace(p.Name)) return new Error(ErrorCodes.ShopNameRequired);
+        if (!Vpa().IsMatch(p.UpiId.Trim())) return new Error(ErrorCodes.UpiIdInvalid);
         if (!string.IsNullOrWhiteSpace(p.Gstin) && !Gstin().IsMatch(p.Gstin.Trim().ToUpperInvariant()))
-            return new Error(ErrorCodes.ValidationFailed, "GSTIN must be 15 characters");
+            return new Error(ErrorCodes.GstinInvalid);
         return null;
     }
 }
@@ -94,7 +96,8 @@ internal sealed class ItemQueries(IItemRepository items, IStockLedger ledger) :
     IRequestHandler<GetLowStockQuery, IReadOnlyList<Item>>,
     IRequestHandler<GetItemQuery, Item?>,
     IRequestHandler<GetItemByBarcodeQuery, Item?>,
-    IRequestHandler<GetStockHistoryQuery, IReadOnlyList<StockMove>>
+    IRequestHandler<GetStockHistoryQuery, IReadOnlyList<StockMove>>,
+    IRequestHandler<GetLegacySlabItemsQuery, IReadOnlyList<Item>>
 {
     public Task<IReadOnlyList<Item>> Handle(SearchItemsQuery q, CancellationToken ct) => items.SearchAsync(q.Text, q.Limit, ct);
 
@@ -106,11 +109,14 @@ internal sealed class ItemQueries(IItemRepository items, IStockLedger ledger) :
     public Task<Item?> Handle(GetItemQuery q, CancellationToken ct) => items.GetAsync(q.ItemId, ct);
     public Task<Item?> Handle(GetItemByBarcodeQuery q, CancellationToken ct) => items.GetByBarcodeAsync(q.Barcode, ct);
     public Task<IReadOnlyList<StockMove>> Handle(GetStockHistoryQuery q, CancellationToken ct) => ledger.GetHistoryAsync(q.ItemId, ct);
+
+    public async Task<IReadOnlyList<Item>> Handle(GetLegacySlabItemsQuery q, CancellationToken ct) =>
+        (await items.GetActiveAsync(ct)).Where(i => GstSlabs.IsLegacy(i.GstSlab)).OrderBy(i => i.TeluguName, StringComparer.Ordinal).ToList();
 }
 
 // ---------- Customer handlers ----------
 
-internal sealed class SaveCustomerHandler(ICustomerRepository customers) : IRequestHandler<SaveCustomerCommand, Result<Guid>>
+internal sealed class SaveCustomerHandler(ICustomerRepository customers, IOutbox outbox, IClock clock) : IRequestHandler<SaveCustomerCommand, Result<Guid>>
 {
     public async Task<Result<Guid>> Handle(SaveCustomerCommand command, CancellationToken ct)
     {
@@ -118,6 +124,7 @@ internal sealed class SaveCustomerHandler(ICustomerRepository customers) : IRequ
         c.Name = c.Name.Trim();
         c.Phone = PhoneNumbers.Normalize(c.Phone);
         await customers.SaveAsync(c, ct);
+        await outbox.AppendAsync("Customer", new CustomerChanged(c.Id, clock.Now), ct);   // M6
         return Result.Success(c.Id);
     }
 }
@@ -132,9 +139,17 @@ internal sealed class CustomerQueries(ICustomerRepository customers) :
     public Task<IReadOnlyList<DuesEntry>> Handle(GetCustomerLedgerQuery q, CancellationToken ct) => customers.GetLedgerAsync(q.CustomerId, ct);
 }
 
+// ---------- Logs (H11) ----------
+
+internal sealed class ExportLogsHandler(ILogExporter exporter) : IRequestHandler<ExportLogsCommand, Result<string>>
+{
+    public Task<Result<string>> Handle(ExportLogsCommand command, CancellationToken ct) => exporter.ExportAsync(ct);
+}
+
 // ---------- Shop, seed, bills, backup ----------
 
-internal sealed class ShopHandlers(IShopProfileRepository shop, ISeedService seed, IBillRepository bills, IBackupService backup, ILocalizer text) :
+internal sealed class ShopHandlers(
+    IShopProfileRepository shop, ISeedService seed, IBillRepository bills, IBackupService backup, ILocalizer text, IOutbox outbox, IClock clock) :
     IRequestHandler<GetShopProfileQuery, ShopProfile?>,
     IRequestHandler<SaveShopProfileCommand, Result>,
     IRequestHandler<SeedItemsCommand, Result<int>>,
@@ -147,12 +162,18 @@ internal sealed class ShopHandlers(IShopProfileRepository shop, ISeedService see
     public async Task<Result> Handle(SaveShopProfileCommand command, CancellationToken ct)
     {
         await shop.SaveAsync(command.Profile, ct);
+        await outbox.AppendAsync("Shop", new ShopProfileChanged(command.Profile.Id, clock.Now), ct);   // M6
         text.Language = command.Profile.Language;
         return Result.Success();
     }
 
-    public async Task<Result<int>> Handle(SeedItemsCommand command, CancellationToken ct) =>
-        Result.Success(await seed.SeedAsync(command.Kirana, command.Pharmacy, ct));
+    public async Task<Result<int>> Handle(SeedItemsCommand command, CancellationToken ct)
+    {
+        var count = await seed.SeedAsync(command.Kirana, command.Pharmacy, ct);
+        // M6: one summary row, not 120 ItemChanged rows — a future sync re-reads the seeded catalog in one go.
+        if (count > 0) await outbox.AppendAsync("Item", new ItemsSeeded(Guid.Empty, clock.Now, count), ct);
+        return Result.Success(count);
+    }
 
     public Task<Bill?> Handle(GetBillQuery q, CancellationToken ct) => bills.GetAsync(q.BillId, ct);
     public Task<Result<string>> Handle(ExportBackupCommand command, CancellationToken ct) => backup.ExportAsync(ct);

@@ -141,5 +141,6 @@
   "reports.sales": "Sales",
   "settings.saved": "Saved",
   "sub.limit.left": "{0} free bills left this month",
-  "sub.buy": "Get Pro"
+  "sub.buy": "Get Pro",
+  "items.legacy.notice": "{0} items are on an old GST slab (12%/28%) — pick a current slab to bill them"
 }

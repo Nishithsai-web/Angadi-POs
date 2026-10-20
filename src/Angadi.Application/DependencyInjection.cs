@@ -65,6 +65,7 @@ public static class DependencyInjection
         services.AddTransient<IRequestHandler<GetItemQuery, Item?>>(sp => sp.GetRequiredService<ItemQueries>());
         services.AddTransient<IRequestHandler<GetItemByBarcodeQuery, Item?>>(sp => sp.GetRequiredService<ItemQueries>());
         services.AddTransient<IRequestHandler<GetStockHistoryQuery, IReadOnlyList<StockMove>>>(sp => sp.GetRequiredService<ItemQueries>());
+        services.AddTransient<IRequestHandler<GetLegacySlabItemsQuery, IReadOnlyList<Item>>>(sp => sp.GetRequiredService<ItemQueries>());
         services.AddTransient<CustomerQueries>();
         services.AddTransient<IRequestHandler<SearchCustomersQuery, IReadOnlyList<Customer>>>(sp => sp.GetRequiredService<CustomerQueries>());
         services.AddTransient<IRequestHandler<GetCustomerQuery, Customer?>>(sp => sp.GetRequiredService<CustomerQueries>());
@@ -76,6 +77,7 @@ public static class DependencyInjection
         services.AddTransient<IRequestHandler<GetBillQuery, Bill?>>(sp => sp.GetRequiredService<ShopHandlers>());
         services.AddTransient<IRequestHandler<ExportBackupCommand, Result<string>>>(sp => sp.GetRequiredService<ShopHandlers>());
         services.AddTransient<IRequestHandler<RestoreBackupCommand, Result>>(sp => sp.GetRequiredService<ShopHandlers>());
+        services.AddTransient<IRequestHandler<ExportLogsCommand, Result<string>>, ExportLogsHandler>();
 
         // Reports
         services.AddTransient<ReportHandlers>();

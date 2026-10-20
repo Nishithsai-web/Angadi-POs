@@ -22,6 +22,7 @@ public sealed class ItemsPage : ContentPage
     private readonly ObservableCollection<ItemListRow> _rows = [];
     private readonly Entry _search;
     private readonly Label _summary = Ui.Caption();
+    private readonly Label _legacy = new() { TextColor = Theme.Warning, FontAttributes = FontAttributes.Bold, IsVisible = false };
     private IReadOnlyList<Item> _all = [];
 
     public ItemsPage(ISender sender, ILocalizer text)
@@ -45,10 +46,11 @@ public sealed class ItemsPage : ContentPage
         var top = new Grid { ColumnDefinitions = { new(GridLength.Star), new(GridLength.Auto) }, ColumnSpacing = 8 };
         top.Add(_search, 0, 0);
         top.Add(add, 1, 0);
-        var grid = new Grid { Padding = 12, RowSpacing = 8, RowDefinitions = { new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Star) } };
+        var grid = new Grid { Padding = 12, RowSpacing = 8, RowDefinitions = { new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Star) } };
         grid.Add(top, 0, 0);
-        grid.Add(_summary, 0, 1);
-        grid.Add(list, 0, 2);
+        grid.Add(_legacy, 0, 1);
+        grid.Add(_summary, 0, 2);
+        grid.Add(list, 0, 3);
         Content = grid;
     }
 
@@ -58,6 +60,10 @@ public sealed class ItemsPage : ContentPage
         _all = await _sender.Send(new GetAllItemsQuery());
         var low = _all.Count(i => i.IsLowStock);
         _summary.Text = low > 0 ? $"{_text["stock.low.title"]}: {low}" : "";
+        // H8: 12%/28% items cannot be billed under GST 2.0 — say so here, before the counter finds out.
+        var legacy = await _sender.Send(new GetLegacySlabItemsQuery());
+        _legacy.IsVisible = legacy.Count > 0;
+        _legacy.Text = legacy.Count > 0 ? _text.Format("items.legacy.notice", legacy.Count) : "";
         Filter();
     }
 

@@ -18,10 +18,10 @@ public abstract class Entity
 public readonly record struct Paise(long Value) : IComparable<Paise>
 {
     public static readonly Paise Zero = new(0);
-    public static Paise FromRupees(long rupees) => new(rupees * 100);
-    public static Paise operator +(Paise a, Paise b) => new(a.Value + b.Value);
-    public static Paise operator -(Paise a, Paise b) => new(a.Value - b.Value);
-    public static Paise operator -(Paise a) => new(-a.Value);
+    public static Paise FromRupees(long rupees) => new(checked(rupees * 100));
+    public static Paise operator +(Paise a, Paise b) => new(checked(a.Value + b.Value));
+    public static Paise operator -(Paise a, Paise b) => new(checked(a.Value - b.Value));
+    public static Paise operator -(Paise a) => new(checked(-a.Value));
     public static bool operator <(Paise a, Paise b) => a.Value < b.Value;
     public static bool operator >(Paise a, Paise b) => a.Value > b.Value;
     public static bool operator <=(Paise a, Paise b) => a.Value <= b.Value;
@@ -37,10 +37,10 @@ public readonly record struct Paise(long Value) : IComparable<Paise>
 public readonly record struct Qty(long Milli) : IComparable<Qty>
 {
     public static readonly Qty Zero = new(0);
-    public static Qty Whole(long units) => new(units * 1000);
-    public static Qty operator +(Qty a, Qty b) => new(a.Milli + b.Milli);
-    public static Qty operator -(Qty a, Qty b) => new(a.Milli - b.Milli);
-    public static Qty operator -(Qty a) => new(-a.Milli);
+    public static Qty Whole(long units) => new(checked(units * 1000));
+    public static Qty operator +(Qty a, Qty b) => new(checked(a.Milli + b.Milli));
+    public static Qty operator -(Qty a, Qty b) => new(checked(a.Milli - b.Milli));
+    public static Qty operator -(Qty a) => new(checked(-a.Milli));
     public static bool operator <=(Qty a, Qty b) => a.Milli <= b.Milli;
     public static bool operator >=(Qty a, Qty b) => a.Milli >= b.Milli;
     public static bool operator <(Qty a, Qty b) => a.Milli < b.Milli;

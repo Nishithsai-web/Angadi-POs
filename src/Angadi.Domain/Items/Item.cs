@@ -11,6 +11,13 @@ public sealed class Item : Entity
     /// <summary>Spoken/written variants ("బియ్యం", "biyyam", "rice"). FR-07 corrections append here.</summary>
     public List<string> Aliases { get; set; } = [];
 
+    /// <summary>
+    /// M2: aliases learned from counter corrections, kept apart from curated aliases so learning can never
+    /// evict them. Confidence 1 = ask only; ≥ 2 confirmations = auto-add; a contradicting correction lowers it
+    /// and 0 removes it. Least-recently-used eviction past 30.
+    /// </summary>
+    public List<LearnedAlias> LearnedAliases { get; set; } = [];
+
     public string Category { get; set; } = "";
     public Unit Unit { get; set; } = Unit.Piece;
 
@@ -30,6 +37,13 @@ public sealed class Item : Entity
     public bool IsActive { get; set; } = true;
 
     public bool IsLowStock => IsActive && Stock <= LowStockThreshold;
+}
+
+/// <summary>M2: one learned alias. Confidence ≥ AutoConfidence lets it auto-add.</summary>
+public sealed record LearnedAlias(string Text, int Confidence, long LastUsedMs)
+{
+    public const int AutoConfidence = 2;
+    public bool CanAutoAdd => Confidence >= AutoConfidence;
 }
 
 public enum Unit { Piece = 0, Kilogram = 1, Gram = 2, Litre = 3, Millilitre = 4, Pack = 5, Strip = 6 }

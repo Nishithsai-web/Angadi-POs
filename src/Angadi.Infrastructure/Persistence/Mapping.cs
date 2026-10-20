@@ -25,7 +25,7 @@ internal static class Mapping
     public static ItemRow ToRow(Item i) => new()
     {
         Id = i.Id, TeluguName = i.TeluguName.Trim(), EnglishName = i.EnglishName.Trim(),
-        AliasesJson = JsonSerializer.Serialize(i.Aliases, Json), Category = i.Category,
+        AliasesJson = JsonSerializer.Serialize(i.Aliases, Json), LearnedAliasesJson = JsonSerializer.Serialize(i.LearnedAliases, Json), Category = i.Category,
         Unit = (int)i.Unit, PricePaise = i.Price.Value, GstBasisPoints = (int)i.GstSlab, Hsn = NullIfBlank(i.Hsn),
         Barcode = NullIfBlank(i.Barcode), StockMilli = i.Stock.Milli, LowStockMilli = i.LowStockThreshold.Milli,
         IsQuickSale = i.IsQuickSale, IsActive = i.IsActive, CreatedAtMs = Ms(i.CreatedAt), UpdatedAtMs = Ms(i.UpdatedAt),
@@ -35,6 +35,7 @@ internal static class Mapping
     {
         Id = r.Id, TeluguName = r.TeluguName, EnglishName = r.EnglishName,
         Aliases = JsonSerializer.Deserialize<List<string>>(r.AliasesJson, Json) ?? [],
+        LearnedAliases = string.IsNullOrEmpty(r.LearnedAliasesJson) ? [] : JsonSerializer.Deserialize<List<LearnedAlias>>(r.LearnedAliasesJson, Json) ?? [],
         Category = r.Category, Unit = (Unit)r.Unit, Price = new Paise(r.PricePaise), GstSlab = (GstSlab)r.GstBasisPoints,
         Hsn = r.Hsn, Barcode = r.Barcode, Stock = new Qty(r.StockMilli), LowStockThreshold = new Qty(r.LowStockMilli),
         IsQuickSale = r.IsQuickSale, IsActive = r.IsActive, CreatedAt = At(r.CreatedAtMs), UpdatedAt = At(r.UpdatedAtMs),
@@ -53,7 +54,8 @@ internal static class Mapping
         FinalizedAtMs = b.FinalizedAt is null ? null : Ms(b.FinalizedAt.Value),
         FinalizedOffsetMinutes = b.FinalizedAt is null ? 0 : (int)b.FinalizedAt.Value.Offset.TotalMinutes,
         Day = b.FinalizedAt is null ? 0 : Day(b.FinalizedAt.Value),
-        VoidedAtMs = b.VoidedAt is null ? null : Ms(b.VoidedAt.Value), VoidReason = b.VoidReason,
+        VoidedAtMs = b.VoidedAt is null ? null : Ms(b.VoidedAt.Value),
+        VoidedOffsetMinutes = b.VoidedAt is null ? 0 : (int)b.VoidedAt.Value.Offset.TotalMinutes, VoidReason = b.VoidReason,
         CreatedAtMs = Ms(b.CreatedAt), UpdatedAtMs = Ms(b.UpdatedAt),
     };
 
@@ -77,7 +79,7 @@ internal static class Mapping
             .Select(a => new TaxSplit((GstSlab)a[0], new Paise(a[1]), new Paise(a[2]))).ToList(),
         IsTaxInvoice = r.IsTaxInvoice,
         FinalizedAt = r.FinalizedAtMs is null ? null : At(r.FinalizedAtMs.Value, r.FinalizedOffsetMinutes),
-        VoidedAt = r.VoidedAtMs is null ? null : At(r.VoidedAtMs.Value, r.FinalizedOffsetMinutes), VoidReason = r.VoidReason,
+        VoidedAt = r.VoidedAtMs is null ? null : At(r.VoidedAtMs.Value, r.VoidedOffsetMinutes), VoidReason = r.VoidReason,   // M12
         CreatedAt = At(r.CreatedAtMs), UpdatedAt = At(r.UpdatedAtMs),
         Lines = lines.OrderBy(l => l.Position).Select(l => new BillLine
         {

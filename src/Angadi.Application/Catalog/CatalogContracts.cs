@@ -37,3 +37,9 @@ public sealed record GetBillQuery(Guid BillId) : IQuery<Bill?>;
 // Data safety (FR-36/37). Not transactional: restore swaps the database file.
 public sealed record ExportBackupCommand : ICommand<Result<string>>, INoTransaction;
 public sealed record RestoreBackupCommand(string FilePath) : ICommand<Result>, INoTransaction;
+
+/// <summary>H11: Settings → Export logs goes through the dispatcher like every other action, so it is logged and testable.</summary>
+public sealed record ExportLogsCommand : ICommand<Result<string>>, INoTransaction;
+
+/// <summary>H8: active items still on a pre-GST-2.0 slab (12/28%). They cannot be billed until re-slabbed.</summary>
+public sealed record GetLegacySlabItemsQuery : IQuery<IReadOnlyList<Item>>;
