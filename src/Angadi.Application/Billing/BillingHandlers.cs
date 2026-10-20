@@ -250,7 +250,7 @@ internal sealed class SendDuesReminderHandler(
         var profile = await shop.GetAsync(ct);
         var message = text.Format("customers.remind.message", customer.Name, profile?.Name ?? "", IndianFormat.Rupees(customer.DuesBalance));
         if (customer.PromisedPayDate is { } promised)
-            message += " " + text.Format("customers.remind.promised", promised.ToString("dd MMM", System.Globalization.CultureInfo.InvariantCulture));
+            message += " " + text.Format("customers.remind.promised", text.Short(promised));
 
         var sent = command.Channel == ReminderChannel.Sms
             ? await share.OpenSmsAsync(customer.Phone, message, ct)

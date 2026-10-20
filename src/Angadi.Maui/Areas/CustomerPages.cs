@@ -86,7 +86,7 @@ public sealed class CustomersPage : ContentPage
         foreach (var d in due.Take(5))
         {
             var why = d.Reason == DueReason.PromiseDatePassed && d.PromisedPayDate is { } p
-                ? _text.Format("customers.due.promised", p.ToString("dd MMM", CultureInfo.InvariantCulture))
+                ? _text.Format("customers.due.promised", _text.Short(p))
                 : _text.Format("customers.due.old", d.OldestUnpaidDays);
             var info = new VerticalStackLayout { Children = { Ui.Body(d.Name + " · " + IndianFormat.Rupees(d.Balance)), Ui.Caption(why) } };
             info.GestureRecognizers.Add(new TapGestureRecognizer
@@ -245,7 +245,7 @@ public sealed class CustomerDetailPage : ContentPage, IQueryAttributable
         _notes.Text = c.Notes;
         _balance.Text = IndianFormat.Rupees(c.DuesBalance);
         _balance.TextColor = c.DuesBalance.Value > 0 ? Theme.UdhaarColor : Theme.Success;
-        _promiseLabel.Text = c.PromisedPayDate is { } p ? p.ToString("ddd, dd MMM", CultureInfo.InvariantCulture) : _text["customers.promise.none"];
+        _promiseLabel.Text = c.PromisedPayDate is { } p ? _text.Short(p) : _text["customers.promise.none"];
         _promise.Date = (c.PromisedPayDate ?? DateOnly.FromDateTime(DateTime.Today.AddDays(7))).ToDateTime(TimeOnly.MinValue);
         _loading = false;
 

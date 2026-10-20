@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Waits for the CI run of the current HEAD, then prints each job's failed steps and error annotations.
 sha=$(git rev-parse --short=7 HEAD)
-for i in $(seq 1 60); do
+for i in $(seq 1 150); do
   r=$(gh api "repos/Nishithsai-web/Angadi-POs/actions/runs?branch=claude/new-session-g6f55q&per_page=5" --jq ".workflow_runs[] | select(.head_sha[:7]==\"$sha\") | \"\(.id) \(.status) \(.conclusion)\"" | head -1)
   case "$r" in *completed*) break;; esac; sleep 20
 done

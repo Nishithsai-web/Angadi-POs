@@ -93,11 +93,14 @@ jobs:
       - name: Install MAUI Android workload
         run: dotnet workload install maui-android
 
+      # EmbedAssembliesIntoApk: the APK carries its .NET code, so it installs and runs on any phone or emulator
+      # (a plain Debug build expects Visual Studio's fast deployment and crashes when sideloaded).
       - name: Build Android (Debug, unsigned)
         run: |
           set +e
           dotnet build src/Angadi.Maui/Angadi.Maui.csproj -c Debug -f net10.0-android \
-            -p:AndroidSdkDirectory=$ANDROID_SDK_ROOT -p:ContinuousIntegrationBuild=true 2>&1 | tee build.log
+            -p:AndroidSdkDirectory=$ANDROID_SDK_ROOT -p:ContinuousIntegrationBuild=true \
+            -p:EmbedAssembliesIntoApk=true 2>&1 | tee build.log
           code=${PIPESTATUS[0]}
           python3 tools/ci_report.py build.log "android build"
           exit $code
@@ -108,3 +111,56 @@ jobs:
           name: angadi-debug-apk
           path: src/Angadi.Maui/bin/Debug/net10.0-android/*-Signed.apk
           if-no-files-found: warn
+
+  e2e:
+    name: Emulator end-to-end
+    needs: android
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write   # pushes the step screenshots to the ci-e2e branch for review
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: angadi-debug-apk
+          path: apk
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run the app on an emulator (setup, cash, UPI, udhaar, barcode, reports, language)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back emulated
+          script: python3 tools/e2e_android.py "$(ls apk/*-Signed.apk | head -1)"
+
+      - name: Publish screenshots for review
+        if: always()
+        run: |
+          [ -d e2e-out ] || exit 0
+          sha=$(git rev-parse --short HEAD)
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          mkdir -p /tmp/e2e && cp -r e2e-out/. /tmp/e2e/
+          git fetch origin ci-e2e:ci-e2e 2>/dev/null && git checkout ci-e2e || git checkout --orphan ci-e2e
+          git rm -rqf . 2>/dev/null || true
+          rm -rf ./* && cp -r /tmp/e2e/. .
+          echo "E2E run for $sha" > README.md
+          git add -A
+          git commit -qm "E2E screenshots for $sha" && git push origin ci-e2e || echo "nothing to publish"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-results
+          path: e2e-out/**

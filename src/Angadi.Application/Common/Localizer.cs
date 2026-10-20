@@ -172,3 +172,12 @@ public static class ItemNames
 
     public static string Name(this ILocalizer text, Angadi.Domain.Billing.BillLine line) => Pick(text.Language, line.TeluguName, line.EnglishName);
 }
+
+/// <summary>Dates in the app language: "25 అక్టోబర్" in Telugu, "25 Oct" in English (month names live in JSON).</summary>
+public static class LocalDates
+{
+    public static string Short(this ILocalizer text, DateOnly date) =>
+        date.Day.ToString(CultureInfo.InvariantCulture) + " " + text[$"month.{date.Month}"];
+
+    public static string Short(this ILocalizer text, DateTimeOffset at) => text.Short(DateOnly.FromDateTime(at.ToLocalTime().DateTime));
+}

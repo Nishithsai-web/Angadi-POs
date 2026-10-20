@@ -58,3 +58,15 @@ public class LanguageTests
         Assert.Equal("Rice", Assert.Single(top).DisplayName);
     }
 }
+
+public class LocalDateTests
+{
+    [Fact]
+    public void ReminderDates_UseTheAppLanguage()
+    {
+        var te = new JsonLocalizer { Language = UiLanguage.Telugu };
+        var en = new JsonLocalizer { Language = UiLanguage.English };
+        Assert.Equal("25 అక్టోబర్", te.Short(new DateOnly(2026, 10, 25)));
+        Assert.Equal("25 Oct", en.Short(new DateOnly(2026, 10, 25)));
+    }
+}
