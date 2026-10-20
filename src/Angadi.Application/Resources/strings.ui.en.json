@@ -17,5 +17,8 @@
   "receipt.upiref": "UPI ref",
   "pos.upi.ref": "UTR / reference (optional)",
   "scan.hint": "Hold the barcode in front of the camera",
-  "scan.manual": "Type it instead"
+  "scan.manual": "Type it instead",
+  "lang.choose": "భాష ఎంచుకోండి / Choose language",
+  "lang.telugu": "తెలుగు",
+  "lang.english": "English"
 }

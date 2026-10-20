@@ -1,6 +1,7 @@
 using Angadi.Application.Catalog;
 using Angadi.Application.Common;
 using Angadi.Application.Platform;
+using Angadi.Domain.Shop;
 using Angadi.Maui.Areas;
 using Angadi.Maui.Core;
 using Microsoft.Extensions.DependencyInjection;
@@ -8,16 +9,22 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Angadi.Maui;
 
 /// <summary>
-/// Six tabs, every page resolved from DI. First run (no shop profile) opens shop setup before anything else.
+/// Six tabs, every page resolved from DI. First run asks the language (తెలుగు / English), then opens shop setup.
+/// Every tab carries a one-tap language switch in the top bar.
 /// </summary>
 public sealed class AppShell : Shell
 {
+    /// <summary>Language chosen before a shop profile exists (first run); the profile wins once saved.</summary>
+    public const string LanguageKey = "angadi.language";
+
     private readonly IServiceProvider _services;
+    private readonly ILocalizer _text;
     private bool _checkedFirstRun;
 
     public AppShell(IServiceProvider services, ILocalizer text)
     {
         _services = services;
+        _text = text;
         FlyoutBehavior = FlyoutBehavior.Disabled;
         Shell.SetBackgroundColor(this, Theme.Primary);
         Shell.SetForegroundColor(this, Theme.OnPrimary);
@@ -41,8 +48,42 @@ public sealed class AppShell : Shell
     {
         Title = title,
         Route = route,
-        ContentTemplate = new DataTemplate(() => _services.GetRequiredService<TPage>()),
+        ContentTemplate = new DataTemplate(() =>
+        {
+            var page = _services.GetRequiredService<TPage>();
+            page.ToolbarItems.Add(LanguageSwitch());
+            return page;
+        }),
     };
+
+    /// <summary>Shows the OTHER language's name, so it reads correctly to someone who can't read the current one.</summary>
+    private ToolbarItem LanguageSwitch()
+    {
+        var item = new ToolbarItem { Text = _text.Language == UiLanguage.Telugu ? _text["lang.english"] : _text["lang.telugu"], Order = ToolbarItemOrder.Primary };
+        item.Clicked += async (_, _) =>
+            await SetLanguageAsync(_text.Language == UiLanguage.Telugu ? UiLanguage.English : UiLanguage.Telugu);
+        return item;
+    }
+
+    private async Task SetLanguageAsync(UiLanguage language)
+    {
+        try
+        {
+            _text.Language = language;
+            Preferences.Default.Set(LanguageKey, language.ToString());
+            var sender = _services.GetRequiredService<ISender>();
+            if (await sender.Send(new GetShopProfileQuery()) is { } profile && profile.Language != language)
+            {
+                profile.Language = language;
+                await sender.Send(new SaveShopProfileCommand(profile));
+            }
+            _services.GetRequiredService<IAppRestart>().Restart();   // pages read their text when built
+        }
+        catch (Exception ex)
+        {
+            GlobalExceptions.Report(ex, "language-switch");
+        }
+    }
 
     protected override async void OnAppearing()
     {
@@ -52,7 +93,22 @@ public sealed class AppShell : Shell
         try
         {
             var profile = await _services.GetRequiredService<ISender>().Send(new GetShopProfileQuery());
-            if (profile is null) await GoToAsync(Routes.ShopSetup);
+            if (profile is not null) return;
+
+            // First run: language first, in both scripts, before any other screen is built.
+            if (!Preferences.Default.ContainsKey(LanguageKey))
+            {
+                var pick = await DisplayActionSheet(_text["lang.choose"], null, null, _text["lang.telugu"], _text["lang.english"]);
+                var language = pick == _text["lang.english"] ? UiLanguage.English : UiLanguage.Telugu;
+                Preferences.Default.Set(LanguageKey, language.ToString());
+                if (language != _text.Language)
+                {
+                    _text.Language = language;
+                    _services.GetRequiredService<IAppRestart>().Restart();   // rebuild tabs in the chosen language
+                    return;
+                }
+            }
+            await GoToAsync(Routes.ShopSetup);
         }
         catch (Exception ex)
         {

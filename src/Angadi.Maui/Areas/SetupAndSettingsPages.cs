@@ -35,9 +35,9 @@ public sealed class ShopSetupPage : ContentPage
         _upi = Ui.Entry(text["settings.shop.upi"], Keyboard.Email);
         _gstin = Ui.Entry(text["settings.shop.gstin"]);
         _prefix = Ui.Entry("A");
-        _language.Items.Add("తెలుగు");
-        _language.Items.Add("English");
-        _language.SelectedIndex = 0;
+        _language.Items.Add(text["lang.telugu"]);
+        _language.Items.Add(text["lang.english"]);
+        _language.SelectedIndex = text.Language == UiLanguage.English ? 1 : 0;   // follows the first-run choice
 
         _seedBox = new VerticalStackLayout
         {

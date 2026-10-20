@@ -104,8 +104,11 @@ public static class MauiProgram
     {
         try
         {
+            var text = services.GetRequiredService<ILocalizer>();
             var profile = services.GetRequiredService<ISender>().Send(new GetShopProfileQuery()).GetAwaiter().GetResult();
-            if (profile is not null) services.GetRequiredService<ILocalizer>().Language = profile.Language;
+            if (profile is not null) text.Language = profile.Language;
+            else if (Enum.TryParse<Angadi.Domain.Shop.UiLanguage>(Preferences.Default.Get(AppShell.LanguageKey, ""), out var chosen))
+                text.Language = chosen;   // first run: chosen before the shop was set up
         }
         catch (Exception ex)
         {

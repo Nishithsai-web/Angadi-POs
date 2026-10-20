@@ -17,5 +17,8 @@
   "receipt.upiref": "UPI రిఫరెన్స్",
   "pos.upi.ref": "UTR / రిఫరెన్స్ (ఐచ్ఛికం)",
   "scan.hint": "బార్‌కోడ్‌ని కెమెరా ముందు పెట్టండి",
-  "scan.manual": "టైప్ చేస్తా"
+  "scan.manual": "టైప్ చేస్తా",
+  "lang.choose": "భాష ఎంచుకోండి / Choose language",
+  "lang.telugu": "తెలుగు",
+  "lang.english": "English"
 }
