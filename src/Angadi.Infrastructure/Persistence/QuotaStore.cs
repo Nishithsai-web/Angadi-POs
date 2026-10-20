@@ -11,21 +11,55 @@ namespace Angadi.Infrastructure.Persistence;
 internal sealed class QuotaStore(AngadiDb db) : IQuotaStore
 {
     private const string LastSeenKey = "quota.last_seen_ms";
+    internal const string WatermarkKey = "quota.lifetime_watermark";
 
+    // FIX(M-3, 2026-10-20, FIX-2): Flaw: every quota counter lived inside the DB file, so replacing the
+    // file outside the app (file-manager restore, support-side swap) rewound the free-tier count together
+    // with the books — the reinstall/restore reset the owner accepted, with a cheap mitigation (owner
+    // decision, 2026-10-20). Fix: a monotonic lifetime finalized-bill counter in a SIBLING FILE
+    // ("<db>.lifetime" — app-private storage with the same survival profile as platform Preferences:
+    // survives a DB swap, wiped by uninstall/clear-data, which stays accepted). The DB carries a
+    // watermark = the lifetime value it has absorbed. Exact semantics:
+    //   used(month) = bucket(month) + max(0, lifetime − watermark)
+    // In-app restores never double-count: BackupService raises the watermark to the device lifetime when
+    // it writes back the max buckets (RESTORE-1). A backup restored on a DIFFERENT device has
+    // lifetime ≤ watermark → no floor. A DB with no watermark is grandfathered (watermark := lifetime at
+    // first increment) so existing installs are never suddenly floored by their own history.
+    // Why so conservative: same-shop lineage across a file swap is unknowable — this only ever stops the
+    // count going DOWN after an out-of-band rewind on the same device. Logged in docs/AGENT_FIX_LOG.md.
     public Task<int> UsedThisMonthAsync(DateTimeOffset now, CancellationToken ct = default) =>
         db.RunAsync(c =>
         {
             var month = EffectiveMonth(c, now, advance: false);
-            return Count(c, month);
+            return Count(c, month) + Unabsorbed(c);
         }, ct);
 
     public Task IncrementAsync(DateTimeOffset now, CancellationToken ct = default) =>
         db.RunAsync(c =>
         {
             var month = EffectiveMonth(c, now, advance: true);
-            var used = Count(c, month);
+            var lifetime = LifetimeBillCounter.Read(db.DatabasePath);
+            var watermark = Watermark(c) ?? lifetime;   // M-3: no watermark yet → grandfather (see above)
+            var used = Count(c, month) + Math.Max(0, lifetime - watermark);
             c.InsertOrReplace(new MetaRow { Key = CountKey(month), Value = (used + 1).ToString(CultureInfo.InvariantCulture) });
+            LifetimeBillCounter.Write(db.DatabasePath, lifetime + 1);
+            c.InsertOrReplace(new MetaRow { Key = WatermarkKey, Value = (lifetime + 1).ToString(CultureInfo.InvariantCulture) });
         }, ct);
+
+    /// <summary>M-3: bills this device finalized that the current DB file has never absorbed.</summary>
+    private int Unabsorbed(SQLite.SQLiteConnection c)
+    {
+        var watermark = Watermark(c);
+        if (watermark is null) return 0;   // grandfathered until the first increment stamps it
+        var diff = LifetimeBillCounter.Read(db.DatabasePath) - watermark.Value;
+        return diff > 0 ? (int)Math.Min(diff, int.MaxValue) : 0;
+    }
+
+    private static long? Watermark(SQLite.SQLiteConnection c)
+    {
+        var row = c.Find<MetaRow>(WatermarkKey);
+        return row is not null && long.TryParse(row.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var v) ? v : null;
+    }
 
     // FIX(QUOTA-1, 2026-10-20, FIX-2): Flaw: last_seen was honoured without any bound. One accidental
     // far-future clock jump (clock set a year ahead, one bill sold, clock corrected) left last_seen a year
@@ -64,5 +98,30 @@ internal sealed class QuotaStore(AngadiDb db) : IQuotaStore
         // increment time would count the just-saved bill twice.
         c.InsertOrReplace(new MetaRow { Key = CountKey(month), Value = seeded.ToString(CultureInfo.InvariantCulture) });
         return seeded;
+    }
+}
+
+/// <summary>M-3: the device-lifetime finalized-bill counter, kept in a sibling file beside the database
+/// so replacing the DB file cannot rewind it (same survival profile as platform Preferences: survives a
+/// DB swap, wiped by uninstall/clear-data). Plain text, one integer. Any I/O failure degrades to 0 —
+/// the pre-M-3 DB-only behaviour — and never breaks billing.</summary>
+internal static class LifetimeBillCounter
+{
+    public static string PathFor(string databasePath) => databasePath + ".lifetime";
+
+    public static long Read(string databasePath)
+    {
+        try
+        {
+            var path = PathFor(databasePath);
+            return File.Exists(path) && long.TryParse(File.ReadAllText(path).Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var v) && v > 0 ? v : 0;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return 0; }
+    }
+
+    public static void Write(string databasePath, long value)
+    {
+        try { File.WriteAllText(PathFor(databasePath), value.ToString(CultureInfo.InvariantCulture)); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { /* degrade: DB-only quota */ }
     }
 }

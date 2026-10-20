@@ -165,6 +165,38 @@ public class QuotaAndRestoreTests
         Assert.True(File.Exists(second));
     }
 
+    [Fact]
+    public async Task M3_OutOfBandRewind_DeviceCounterFloorsTheMonthCount()
+    {
+        using var t = new TempDb();
+        var quota = new QuotaStore(t.Db);
+        var now = t.Clock.Now;
+        for (var i = 0; i < 3; i++) await quota.IncrementAsync(now);
+        Assert.Equal(3, await quota.UsedThisMonthAsync(now));
+
+        // The DB file is replaced by an older state behind the app's back (file-manager restore):
+        // buckets + watermark rewind to 1, but the sibling lifetime counter still says 3.
+        await t.Db.RunAsync(c =>
+        {
+            c.Execute("UPDATE Meta SET Value = '1' WHERE Key LIKE 'quota.count.%'");
+            c.Execute("UPDATE Meta SET Value = '1' WHERE Key = 'quota.lifetime_watermark'");
+        });
+        Assert.Equal(3, await quota.UsedThisMonthAsync(now));   // 1 + (3 − 1): the count cannot go down
+        await quota.IncrementAsync(now);
+        Assert.Equal(4, await quota.UsedThisMonthAsync(now));
+    }
+
+    [Fact]
+    public async Task M3_FirstContact_GrandfathersTheDeviceCounter()
+    {
+        using var t = new TempDb();
+        File.WriteAllText(t.Db.DatabasePath + ".lifetime", "40");   // a counter this DB has never seen
+        var quota = new QuotaStore(t.Db);
+        Assert.Equal(0, await quota.UsedThisMonthAsync(t.Clock.Now));   // no sudden floor from history
+        await quota.IncrementAsync(t.Clock.Now);
+        Assert.Equal(1, await quota.UsedThisMonthAsync(t.Clock.Now));
+    }
+
     private static void Tamper(string backupPath, string sql)
     {
         using var c = new SQLiteConnection(backupPath);

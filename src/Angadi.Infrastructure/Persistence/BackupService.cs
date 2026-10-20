@@ -95,6 +95,10 @@ internal sealed class BackupService(AngadiDb db, IClock clock, string exportDire
                     if (value > current)
                         c.InsertOrReplace(new MetaRow { Key = key, Value = value.ToString(CultureInfo.InvariantCulture) });
                 }
+                // M-3: the buckets above were just healed to the live maxima, so this DB has absorbed the
+                // device's full lifetime — stamp the watermark, or QuotaStore would floor the count a
+                // second time from the lifetime counter.
+                c.InsertOrReplace(new MetaRow { Key = QuotaStore.WatermarkKey, Value = LifetimeBillCounter.Read(db.DatabasePath).ToString(CultureInfo.InvariantCulture) });
             });
             log.LogInformation("Restore completed; previous data kept at {Path}", Path.GetFileName(safety.Value));
             return Result.Success();
