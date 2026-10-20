@@ -21,7 +21,12 @@ public interface ITeluguParser
     IReadOnlyList<ParsedLine> Parse(string utterance);
 }
 
-public sealed record MatchCandidate(Guid ItemId, string DisplayName, double Score);
+/// <summary>
+/// One ranked candidate. <paramref name="Learned"/> (VOICE-7, FIX-1 2026-10-20) is the learned alias
+/// that produced this candidate's score, when one did — the pipeline stamps its LastUsedMs on AutoAdd
+/// so the learner's LRU cap evicts by use. Null when a curated name/alias won.
+/// </summary>
+public sealed record MatchCandidate(Guid ItemId, string DisplayName, double Score, LearnedAlias? Learned = null);
 
 public enum MatchKind { AutoAdd = 0, Confirm = 1, NoMatch = 2 }
 
