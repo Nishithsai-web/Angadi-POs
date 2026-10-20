@@ -1,6 +1,9 @@
 # CHANGELOG.md — Angadi POS v1
 Every meaningful change: date, what, the issue it addresses, and the one-line why. Newest first.
 
+## 2026-10-20 (Claude Code) — build unblocked
+- **Fixed: the CS0819 compile error that blocked every build** (`Barcodes.cs`, commit `80a34291`): an implicitly-typed local whose type could not be inferred is now spelled out as `int`. Why: nothing ships while the solution does not compile. (This line was missing from the changelog; added 2026-10-20 by FIX-5 — the changelog names every meaningful change, FEATURE-1(f).)
+
 ## 2026-10-20 (FIX-2, Muse fix agent) — money & data-integrity fixes from the production audit
 - **Fixed: a backup with edited bill totals would have restored as if it were genuine.** The restore checks reconciled stock and dues against their ledgers but never recomputed a single bill — a hand-edited backup became the books of record and every GST report after it trusted the fake numbers. Restore now recomputes every bill with the same calculator the counter uses, compares every total and tax split, rejects bill numbers that collide with the numbering counter, and rejects ledger rows pointing at items or customers that don't exist. Why: a backup is disaster recovery — whatever it accepts becomes the truth (RESTORE-2).
 - **Fixed: restoring a backup could freeze billing and reopen spent free quota.** Restoring yesterday's backup after today's sales rewound the bill-number counter, so the next bill tried to reuse an already-printed number and saving it failed — and the free-bill count rewound with it. Bill numbers and the quota count now only ever move forward across a restore: the books roll back, the numbering doesn't. The swap also verifies the restored file as it reopens, falling back to the pre-restore data if the copy was damaged. Why: a duplicate bill number means two different sales claiming to be the same bill (RESTORE-1, F6).
