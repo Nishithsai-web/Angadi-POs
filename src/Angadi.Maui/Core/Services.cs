@@ -82,7 +82,10 @@ internal sealed class AppRestart(IServiceProvider services) : IAppRestart
 {
     public void Restart() => MainThread.BeginInvokeOnMainThread(() =>
     {
-        var window = Microsoft.Maui.Controls.Application.Current?.Windows.FirstOrDefault();
+        var app = Microsoft.Maui.Controls.Application.Current;
+        Theme.UseLatin = services.GetRequiredService<Angadi.Application.Platform.ILocalizer>().Language == Angadi.Domain.Shop.UiLanguage.English;
+        if (app is not null) app.Resources = Theme.Build();   // implicit styles pick up the language's typeface
+        var window = app?.Windows.FirstOrDefault();
         if (window is not null) window.Page = services.GetRequiredService<AppShell>();
     });
 }

@@ -112,6 +112,7 @@ public static class MauiProgram
             if (profile is not null) text.Language = profile.Language;
             else if (Enum.TryParse<Angadi.Domain.Shop.UiLanguage>(Preferences.Default.Get(AppShell.LanguageKey, ""), out var chosen))
                 text.Language = chosen;   // first run: chosen before the shop was set up
+            Theme.UseLatin = text.Language == Angadi.Domain.Shop.UiLanguage.English;
         }
         catch (Exception ex)
         {

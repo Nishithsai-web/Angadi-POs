@@ -36,7 +36,7 @@ public sealed class PosPage : PageBase
         var wide = width >= 900;
         if (_wide == wide) return;
         _wide = wide;
-        if (_quick is not null) _quick.HeightRequest = wide ? -1 : 128;            // 2 rows of tiles on a phone
+        if (_quick is not null) _quick.HeightRequest = wide ? -1 : 196;            // 2 full rows of tiles on a phone
         if (_results is not null) _results.MaximumHeightRequest = wide ? 240 : 150;
         if (_totals is not null) _totals.IsVisible = wide;                          // phone: the total alone
         _root.Children.Clear();

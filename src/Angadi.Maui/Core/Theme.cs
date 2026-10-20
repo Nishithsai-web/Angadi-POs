@@ -25,8 +25,13 @@ public static class Theme
     public static readonly Color UpiColor = Color.FromArgb("#3B2A8C");
     public static readonly Color UdhaarColor = Color.FromArgb("#9A4A00");
 
-    public const string Font = "Telugu";
-    public const string FontBold = "TeluguBold";
+    /// <summary>
+    /// The UI typeface follows the app language: Noto Sans Telugu in Telugu, Noto Sans in English (the Telugu face's
+    /// Latin digits and brackets looked half-bold in English screens). Set before the shell is built.
+    /// </summary>
+    public static bool UseLatin { get; set; }
+    public static string Font => UseLatin ? "Latin" : "Telugu";
+    public static string FontBold => UseLatin ? "LatinBold" : "TeluguBold";
     public const double LineHeight = 1.2;
     public const double Touch = 48;
     public const double BigTouch = 64;

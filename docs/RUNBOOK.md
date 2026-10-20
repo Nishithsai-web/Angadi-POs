@@ -12,6 +12,8 @@ If export itself fails ("couldn't prepare the log file"), the phone is out of st
 |---|---|---|
 | "This month's 50 free bills are used" | Settings → Subscription | Expected on the free tier. The count is per calendar month and cannot be reset by changing the phone date (H2). |
 | Paid but still limited | Is the app installed from Play (not a sideloaded APK)? Same Google account? | Settings → Subscription → *Restore*. Status is re-checked with Play daily; offline, a confirmed subscription is kept for 7 days. |
+| Customer's UPI app says "invalid" / wrong name | Settings → Shop details: is the UPI ID right? | Tap **Scan my UPI QR** and scan the QR the bank/PhonePe/Paytm gave the shop: it fills the exact payee and merchant code. |
+| Owner wants their printed QR on screen | Settings → Shop details | **Upload QR photo**; at payment tap **Show my shop QR** (the customer then types the amount). |
 | Scanner opens the typing box instead | Camera permission denied, or no camera | Android Settings → Apps → Angadi → Permissions → Camera → Allow. |
 | "Old GST slab" when billing | Items page shows an orange notice listing them | Open each item, pick 0/5/18/40%. 12% and 28% ended with GST 2.0. |
 | "₹X short" | Cash typed is less than the bill | Re-enter cash, or switch tender to UPI/udhaar. |
