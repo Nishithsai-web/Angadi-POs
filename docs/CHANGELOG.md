@@ -1,6 +1,9 @@
 # CHANGELOG.md — Angadi POS v1
 Every meaningful change: date, what, the issue it addresses, and the one-line why. Newest first.
 
+## 2026-10-19 (late night, Claude Code) — customer accounts
+- **Customer accounts:** address, notes, every bill (any tender), their own report, udhaar/appu aging, promised-to-pay date, "Due for reminder" list, reminders by WhatsApp or SMS. Why: owner requirement. A customer-side app with push notifications needs a server (out of v1).
+
 ## 2026-10-19 (late night, Claude Code)
 - **One app-wide language switch** (తెలుగు ⇄ English): asked on first launch, one tap in every tab's top bar; item names, reports, insights and voice choices follow it. Why: owner requirement.
 - **Inventory report + ledger check, stock movement log.** Why: the owner must see stock value, low/out items and proof that every stock change was recorded.
