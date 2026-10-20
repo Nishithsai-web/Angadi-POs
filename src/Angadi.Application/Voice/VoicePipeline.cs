@@ -9,9 +9,10 @@ namespace Angadi.Application.Voice;
 ///   "బియ్యం రెండు కేజీలు"      → Name "బియ్యం", Qty 2000, Unit Kilogram
 ///   "పది రూపాయల ఉల్లిపాయలు"    → Name "ఉల్లిపాయలు", Amount ₹10 (quantity comes from the item's price)
 /// Qty/Unit are null when not spoken: the bill then takes 1 of the item's own unit.
-/// Qty is in the SPOKEN unit; UnitConversion maps it to the item's unit.
+/// Qty is in the SPOKEN unit; UnitConversion maps it to the item's unit. IsAmbiguous (H6) marks a range like
+/// "రెండు మూడు కేజీలు": the parser reports the uncertainty, the matcher downgrades it to Confirm.
 /// </summary>
-public sealed record ParsedLine(string Name, Qty? Qty, Unit? Unit, Paise? Amount, string Raw);
+public sealed record ParsedLine(string Name, Qty? Qty, Unit? Unit, Paise? Amount, string Raw, bool IsAmbiguous = false);
 
 /// <summary>Deterministic, rule-based, rules from Resources/voice/*.json (ADR-5). No LLM.</summary>
 public interface ITeluguParser

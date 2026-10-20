@@ -66,6 +66,79 @@ public class TeluguParserTests
     }
 
     [Fact]
+    public void H6_Range_KeepsFirstNumber_AndIsAmbiguous()
+    {
+        var line = Assert.Single(_parser.Parse("రెండు మూడు కేజీల బియ్యం"));
+        Assert.Equal(2000L, line.Qty?.Milli);   // was 5 kg
+        Assert.True(line.IsAmbiguous);
+    }
+
+    [Fact]
+    public void H6_DescendingCompounds_StillAdd()
+    {
+        Assert.Equal(25000L, Assert.Single(_parser.Parse("ఇరవై ఐదు కేజీలు బియ్యం")).Qty?.Milli);
+        Assert.Equal(250000L, Assert.Single(_parser.Parse("రెండు వందల యాభై గ్రాముల కారం")).Qty?.Milli);
+        Assert.False(Assert.Single(_parser.Parse("రెండు వందల యాభై గ్రాముల కారం")).IsAmbiguous);
+    }
+
+    [Theory]
+    [InlineData("పది రూపాయలకు ఉల్లిపాయలు", 1000L)]   // H6: dative currency is an amount, not "10 onions"
+    [InlineData("ఇరవై రూపాయలకి టమాటా", 2000L)]
+    public void H6_DativeCurrency_IsAnAmount(string phrase, long paise)
+    {
+        var line = Assert.Single(_parser.Parse(phrase));
+        Assert.Equal(paise, line.Amount?.Value);
+        Assert.Null(line.Qty);
+    }
+
+    [Fact]
+    public void H5_Sagam_IsHalf()
+    {
+        var line = Assert.Single(_parser.Parse("సగం కేజీ చక్కెర"));
+        Assert.Equal(500L, line.Qty?.Milli);
+    }
+
+    [Fact]
+    public void M1_LeadingBulkCount_IsQuantity()
+    {
+        var line = Assert.Single(_parser.Parse("200 గుడ్లు"));
+        Assert.Equal("గుడ్లు", line.Name);
+        Assert.Equal(200_000L, line.Qty?.Milli);
+        Assert.True(line.IsAmbiguous);   // ≥ 100 with no unit could be a dosage: the matcher will ask
+    }
+
+    [Fact]
+    public void M1_SmallLeadingCount_IsNotAmbiguous()
+    {
+        var line = Assert.Single(_parser.Parse("5 సబ్బులు"));
+        Assert.Equal(5000L, line.Qty?.Milli);
+        Assert.False(line.IsAmbiguous);
+    }
+
+    [Theory]
+    [InlineData("అరకేజీబియ్యం", "బియ్యం", 500L, Unit.Kilogram)]
+    [InlineData("అరడజను గుడ్లు", "గుడ్లు", 6000L, Unit.Piece)]
+    public void M13_FusedTokens_KeepTheirQuantity(string phrase, string name, long qty, Unit unit)
+    {
+        var line = Assert.Single(_parser.Parse(phrase));
+        Assert.Equal(name, line.Name);
+        Assert.Equal(qty, line.Qty?.Milli);
+        Assert.Equal(unit, line.Unit);
+    }
+
+    [Fact]
+    public void M13_NamesThatStartLikeNumbers_StayWhole()
+    {
+        Assert.Equal("అరటిపండ్లు", Assert.Single(_parser.Parse("అరటిపండ్లు ఆరు")).Name);
+    }
+
+    [Fact]
+    public void M13_Stutter_IsDropped()
+    {
+        Assert.Equal("బియ్యం", Assert.Single(_parser.Parse("బి బియ్యం రెండు కేజీలు")).Name);
+    }
+
+    [Fact]
     public void FR06_NameOnly_HasNoQuantity()
     {
         var line = Assert.Single(_parser.Parse("అగ్గిపెట్టె"));

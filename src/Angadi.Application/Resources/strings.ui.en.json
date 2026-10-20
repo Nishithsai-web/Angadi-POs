@@ -13,5 +13,7 @@
   "items.opening": "Stock now",
   "stock.count.prompt": "Counted stock in total",
   "insights.reorder.title": "Running out soon",
-  "insights.ondevice": "Computed on this phone from your own sales — no data leaves the device."
+  "insights.ondevice": "Computed on this phone from your own sales — no data leaves the device.",
+  "receipt.upiref": "UPI ref",
+  "pos.upi.ref": "UTR / reference (optional)"
 }

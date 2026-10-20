@@ -36,6 +36,7 @@ public static class DependencyInjection
         services.AddSingleton<IOutbox, Outbox>();
         services.AddSingleton<IShopProfileRepository, ShopProfileRepository>();
         services.AddSingleton<ISeedService, SeedService>();
+        services.AddSingleton<IQuotaStore, QuotaStore>();
 
         services.AddSingleton<IBackupService>(sp => new BackupService(
             sp.GetRequiredService<AngadiDb>(), sp.GetRequiredService<IClock>(),

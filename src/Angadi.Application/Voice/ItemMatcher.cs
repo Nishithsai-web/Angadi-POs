@@ -28,9 +28,11 @@ public sealed class ItemMatcher(IItemRepository items, IOptions<VoiceOptions> op
     {
         var query = TeluguText.MatchKey(line.Name);
         if (query.Length == 0) return new MatchResult(line, MatchKind.NoMatch, []);
+        // M1-CORRECTION: "650 పారాసెటమాల్" — a dosage spoken first; also try it rotated to the end of the name.
+        var rotated = RotateLeadingDigits(line.Name) is { } r ? TeluguText.MatchKey(r) : null;
 
         var ranked = active
-            .Select(item => (item, score: ScoreItem(query, item)))
+            .Select(item => (item, score: Math.Max(ScoreItem(query, item), rotated is null ? 0 : ScoreItem(rotated, item))))
             .Where(x => x.score >= MinCandidateScore)
             .OrderByDescending(x => x.score)
             .ThenBy(x => x.item.TeluguName, StringComparer.Ordinal)
@@ -47,6 +49,8 @@ public sealed class ItemMatcher(IItemRepository items, IOptions<VoiceOptions> op
 
         if (kind == MatchKind.AutoAdd && ranked.Count > 1 && best - ranked[1].Score < AmbiguityGap)
             kind = MatchKind.Confirm;
+        if (kind == MatchKind.AutoAdd && line.IsAmbiguous)
+            kind = MatchKind.Confirm;   // H6: the item is right, the quantity is uncertain — ask
 
         return new MatchResult(line, kind, ranked);
     }
@@ -77,6 +81,12 @@ public sealed class ItemMatcher(IItemRepository items, IOptions<VoiceOptions> op
         // Only an exact key (name/alias) match scores 1.0. Containment tops out below 0.90, so it
         // always asks; a one-letter slip on a long name can still clear the auto threshold.
         return Math.Min(sim, 0.99);
+    }
+
+    internal static string? RotateLeadingDigits(string name)
+    {
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length > 1 && parts[0].All(char.IsAsciiDigit) ? string.Join(' ', parts.Skip(1).Append(parts[0])) : null;
     }
 
     private static IEnumerable<string> Names(Item item)

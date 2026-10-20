@@ -33,19 +33,62 @@ internal sealed class BackupService(AngadiDb db, IClock clock, string exportDire
 
     public async Task<Result> RestoreAsync(string filePath, CancellationToken ct = default)
     {
-        if (!IsAngadiBackup(filePath, out var reason))
+        // H3: never touch the live DB with an unvalidated file. Stage a private copy next to it (same volume,
+        // so the final swap is an atomic rename), validate the copy, then swap.
+        var staged = db.DatabasePath + ".restore-tmp";
+        try
         {
-            log.LogWarning("Restore rejected: {Reason}", reason);
-            return Result.Failure(ErrorCodes.RestoreInvalidFile, reason);
+            File.Copy(filePath, staged, overwrite: true);
+            if (!IsAngadiBackup(staged, out var reason) || !PassesInvariants(staged, out reason))
+            {
+                log.LogWarning("Restore rejected: {Reason}", reason);
+                return Result.Failure(ErrorCodes.RestoreInvalidFile, reason);
+            }
+
+            // A safety copy the shopkeeper can share, besides the ".pre-restore" file the swap keeps.
+            var safety = await ExportAsync(ct);
+            if (safety.IsFailure) return Result.Failure(safety.Error);
+
+            await db.ReplaceWithAsync(staged, ct);
+            log.LogInformation("Restore completed; previous data kept at {Path}", Path.GetFileName(safety.Value));
+            return Result.Success();
         }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SQLiteException)
+        {
+            log.LogError(ex, "Restore failed; live data unchanged");
+            return Result.Failure(ErrorCodes.RestoreInvalidFile, ex.GetType().Name);
+        }
+        finally
+        {
+            if (File.Exists(staged)) File.Delete(staged);
+        }
+    }
 
-        // Keep a safety copy of the current data first; a bad restore must be undoable.
-        var safety = await ExportAsync(ct);
-        if (safety.IsFailure) return Result.Failure(safety.Error);
+    /// <summary>
+    /// H3 invariant sweep on the staged copy (read-only, disposed before the swap). Negative stock is LEGAL
+    /// ("sold before stock-in recorded") so it is not checked; ledgers must reconcile instead.
+    /// </summary>
+    internal static bool PassesInvariants(string path, out string reason)
+    {
+        reason = "";
+        using var c = new SQLiteConnection(path, SQLiteOpenFlags.ReadOnly);
+        var integrity = c.ExecuteScalar<string>("PRAGMA integrity_check");
+        if (!string.Equals(integrity, "ok", StringComparison.OrdinalIgnoreCase)) { reason = "integrity_check: " + integrity; return false; }
 
-        await db.ReplaceWithAsync(filePath, ct);
-        log.LogInformation("Restore completed; previous data kept at {Path}", Path.GetFileName(safety.Value));
-        return Result.Success();
+        var stockMismatch = c.ExecuteScalar<int>(
+            "SELECT COUNT(*) FROM Item i WHERE i.StockMilli <> (SELECT COALESCE(SUM(m.DeltaMilli), 0) FROM StockMove m WHERE m.ItemId = i.Id)");
+        if (stockMismatch > 0) { reason = $"{stockMismatch} item(s) whose stock does not match the stock ledger"; return false; }
+
+        var duesMismatch = c.ExecuteScalar<int>(
+            "SELECT COUNT(*) FROM Customer cu WHERE cu.DuesBalancePaise <> (SELECT COALESCE(SUM(CASE e.Kind WHEN 0 THEN e.AmountPaise ELSE -e.AmountPaise END), 0) FROM DuesEntry e WHERE e.CustomerId = cu.Id)");
+        if (duesMismatch > 0) { reason = $"{duesMismatch} customer(s) whose dues do not match the dues ledger"; return false; }
+
+        var negativeDues = c.ExecuteScalar<int>("SELECT COUNT(*) FROM Customer WHERE DuesBalancePaise < 0");
+        if (negativeDues > 0) { reason = $"{negativeDues} customer(s) with negative dues"; return false; }
+
+        var orphanLines = c.ExecuteScalar<int>("SELECT COUNT(*) FROM BillLine l WHERE NOT EXISTS (SELECT 1 FROM Bill b WHERE b.Id = l.BillId)");
+        if (orphanLines > 0) { reason = $"{orphanLines} bill line(s) without a bill"; return false; }
+        return true;
     }
 
     internal static bool IsAngadiBackup(string path, out string reason)

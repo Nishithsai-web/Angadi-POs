@@ -29,6 +29,7 @@ internal sealed class FinalizeBillValidator : IValidator<FinalizeBillCommand>
         if (bill.Status != BillStatus.Draft) return new Error(ErrorCodes.ValidationFailed, "bill already finalized");
         // B1: only a cash tender may carry cash received.
         if (bill.Tender != TenderType.Cash && bill.CashReceived.Value != 0) return new Error(ErrorCodes.ValidationFailed, "cash received on a non-cash tender");
+        if (bill.Tender != TenderType.Upi && !string.IsNullOrWhiteSpace(bill.UpiRef)) return new Error(ErrorCodes.ValidationFailed, "UPI reference on a non-UPI tender");
         // M9: a typo like 150% must stop the bill, never silently clamp to free goods.
         if (IsOver100Percent(bill.BillDiscount) || bill.Lines.Any(l => IsOver100Percent(l.LineDiscount)))
             return new Error(ErrorCodes.BillDiscountTooLarge);
@@ -70,6 +71,7 @@ internal sealed class FinalizeBillHandler(
     IStockLedger ledger,
     IOutbox outbox,
     ISubscriptionService subscription,
+    IQuotaStore quota,
     IClock clock,
     IOptions<BillingOptions> options) : IRequestHandler<FinalizeBillCommand, Result<FinalizedBill>>
 {
@@ -80,7 +82,7 @@ internal sealed class FinalizeBillHandler(
 
         // FR-34 free-tier quota.
         var status = await subscription.GetStatusAsync(ct);
-        if (!status.IsPro && await bills.CountFinalizedInMonthAsync(now.Year, now.Month, ct) >= options.Value.FreeBillsPerMonth)
+        if (!status.IsPro && await quota.UsedThisMonthAsync(now, ct) >= options.Value.FreeBillsPerMonth)
             return Result.Failure<FinalizedBill>(ErrorCodes.FreeLimitReached);
 
         var profile = await shop.GetAsync(ct);
@@ -124,6 +126,7 @@ internal sealed class FinalizeBillHandler(
                 }, ct);
 
             await outbox.AppendAsync("Bill", new BillFinalized(bill.Id, now, bill.GrandTotal.Value), ct);
+            await quota.IncrementAsync(now, ct);   // B2: same transaction as the check above
         }
         catch
         {
@@ -217,7 +220,7 @@ internal sealed class RecordDuesPaymentHandler(ICustomerRepository customers, IO
 
         await customers.AddDuesEntryAsync(new DuesEntry
         {
-            CustomerId = customer.Id, Kind = DuesEntryKind.Payment, Amount = command.Amount, Note = command.Note?.Trim(),
+            CustomerId = customer.Id, Kind = DuesEntryKind.Payment, Amount = command.Amount, Note = command.Note?.Trim(), UpiRef = command.UpiRef?.Trim(),
         }, ct);
         await outbox.AppendAsync("Customer", new DuesPaymentRecorded(customer.Id, clock.Now, command.Amount.Value), ct);
         return Result.Success();
@@ -254,14 +257,14 @@ internal sealed class AdjustStockHandler(IItemRepository items, IStockLedger led
     }
 }
 
-internal sealed class GetBillQuotaHandler(IBillRepository bills, ISubscriptionService subscription, IClock clock, IOptions<BillingOptions> options)
+internal sealed class GetBillQuotaHandler(IQuotaStore quota, ISubscriptionService subscription, IClock clock, IOptions<BillingOptions> options)
     : IRequestHandler<GetBillQuotaQuery, BillQuota>
 {
     public async Task<BillQuota> Handle(GetBillQuotaQuery query, CancellationToken ct)
     {
         var now = clock.Now;
         var status = await subscription.GetStatusAsync(ct);
-        var used = await bills.CountFinalizedInMonthAsync(now.Year, now.Month, ct);
+        var used = await quota.UsedThisMonthAsync(now, ct);
         return new BillQuota(status.IsPro, used, options.Value.FreeBillsPerMonth);
     }
 }

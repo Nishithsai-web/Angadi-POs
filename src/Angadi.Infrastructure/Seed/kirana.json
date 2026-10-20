@@ -7,6 +7,7 @@
    "aliases": [
     "biyyam",
     "rice",
+    "రైస్",
     "సోనా మసూరి",
     "సోనామసూరి"
    ],
@@ -24,6 +25,7 @@
    "aliases": [
     "atta",
     "ఆటా",
+    "వీట్ ఫ్లోర్",
     "గోధుమపిండి",
     "godhuma pindi"
    ],
@@ -75,7 +77,8 @@
     "కందిపప్పు",
     "తూర్ దాల్",
     "toor dal",
-    "kandi pappu"
+    "kandi pappu",
+    "తూర్ దాల్"
    ],
    "category": "పప్పులు",
    "unit": "Kilogram",
@@ -157,7 +160,8 @@
     "పంచదార",
     "sugar",
     "chakkera",
-    "panchadara"
+    "panchadara",
+    "షుగర్"
    ],
    "category": "ధాన్యాలు",
    "unit": "Kilogram",
@@ -188,6 +192,7 @@
    "aliases": [
     "salt",
     "uppu",
+    "సాల్ట్",
     "ఉప్పు ప్యాకెట్"
    ],
    "category": "ధాన్యాలు",
@@ -219,10 +224,10 @@
    "te": "సన్ ఫ్లవర్ నూనె",
    "en": "Sunflower oil",
    "aliases": [
-    "నూనె",
     "సన్‌ఫ్లవర్ ఆయిల్",
     "sunflower oil",
-    "oil"
+    "సన్‌ఫ్లవర్",
+    "రిఫైండ్ ఆయిల్"
    ],
    "category": "నూనెలు",
    "unit": "Litre",
@@ -268,7 +273,8 @@
    "aliases": [
     "పాల ప్యాకెట్",
     "milk",
-    "paalu"
+    "paalu",
+    "మిల్క్"
    ],
    "category": "పాల ఉత్పత్తులు",
    "unit": "Pack",
@@ -284,6 +290,7 @@
    "aliases": [
     "perugu",
     "curd",
+    "కర్డ్",
     "పెరుగు ప్యాకెట్"
    ],
    "category": "పాల ఉత్పత్తులు",
@@ -383,7 +390,8 @@
     "ఉల్లిపాయ",
     "onion",
     "onions",
-    "ullipayalu"
+    "ullipayalu",
+    "ఆనియన్"
    ],
    "category": "కూరగాయలు",
    "unit": "Kilogram",
@@ -400,7 +408,8 @@
     "టమాటా",
     "టమాట",
     "tomato",
-    "tomatoes"
+    "tomatoes",
+    "టొమాటో"
    ],
    "category": "కూరగాయలు",
    "unit": "Kilogram",
@@ -882,10 +891,9 @@
    "te": "స్నానం సబ్బు",
    "en": "Bath soap",
    "aliases": [
-    "సబ్బు",
     "బాత్ సోప్",
-    "soap",
-    "bath soap"
+    "bath soap",
+    "ఒంటి సబ్బు"
    ],
    "category": "సౌందర్య",
    "unit": "Piece",

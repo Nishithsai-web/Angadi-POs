@@ -76,7 +76,10 @@
     "నాలుగున్నర": 4500,
     "ఐదున్నర": 5500,
     "half": 500,
-    "quarter": 250
+    "quarter": 250,
+    "సగం": 500,
+    "అర్ధ": 500,
+    "అర్థ": 500
   },
   "halfSuffix": "న్నర",
   "_halfSuffixComment": "Any number word ending in this suffix adds 0.5 (e.g. ఆరున్నర = 6.5) when not listed above.",

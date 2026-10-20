@@ -105,18 +105,35 @@ public sealed class AngadiDb : IUnitOfWork, IDisposable
         => RunAsync(c => c.ExecuteScalar<int>("PRAGMA wal_checkpoint(TRUNCATE)"), ct);
 
     /// <summary>FR-37 restore: closes, swaps the file, reopens and migrates. Caller validated the file.</summary>
-    public async Task ReplaceWithAsync(string sourcePath, CancellationToken ct = default)
+    /// <summary>
+    /// H3: atomic swap. <paramref name="validatedPath"/> must be a validated copy on the same volume; it is moved
+    /// into place with File.Replace (the live file is kept as ".pre-restore"). Any failure puts the live file back.
+    /// </summary>
+    public async Task ReplaceWithAsync(string validatedPath, CancellationToken ct = default)
     {
         await _gate.WaitAsync(ct).ConfigureAwait(false);
+        var safety = DatabasePath + ".pre-restore";
         try
         {
-            _conn.Close();
+            _conn.ExecuteScalar<int>("PRAGMA wal_checkpoint(TRUNCATE)");
+            _conn.Close();   // closing the last connection checkpoints the WAL
             foreach (var suffix in new[] { "-wal", "-shm" })
                 if (File.Exists(DatabasePath + suffix)) File.Delete(DatabasePath + suffix);
-            File.Copy(sourcePath, DatabasePath, overwrite: true);
-            _conn = Open(DatabasePath);
+            try
+            {
+                File.Replace(validatedPath, DatabasePath, safety, ignoreMetadataErrors: true);
+            }
+            catch (Exception) when (File.Exists(safety) && !File.Exists(DatabasePath))
+            {
+                File.Copy(safety, DatabasePath);   // replace failed mid-way: put the live data back
+                throw;
+            }
         }
-        finally { _gate.Release(); }
+        finally
+        {
+            _conn = Open(DatabasePath);
+            _gate.Release();
+        }
     }
 
     public void Dispose()

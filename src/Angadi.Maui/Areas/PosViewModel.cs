@@ -229,7 +229,8 @@ public sealed partial class PosViewModel : ViewModelBase
             ["amount"] = IndianFormat.Rupees(_draft.Bill.GrandTotal),
         });
         if (paid != "paid") return;
-        _draft.SetTender(TenderType.Upi);
+        var upiRef = await Dialogs.PromptAsync(Text["tender.upi"], Text["pos.upi.ref"], Text["common.ok"], Text["common.cancel"], keyboard: Keyboard.Numeric);
+        _draft.SetTender(TenderType.Upi, upiRef: upiRef);
         await FinalizeAsync();
     }
 

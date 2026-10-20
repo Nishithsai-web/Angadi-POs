@@ -32,10 +32,10 @@ public class VoiceBatteryTests
         { "కరివేపాకు", "Curry leaves" },
         { "రెండొందల గ్రాముల జీలకర్ర", "Cumin seeds" },
         { "పసుపు వంద గ్రాములు", "Turmeric powder" },
-        { "నూనె ఒక లీటరు", "Sunflower oil" },
+        { "సన్ ఫ్లవర్ నూనె ఒక లీటరు", "Sunflower oil" },   // H5: bare "నూనె" now asks (see below)
         { "పల్లీ నూనె ఒక లీటరు", "Groundnut oil" },
         { "గుడ్లు ఒక డజను", "Eggs" },
-        { "సబ్బు రెండు", "Bath soap" },
+        { "స్నానం సబ్బు రెండు", "Bath soap" },
         { "సర్ఫ్ ఒక ప్యాకెట్", "Detergent powder (1 kg)" },
         { "టూత్ పేస్ట్ ఒకటి", "Toothpaste (100 g)" },
         { "అగ్గిపెట్టె", "Matchbox" },
@@ -94,6 +94,36 @@ public class VoiceBatteryTests
         // "పప్పు" alone fits several dals — never silently pick one.
         var (result, _) = Run("పప్పు అర కేజీ");
         Assert.NotEqual(MatchKind.AutoAdd, result.Kind);
+    }
+
+    [Theory]
+    [InlineData("నూనె ఒక లీటరు")]
+    [InlineData("సబ్బు రెండు")]
+    public void H5_GenericWord_AsksInsteadOfGuessing(string phrase)
+    {
+        var (result, _) = Run(phrase);
+        Assert.Equal(MatchKind.Confirm, result.Kind);
+        Assert.True(result.Candidates.Count >= 2);
+    }
+
+    [Theory]
+    [InlineData("రైస్ రెండు కేజీలు", "Rice (Sona Masoori)")]
+    [InlineData("షుగర్ ఒక కేజీ", "Sugar")]
+    [InlineData("బియ్యము ఐదు కేజీలు", "Rice (Sona Masoori)")]          // M13: ము → ం
+    [InlineData("650 పారాసెటమాల్ రెండు స్ట్రిప్", "Paracetamol 650 mg")] // M1: dosage first, rotated by the matcher
+    public void H5_M1_M13_HowShopkeepersActuallySpeak(string phrase, string expected)
+    {
+        var (result, best) = Run(phrase);
+        Assert.Equal(MatchKind.AutoAdd, result.Kind);
+        Assert.Equal(expected, best);
+    }
+
+    [Fact]
+    public void H6_Range_IsAskedNotAutoAdded()
+    {
+        var (result, best) = Run("రెండు మూడు కేజీల బియ్యం");
+        Assert.Equal(MatchKind.Confirm, result.Kind);
+        Assert.Equal("Rice (Sona Masoori)", best);
     }
 
     [Fact]

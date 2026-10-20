@@ -45,7 +45,7 @@ internal static class Mapping
     {
         Id = b.Id, Number = b.Number, Status = (int)b.Status,
         BillDiscountKind = (int)b.BillDiscount.Kind, BillDiscountAmount = b.BillDiscount.Amount,
-        Tender = b.Tender is null ? null : (int)b.Tender, CustomerId = b.CustomerId, CashReceivedPaise = b.CashReceived.Value,
+        Tender = b.Tender is null ? null : (int)b.Tender, CustomerId = b.CustomerId, CashReceivedPaise = b.CashReceived.Value, UpiRef = NullIfBlank(b.UpiRef),
         SubTotalPaise = b.SubTotal.Value, BillDiscountPaise = b.BillDiscountAmount.Value, TaxTotalPaise = b.TaxTotal.Value,
         RoundingPaise = b.RoundingAdjustment.Value, GrandTotalPaise = b.GrandTotal.Value,
         TaxSplitsJson = JsonSerializer.Serialize(b.TaxSplits.Select(s => new[] { (long)s.Slab, s.Taxable.Value, s.Tax.Value }), Json),
@@ -70,7 +70,7 @@ internal static class Mapping
     {
         Id = r.Id, Number = r.Number, Status = (BillStatus)r.Status,
         BillDiscount = new Discount((DiscountKind)r.BillDiscountKind, r.BillDiscountAmount),
-        Tender = r.Tender is null ? null : (TenderType)r.Tender, CustomerId = r.CustomerId, CashReceived = new Paise(r.CashReceivedPaise),
+        Tender = r.Tender is null ? null : (TenderType)r.Tender, CustomerId = r.CustomerId, CashReceived = new Paise(r.CashReceivedPaise), UpiRef = r.UpiRef,
         SubTotal = new Paise(r.SubTotalPaise), BillDiscountAmount = new Paise(r.BillDiscountPaise), TaxTotal = new Paise(r.TaxTotalPaise),
         RoundingAdjustment = new Paise(r.RoundingPaise), GrandTotal = new Paise(r.GrandTotalPaise),
         TaxSplits = (JsonSerializer.Deserialize<List<long[]>>(r.TaxSplitsJson, Json) ?? [])
@@ -104,13 +104,13 @@ internal static class Mapping
 
     public static DuesEntryRow ToRow(DuesEntry e) => new()
     {
-        Id = e.Id, CustomerId = e.CustomerId, Kind = (int)e.Kind, AmountPaise = e.Amount.Value, BillId = e.BillId, Note = e.Note,
+        Id = e.Id, CustomerId = e.CustomerId, Kind = (int)e.Kind, AmountPaise = e.Amount.Value, BillId = e.BillId, Note = e.Note, UpiRef = NullIfBlank(e.UpiRef),
         CreatedAtMs = Ms(e.CreatedAt),
     };
 
     public static DuesEntry ToDomain(DuesEntryRow r) => new()
     {
-        Id = r.Id, CustomerId = r.CustomerId, Kind = (DuesEntryKind)r.Kind, Amount = new Paise(r.AmountPaise), BillId = r.BillId, Note = r.Note,
+        Id = r.Id, CustomerId = r.CustomerId, Kind = (DuesEntryKind)r.Kind, Amount = new Paise(r.AmountPaise), BillId = r.BillId, Note = r.Note, UpiRef = r.UpiRef,
         CreatedAt = At(r.CreatedAtMs), UpdatedAt = At(r.CreatedAtMs),
     };
 

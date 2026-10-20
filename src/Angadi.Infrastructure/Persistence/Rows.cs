@@ -37,6 +37,7 @@ internal sealed class BillRow
     public int? Tender { get; set; }
     [Indexed] public Guid? CustomerId { get; set; }
     public long CashReceivedPaise { get; set; }
+    public string? UpiRef { get; set; }
     public long SubTotalPaise { get; set; }
     public long BillDiscountPaise { get; set; }
     public long TaxTotalPaise { get; set; }
@@ -94,6 +95,7 @@ internal sealed class DuesEntryRow
     public long AmountPaise { get; set; }
     public Guid? BillId { get; set; }
     public string? Note { get; set; }
+    public string? UpiRef { get; set; }
     public long CreatedAtMs { get; set; }
 }
 

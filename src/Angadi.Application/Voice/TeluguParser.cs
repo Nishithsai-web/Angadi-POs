@@ -97,6 +97,8 @@ public sealed partial class TeluguParser(VoiceRules rules) : ITeluguParser
     {
         var tokens = rawTokens.SelectMany(Explode).ToList();
         long number = 0;
+        long lastPlace = long.MaxValue;   // H6: numbers may only add when place value descends (20 + 5, 200 + 50)
+        var ambiguous = false;
         var sawNumber = false;
         Unit? unit = null;
         var multiplier = 1L;
@@ -114,16 +116,38 @@ public sealed partial class TeluguParser(VoiceRules rules) : ITeluguParser
             if (sawNumber && rules.HundredMultipliers.Contains(t))
             {
                 number = (number == 0 ? 1000 : number) * 100;
+                lastPlace = 100_000;
                 continue;
             }
 
-            if (TryNumber(t, out var value)) { number += value; sawNumber = true; continue; }
+            if (TryNumber(t, out var value))
+            {
+                if (sawNumber && value >= lastPlace)
+                {
+                    // "రెండు మూడు కేజీలు" (two-three kg) is a range, not 5. Keep the first number, flag it, let the pipeline ask.
+                    ambiguous = true;
+                    continue;
+                }
+                number += value;
+                lastPlace = value;
+                sawNumber = true;
+                continue;
+            }
             if (rules.Units.TryGetValue(t, out var u)) { unit = u; continue; }
             if (rules.Multipliers.TryGetValue(t, out var m)) { multiplier *= m; unit ??= Unit.Piece; continue; }
             if (rules.Currency.Contains(t)) { isAmount = true; continue; }
 
             name.Add(t);
         }
+
+        // M1 guard: a bare leading number ≥ 100 with no unit ("650 పారాసెటమాల్") may be a dosage, not a count — ask.
+        if (tokens.Count > 0 && !nameDigits.Contains(0) && Decimal().IsMatch(tokens[0]) && unit is null && !isAmount
+            && TryNumber(tokens[0], out var lead) && lead >= 100_000)
+            ambiguous = true;
+
+        // M13: a stutter ("బి బియ్యం") repeats the start of the next word — drop the fragment.
+        for (var k = name.Count - 2; k >= 0; k--)
+            if (name[k].Length < name[k + 1].Length && name[k + 1].StartsWith(name[k], StringComparison.Ordinal)) name.RemoveAt(k);
 
         if (name.Count == 0) return null;
         var raw = string.Join(' ', rawTokens);
@@ -135,10 +159,10 @@ public sealed partial class TeluguParser(VoiceRules rules) : ITeluguParser
         {
             // number is in milli-rupees: ₹10 → 10000 → 1000 paise.
             Paise? amount = qty is > 0 ? new Paise(qty.Value / 10) : null;
-            return new ParsedLine(itemName, null, null, amount, raw);
+            return new ParsedLine(itemName, null, null, amount, raw, ambiguous);
         }
 
-        return new ParsedLine(itemName, qty is null ? null : new Qty(qty.Value), unit, null, raw);
+        return new ParsedLine(itemName, qty is null ? null : new Qty(qty.Value), unit, null, raw, ambiguous);
     }
 
     /// <summary>
@@ -160,6 +184,8 @@ public sealed partial class TeluguParser(VoiceRules rules) : ITeluguParser
 
             TryNumber(tokens[i], out var value);
             var otherNumber = tokens.Where((t, k) => k != i && !rules.Fillers.Contains(t) && TryNumber(t, out _)).Any();
+            // M1: a bare leading number with nothing else numeric is a bulk count ("200 గుడ్లు"), never a code.
+            if (i == 0 && !otherNumber) continue;
             if (value >= 100_000 || otherNumber) result.Add(i);
         }
         return result;
@@ -173,6 +199,21 @@ public sealed partial class TeluguParser(VoiceRules rules) : ITeluguParser
 
         var w = WordThenDigits().Match(token);   // "₹10", "rs20"
         if (w.Success && rules.Currency.Contains(w.Groups[1].Value)) return [w.Groups[1].Value, w.Groups[2].Value];
+
+        // M13: fused number + unit/multiplier + name ("అరకేజీబియ్యం", "అరడజను"). Only split when what follows the
+        // number word is itself a unit/multiplier/currency word, so names like "అరటిపండ్లు" stay whole.
+        if (!rules.Numbers.ContainsKey(token) && !rules.Units.ContainsKey(token))
+        {
+            foreach (var num in rules.Numbers.Keys.Where(k => k.Length >= 2 && token.Length > k.Length && token.StartsWith(k, StringComparison.Ordinal)).OrderByDescending(k => k.Length))
+            {
+                var rest = token[num.Length..];
+                var lead = rules.Units.Keys.Concat(rules.Multipliers.Keys).Concat(rules.Currency)
+                    .Where(u => rest.StartsWith(u, StringComparison.Ordinal)).OrderByDescending(u => u.Length).FirstOrDefault();
+                if (lead is null) continue;
+                var tail = rest[lead.Length..];
+                return tail.Length == 0 ? [num, lead] : new[] { num, lead }.Concat(Explode(tail));
+            }
+        }
 
         foreach (var suffix in rules.Units.Keys.Concat(rules.Currency).OrderByDescending(k => k.Length))
         {

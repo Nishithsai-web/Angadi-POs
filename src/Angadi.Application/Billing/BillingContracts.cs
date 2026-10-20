@@ -22,7 +22,7 @@ public sealed record VoidBillCommand(Guid BillId, string Reason) : ICommand<Resu
 public sealed record ShareReceiptCommand(Guid BillId) : ICommand<Result>, INoTransaction;
 
 /// <summary>FR-22.</summary>
-public sealed record RecordDuesPaymentCommand(Guid CustomerId, Paise Amount, string? Note) : ICommand<Result>;
+public sealed record RecordDuesPaymentCommand(Guid CustomerId, Paise Amount, string? Note, string? UpiRef = null) : ICommand<Result>;
 
 /// <summary>FR-23. Builds the Telugu reminder text and opens wa.me.</summary>
 public sealed record SendDuesReminderCommand(Guid CustomerId) : ICommand<Result>, INoTransaction;

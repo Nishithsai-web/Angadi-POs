@@ -18,6 +18,8 @@ public sealed class DuesEntry : Entity
     public Paise Amount { get; set; }   // always positive; Kind gives direction
     public Guid? BillId { get; set; }
     public string? Note { get; set; }
+    /// <summary>H9-EXTENSION: UPI reference when a dues payment came by UPI.</summary>
+    public string? UpiRef { get; set; }
 }
 
 public enum DuesEntryKind { Charge = 0, Payment = 1, Reversal = 2 }

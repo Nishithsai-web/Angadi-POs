@@ -114,8 +114,9 @@ public sealed class BillDraft
         Recompute();
     }
 
-    public void SetTender(TenderType tender, Guid? customerId = null, Paise? cashReceived = null)
+    public void SetTender(TenderType tender, Guid? customerId = null, Paise? cashReceived = null, string? upiRef = null)
     {
+        Bill.UpiRef = tender == TenderType.Upi && !string.IsNullOrWhiteSpace(upiRef) ? upiRef.Trim() : null;
         Bill.Tender = tender;
         Bill.CustomerId = tender == TenderType.Udhaar ? customerId : null;
         Bill.CashReceived = tender == TenderType.Cash ? cashReceived ?? Paise.Zero : Paise.Zero;

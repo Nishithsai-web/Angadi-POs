@@ -4,31 +4,31 @@ import json,sys,unicodedata
 K="Kilogram";P="Piece";PK="Pack";L="Litre";S="Strip"
 # te, en, aliases, category, unit, price ₹, gst%, quick
 kirana=[
-("బియ్యం","Rice (Sona Masoori)",["biyyam","rice","సోనా మసూరి","సోనామసూరి"],"ధాన్యాలు",K,62,0,1),
-("గోధుమ పిండి","Wheat atta",["atta","ఆటా","గోధుమపిండి","godhuma pindi"],"పిండ్లు",K,55,5,1),
+("బియ్యం","Rice (Sona Masoori)",["biyyam","rice","రైస్","సోనా మసూరి","సోనామసూరి"],"ధాన్యాలు",K,62,0,1),
+("గోధుమ పిండి","Wheat atta",["atta","ఆటా","వీట్ ఫ్లోర్","గోధుమపిండి","godhuma pindi"],"పిండ్లు",K,55,5,1),
 ("మైదా","Maida",["maida","మైదా పిండి"],"పిండ్లు",K,50,5,0),
 ("బొంబాయి రవ్వ","Rava (sooji)",["రవ్వ","ఉప్మా రవ్వ","sooji","rava","suji"],"పిండ్లు",K,55,5,0),
-("కంది పప్పు","Toor dal",["కందిపప్పు","తూర్ దాల్","toor dal","kandi pappu"],"పప్పులు",K,160,0,1),
+("కంది పప్పు","Toor dal",["కందిపప్పు","తూర్ దాల్","toor dal","kandi pappu","తూర్ దాల్"],"పప్పులు",K,160,0,1),
 ("పెసర పప్పు","Moong dal",["పెసరపప్పు","moong dal","pesara pappu"],"పప్పులు",K,130,0,0),
 ("మినప పప్పు","Urad dal",["మినపప్పు","మినప గుళ్ళు","urad dal","minapa pappu"],"పప్పులు",K,140,0,0),
 ("శనగ పప్పు","Chana dal",["శనగపప్పు","chana dal","senaga pappu"],"పప్పులు",K,95,0,0),
 ("పుట్నాల పప్పు","Roasted gram",["పుట్నాలు","putnalu","roasted gram"],"పప్పులు",K,120,5,0),
-("చక్కెర","Sugar",["పంచదార","sugar","chakkera","panchadara"],"ధాన్యాలు",K,46,5,1),
+("చక్కెర","Sugar",["పంచదార","sugar","chakkera","panchadara","షుగర్"],"ధాన్యాలు",K,46,5,1),
 ("బెల్లం","Jaggery",["bellam","jaggery"],"ధాన్యాలు",K,70,0,0),
-("ఉప్పు","Salt (1 kg)",["salt","uppu","ఉప్పు ప్యాకెట్"],"ధాన్యాలు",PK,28,0,1),
+("ఉప్పు","Salt (1 kg)",["salt","uppu","సాల్ట్","ఉప్పు ప్యాకెట్"],"ధాన్యాలు",PK,28,0,1),
 ("పల్లి నూనె","Groundnut oil",["పల్లీ నూనె","వేరుశనగ నూనె","groundnut oil","palli nune"],"నూనెలు",L,190,5,0),
-("సన్ ఫ్లవర్ నూనె","Sunflower oil",["నూనె","సన్‌ఫ్లవర్ ఆయిల్","sunflower oil","oil"],"నూనెలు",L,155,5,1),
+("సన్ ఫ్లవర్ నూనె","Sunflower oil",["సన్‌ఫ్లవర్ ఆయిల్","sunflower oil","సన్‌ఫ్లవర్","రిఫైండ్ ఆయిల్"],"నూనెలు",L,155,5,1),
 ("పామాయిల్","Palm oil",["పామ్ ఆయిల్","palm oil"],"నూనెలు",L,120,5,0),
 ("నెయ్యి","Ghee (500 ml)",["neyyi","ghee"],"పాల ఉత్పత్తులు",P,330,5,0),
-("పాలు","Milk (500 ml)",["పాల ప్యాకెట్","milk","paalu"],"పాల ఉత్పత్తులు",PK,30,0,1),
-("పెరుగు","Curd (500 g)",["perugu","curd","పెరుగు ప్యాకెట్"],"పాల ఉత్పత్తులు",PK,35,5,1),
+("పాలు","Milk (500 ml)",["పాల ప్యాకెట్","milk","paalu","మిల్క్"],"పాల ఉత్పత్తులు",PK,30,0,1),
+("పెరుగు","Curd (500 g)",["perugu","curd","కర్డ్","పెరుగు ప్యాకెట్"],"పాల ఉత్పత్తులు",PK,35,5,1),
 ("వెన్న","Butter (100 g)",["butter","venna"],"పాల ఉత్పత్తులు",P,60,5,0),
 ("పనీర్","Paneer (200 g)",["paneer","పన్నీర్"],"పాల ఉత్పత్తులు",P,90,0,0),
 ("గుడ్లు","Eggs",["కోడిగుడ్లు","గుడ్డు","ఎగ్స్","eggs","egg"],"పాల ఉత్పత్తులు",P,7,0,1),
 ("టీ పొడి","Tea powder (250 g)",["చాయ్ పొడి","టీపొడి","tea","tea powder"],"పానీయాలు",PK,140,5,1),
 ("కాఫీ పొడి","Coffee powder (100 g)",["కాఫీపొడి","coffee","coffee powder"],"పానీయాలు",PK,120,5,0),
-("ఉల్లిపాయలు","Onions",["ఉల్లిగడ్డలు","ఉల్లిపాయ","onion","onions","ullipayalu"],"కూరగాయలు",K,35,0,1),
-("టమాటాలు","Tomatoes",["టమాటా","టమాట","tomato","tomatoes"],"కూరగాయలు",K,30,0,1),
+("ఉల్లిపాయలు","Onions",["ఉల్లిగడ్డలు","ఉల్లిపాయ","onion","onions","ullipayalu","ఆనియన్"],"కూరగాయలు",K,35,0,1),
+("టమాటాలు","Tomatoes",["టమాటా","టమాట","tomato","tomatoes","టొమాటో"],"కూరగాయలు",K,30,0,1),
 ("బంగాళాదుంపలు","Potatoes",["ఆలుగడ్డలు","ఆలు","బంగాళదుంప","potato","potatoes","aloo"],"కూరగాయలు",K,35,0,1),
 ("పచ్చిమిర్చి","Green chillies",["మిర్చి","పచ్చి మిరపకాయలు","green chilli","mirchi"],"కూరగాయలు",K,80,0,1),
 ("అల్లం","Ginger",["allam","ginger"],"కూరగాయలు",K,120,0,0),
@@ -58,7 +58,7 @@ kirana=[
 ("చాక్లెట్","Chocolate",["చాక్లెట్లు","chocolate"],"స్నాక్స్",P,10,5,1),
 ("కూల్ డ్రింక్","Soft drink (750 ml)",["కూల్‌డ్రింక్","సాఫ్ట్ డ్రింక్","cool drink","soft drink"],"పానీయాలు",P,45,40,1),
 ("వాటర్ బాటిల్","Water bottle (1 L)",["మంచినీళ్ళు","నీళ్ళ బాటిల్","water","water bottle"],"పానీయాలు",P,20,5,1),
-("స్నానం సబ్బు","Bath soap",["సబ్బు","బాత్ సోప్","soap","bath soap"],"సౌందర్య",P,40,5,1),
+("స్నానం సబ్బు","Bath soap",["బాత్ సోప్","bath soap","ఒంటి సబ్బు"],"సౌందర్య",P,40,5,1),
 ("బట్టల సబ్బు","Washing bar",["వాషింగ్ సోప్","washing soap","battala sabbu"],"శుభ్రత",P,30,18,0),
 ("డిటర్జెంట్ పౌడర్","Detergent powder (1 kg)",["సర్ఫ్","వాషింగ్ పౌడర్","detergent","washing powder"],"శుభ్రత",PK,110,18,0),
 ("టూత్ పేస్ట్","Toothpaste (100 g)",["పేస్ట్","toothpaste","paste"],"సౌందర్య",P,55,5,1),
@@ -132,6 +132,7 @@ def key(s):
     s=unicodedata.normalize("NFC",s).replace("‌","").replace("‍","").lower().replace(" ","")
     # Must mirror TeluguText.MatchKey in C#.
     if s.endswith("మ్"): s=s[:-2]+"ం"
+    elif len(s)>3 and s.endswith("ము"): s=s[:-2]+"ం"
     if len(s)>4 and s.endswith("లు"): s=s[:-2]
     elif len(s)>4 and s.endswith("ల"): s=s[:-1]
     elif len(s)>3 and all(ord(c)<=0x24f for c in s) and s.endswith("s") and not s.endswith("ss"): s=s[:-1]

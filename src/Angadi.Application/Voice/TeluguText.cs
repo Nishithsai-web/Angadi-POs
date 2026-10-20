@@ -42,6 +42,8 @@ public static class TeluguText
         var s = Normalize(text).Replace(" ", "", StringComparison.Ordinal);
         // Recognisers write the final nasal both ways: బియ్యం / బియ్యమ్.
         if (s.EndsWith("మ్", StringComparison.Ordinal)) s = s[..^2] + "ం";
+        // M13: older/dialect "-ము" ending is today's anusvara: బియ్యము → బియ్యం.
+        else if (s.Length > 3 && s.EndsWith("ము", StringComparison.Ordinal)) s = s[..^2] + "ం";
         if (s.Length > 4 && s.EndsWith("లు", StringComparison.Ordinal)) s = s[..^2];
         else if (s.Length > 4 && s.EndsWith("ల", StringComparison.Ordinal)) s = s[..^1];
         else if (s.Length > 3 && IsLatin(s) && s.EndsWith('s') && !s.EndsWith("ss", StringComparison.Ordinal)) s = s[..^1];

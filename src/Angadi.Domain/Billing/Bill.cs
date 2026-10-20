@@ -18,6 +18,8 @@ public sealed class Bill : Entity
     public TenderType? Tender { get; set; }                         // FR-14, single tender in v1
     public Guid? CustomerId { get; set; }                           // required when Tender == Udhaar
     public Paise CashReceived { get; set; }                         // for change due
+    /// <summary>H9: UPI transaction reference (UTR / last digits) for reconciling UPI bills. Optional.</summary>
+    public string? UpiRef { get; set; }
 
     // Computed by BillCalculator at finalize, then frozen:
     public Paise SubTotal { get; set; }        // sum of line totals after line discounts

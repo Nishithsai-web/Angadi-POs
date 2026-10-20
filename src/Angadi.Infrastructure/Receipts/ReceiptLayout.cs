@@ -158,6 +158,8 @@ public static class ReceiptLayout
         {
             rows.Add(new(ReceiptRowKind.Separator));
             rows.Add(new(ReceiptRowKind.Field) { Text = text["receipt.paidby"], Value = text[TenderKey(tender)] });
+            if (tender == TenderType.Upi && !string.IsNullOrWhiteSpace(bill.UpiRef))
+                rows.Add(new(ReceiptRowKind.Field) { Text = text["receipt.upiref"], Value = bill.UpiRef });   // H9
             if (tender == TenderType.Cash && bill.CashReceived > Paise.Zero)
             {
                 var change = bill.CashReceived - bill.GrandTotal;

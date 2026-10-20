@@ -84,6 +84,19 @@ public interface IShopProfileRepository
     Task<string> NextBillNumberAsync(CancellationToken ct = default);
 }
 
+/// <summary>
+/// H2/B2: the free-tier counter. Per-month buckets in Meta keyed by the "effective month" =
+/// local month of max(now, last time the app saw the clock), so rolling the clock back never
+/// reopens a spent month and rolling it forward only spends a future bucket. Called inside the
+/// finalize transaction, so check + increment are atomic. Reinstall/factory reset still wipes it
+/// (documented; v2 moves the entitlement to a server).
+/// </summary>
+public interface IQuotaStore
+{
+    Task<int> UsedThisMonthAsync(DateTimeOffset now, CancellationToken ct = default);
+    Task IncrementAsync(DateTimeOffset now, CancellationToken ct = default);
+}
+
 /// <summary>FR-04. Idempotent: does nothing if items exist.</summary>
 public interface ISeedService
 {

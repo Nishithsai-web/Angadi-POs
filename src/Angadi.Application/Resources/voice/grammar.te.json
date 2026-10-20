@@ -10,7 +10,10 @@
     "ఆ తర్వాత",
     "and",
     "also",
-    "plus"
+    "plus",
+    "ఇంక",
+    "తరువాత",
+    "అప్పుడు"
   ],
   "fillers": [
     "ఇవ్వండి",
@@ -28,7 +31,18 @@
     "ఒకసారి",
     "ఏమిటంటే",
     "అది",
-    "ఇది"
+    "ఇది",
+    "మరి",
+    "అంటే",
+    "ఏంటంటే",
+    "సార్",
+    "అన్నా",
+    "అక్కా",
+    "మేడమ్",
+    "ఇయ్యి",
+    "ఇయ్యండి",
+    "తెండి",
+    "ఇవ్వండమ్మా"
   ],
   "_fillerComment": "Do NOT add number words here: ఒక is one, వెయ్యి is a thousand (V1: 'వెయ్యి రూపాయల బియ్యం' lost its amount when it was a filler).",
   "currency": [
@@ -40,7 +54,12 @@
     "rs",
     "rupees",
     "rupee",
-    "₹"
+    "₹",
+    "రూపాయలకు",
+    "రూపాయలకి",
+    "రూపాయికి",
+    "రూపాయిలకు",
+    "రూపాయల్లో"
   ],
   "_currencyComment": "A number followed by a currency word means 'this many rupees worth' (పది రూపాయల ఉల్లిపాయలు = ₹10 of onions)."
 }
