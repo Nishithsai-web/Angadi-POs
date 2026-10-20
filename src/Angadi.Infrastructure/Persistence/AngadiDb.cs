@@ -138,7 +138,11 @@ public sealed class AngadiDb : IUnitOfWork, IDisposable
     {
         if (_inTransaction.Value) return Guarded(action);
         await EnterAsync(ct).ConfigureAwait(false);
-        try { return Guarded(action); }
+        try
+        {
+            await OffTheUiThread();
+            return Guarded(action);
+        }
         finally { _gate.Release(); }
     }
 
@@ -160,6 +164,7 @@ public sealed class AngadiDb : IUnitOfWork, IDisposable
         _inTransaction.Value = true;   // set before awaiting work, so it flows into it
         try
         {
+            await OffTheUiThread();
             _conn.BeginTransaction();
             T result;
             try
@@ -197,6 +202,13 @@ public sealed class AngadiDb : IUnitOfWork, IDisposable
     /// </summary>
     public static readonly TimeSpan LockTimeout = TimeSpan.FromSeconds(30);
 
+    /// <summary>
+    /// A1-05: an uncontended gate completes synchronously, so without this every query ran on the caller's thread —
+    /// the UI thread (reports run ~10 queries: an ANR risk on a cheap phone). Always continue on the thread pool.
+    /// Callers must never block on a database task from the UI thread (MauiProgram.ApplySavedLanguage uses Task.Run).
+    /// </summary>
+    private static async Task OffTheUiThread() => await Task.CompletedTask.ConfigureAwait(ConfigureAwaitOptions.ForceYielding);
+
     private async Task EnterAsync(CancellationToken ct)
     {
         if (!await _gate.WaitAsync(LockTimeout, ct).ConfigureAwait(false))
@@ -233,8 +245,10 @@ public sealed class AngadiDb : IUnitOfWork, IDisposable
         }
         finally
         {
-            _conn = Open(DatabasePath);
-            _gate.Release();
+            // A1-02: if reopening throws (full phone during the pre-update copy), the lock must still be released —
+            // otherwise every screen reports DATABASE_BUSY until the app is killed.
+            try { _conn = Open(DatabasePath); }
+            finally { _gate.Release(); }
         }
     }
 

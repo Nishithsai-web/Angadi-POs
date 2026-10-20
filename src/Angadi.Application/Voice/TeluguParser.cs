@@ -226,18 +226,29 @@ public sealed partial class TeluguParser(VoiceRules rules) : ITeluguParser
         return [token];
     }
 
+    /// <summary>Largest number a spoken line can carry (keeps milli-units far inside long).</summary>
+    internal const long MaxSpokenNumber = 1_000_000_000_000;
+
     internal bool TryNumber(string token, out long milli)
     {
+        // A1-10: a 16+ digit token (a barcode read aloud, a phone number) used to throw OverflowException out of the
+        // voice pipeline. Out-of-range numbers are simply "not a number" now.
         if (Decimal().IsMatch(token))
         {
-            milli = (long)Math.Round(decimal.Parse(token, CultureInfo.InvariantCulture) * 1000m, MidpointRounding.AwayFromZero);
-            return true;
+            if (decimal.TryParse(token, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var value) && value <= MaxSpokenNumber)
+            {
+                milli = (long)Math.Round(value * 1000m, MidpointRounding.AwayFromZero);
+                return true;
+            }
+            milli = 0;
+            return false;
         }
 
         var f = Fraction().Match(token);
-        if (f.Success && long.TryParse(f.Groups[2].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var den) && den > 0)
+        if (f.Success && long.TryParse(f.Groups[2].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var den) && den > 0
+            && long.TryParse(f.Groups[1].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var num) && num <= MaxSpokenNumber)
         {
-            milli = (long)Math.Round(long.Parse(f.Groups[1].Value, CultureInfo.InvariantCulture) * 1000m / den, MidpointRounding.AwayFromZero);
+            milli = (long)Math.Round(num * 1000m / den, MidpointRounding.AwayFromZero);
             return true;
         }
 

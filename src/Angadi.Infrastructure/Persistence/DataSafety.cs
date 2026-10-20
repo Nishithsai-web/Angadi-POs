@@ -132,7 +132,20 @@ internal sealed class DataSafety(AngadiDb db, IClock clock, ILogger<DataSafety> 
         return report;
     }
 
+    /// <summary>
+    /// A1-12: OnStart and OnSleep can overlap (quick app switches); both used the same ".tmp" path, so one run could
+    /// validate or move the other's half-written copy. One snapshot at a time.
+    /// </summary>
+    private readonly SemaphoreSlim _snapshotGate = new(1, 1);
+
     public async Task<Result> SnapshotAsync(CancellationToken ct = default)
+    {
+        await _snapshotGate.WaitAsync(ct).ConfigureAwait(false);
+        try { return await SnapshotCoreAsync(ct).ConfigureAwait(false); }
+        finally { _snapshotGate.Release(); }
+    }
+
+    private async Task<Result> SnapshotCoreAsync(CancellationToken ct)
     {
         var dir = db.SnapshotDirectory;
         var target = Path.Combine(dir, "angadi-" + clock.Now.ToString("yyyyMMdd", CultureInfo.InvariantCulture) + ".db");
