@@ -1,6 +1,7 @@
 using System.Globalization;
 using Angadi.Application.Common;
 using Angadi.Application.Platform;
+using Angadi.Domain.Billing;
 using Microsoft.Extensions.Logging;
 using SQLite;
 
@@ -124,6 +125,44 @@ internal sealed class BackupService(AngadiDb db, IClock clock, string exportDire
 
         var orphanLines = c.ExecuteScalar<int>("SELECT COUNT(*) FROM BillLine l WHERE NOT EXISTS (SELECT 1 FROM Bill b WHERE b.Id = l.BillId)");
         if (orphanLines > 0) { reason = $"{orphanLines} bill line(s) without a bill"; return false; }
+
+        var orphanMoves = c.ExecuteScalar<int>("SELECT COUNT(*) FROM StockMove m WHERE NOT EXISTS (SELECT 1 FROM Item i WHERE i.Id = m.ItemId)");
+        if (orphanMoves > 0) { reason = $"{orphanMoves} stock move(s) without an item"; return false; }
+
+        var orphanDues = c.ExecuteScalar<int>("SELECT COUNT(*) FROM DuesEntry e WHERE NOT EXISTS (SELECT 1 FROM Customer cu WHERE cu.Id = e.CustomerId)");
+        if (orphanDues > 0) { reason = $"{orphanDues} dues entries without a customer"; return false; }
+
+        // FIX(RESTORE-2, 2026-10-20, FIX-2): Flaw: the sweep reconciled the ledgers but never recomputed
+        // a single bill — a backup with hand-edited bill totals restored silently, and a rewound
+        // NextBillSequence restored with it (duplicate numbers on the next sales). Fix: recompute every
+        // non-draft bill with the same BillCalculator the counter uses and compare every frozen total and
+        // tax split; reject any bill number at or beyond NextBillSequence; the orphan ledger checks above
+        // are T3-03. Why: a backup is the shop's disaster recovery — whatever it accepts becomes the books
+        // of record. Logged in docs/AGENT_FIX_LOG.md.
+        var nextSequence = c.Table<ShopProfileRow>().FirstOrDefault()?.NextBillSequence ?? 1;
+        foreach (var billRow in c.Table<BillRow>().Where(b => b.Status != 0))
+        {
+            var lines = c.Table<BillLineRow>().Where(l => l.BillId == billRow.Id).ToList();
+            try
+            {
+                var copy = Mapping.ToDomain(billRow, lines);
+                var storedSplits = copy.TaxSplits;
+                BillCalculator.Compute(copy, copy.IsTaxInvoice);
+                var splitsMatch = copy.TaxSplits.Count == storedSplits.Count && copy.TaxSplits.Zip(storedSplits)
+                    .All(p => p.First.Slab == p.Second.Slab && p.First.Taxable.Value == p.Second.Taxable.Value && p.First.Tax.Value == p.Second.Tax.Value);
+                if (copy.SubTotal.Value != billRow.SubTotalPaise || copy.BillDiscountAmount.Value != billRow.BillDiscountPaise
+                    || copy.TaxTotal.Value != billRow.TaxTotalPaise || copy.RoundingAdjustment.Value != billRow.RoundingPaise
+                    || copy.GrandTotal.Value != billRow.GrandTotalPaise || !splitsMatch)
+                { reason = $"bill {billRow.Number} totals do not recompute"; return false; }
+            }
+            catch (Exception ex) when (ex is ArgumentException or OverflowException or System.Text.Json.JsonException)
+            { reason = $"bill {billRow.Number} cannot be recomputed ({ex.GetType().Name})"; return false; }
+
+            var dash = billRow.Number.LastIndexOf('-');
+            if (dash >= 0 && long.TryParse(billRow.Number.AsSpan(dash + 1), NumberStyles.Integer, CultureInfo.InvariantCulture, out var suffix)
+                && suffix >= nextSequence)
+            { reason = $"bill {billRow.Number} is at or beyond the next bill number"; return false; }
+        }
         return true;
     }
 

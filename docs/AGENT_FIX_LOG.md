@@ -237,7 +237,8 @@ Development no longer runs through one implementer. Muse's own dev/fix agents no
 - **Related (M-3, owner accept/document):** reinstall/clear-data fully resets the 50-free quota (counters live only in the DB). Cheap mitigation: a monotonic lifetime counter in Preferences (survives DB restore, not reinstall). At minimum record the limitation in BILLING_RULES.md as a chosen risk.
 
 ### RESTORE-2 (MEDIUM) — The restore invariant sweep never checks the money inside bills
-- **Status:** OPEN · **Found by:** Flaw hunter (extends VERIFY-1/2 and the T3 lane), 2026-10-20
+- **Status:** FIXED-AWAITING-VERIFY · **Fixed by:** FIX-2, 2026-10-20 (sweep now recomputes every non-draft bill via BillCalculator and compares all frozen totals + tax splits, rejects bill numbers at/beyond NextBillSequence, and rejects orphan StockMove/DuesEntry rows (T3-03); tests `T3_02_RestoreBackupWithTamperedBillTotal_IsRejected`, `T3_02_RestoreBackupWithRewoundSequence_IsRejected`, `T3_03_RestoreBackupWithOrphanStockMove_IsRejected`. UNVERIFIED-CI.)
+- **Found by:** Flaw hunter (extends VERIFY-1/2 and the T3 lane), 2026-10-20
 - **Evidence:** `BackupService.PassesInvariants` checks integrity, stock-vs-ledger, dues-vs-ledger, negative dues, orphan lines — it never recomputes a bill, never parses `TaxSplitsJson`, never checks `NextBillSequence` against existing numbers. Reports then sum stored fields verbatim. A checksum-valid backup with inflated totals restores cleanly and every GST report afterwards trusts the fake numbers.
 - **Fix:** during the sweep, recompute every finalized bill with `BillCalculator.Compute` and compare all totals + splits; add sequence-vs-numbers and orphan dues/stock checks. (Pairs with the VERIFY-2 chunk-boundary check.)
 

@@ -7,6 +7,7 @@ using Angadi.Domain.Inventory;
 using Angadi.Domain.Items;
 using Angadi.Infrastructure.Persistence;
 using Microsoft.Extensions.DependencyInjection;
+using SQLite;
 
 namespace Angadi.Tests.Application;
 
@@ -150,5 +151,51 @@ public class QuotaAndRestoreTests
         // A-000007 (never a duplicate of an already-printed number) and the month count includes all 7.
         Assert.Equal("A-000007", (await SellAsync(h, item)).Value.Number);
         Assert.Equal(7, (await h.Sender.Send(new GetBillQuotaQuery())).UsedThisMonth);
+    }
+
+    private static void Tamper(string backupPath, string sql)
+    {
+        using var c = new SQLiteConnection(backupPath);
+        c.Execute(sql);
+    }
+
+    [Fact]
+    public async Task T3_02_RestoreBackupWithTamperedBillTotal_IsRejected()
+    {
+        using var h = new AppHost();
+        var item = await ReadyAsync(h);
+        Assert.True((await SellAsync(h, item)).IsSuccess);
+        var backupPath = (await h.Sender.Send(new ExportBackupCommand())).Value;
+
+        Tamper(backupPath, "UPDATE Bill SET GrandTotalPaise = GrandTotalPaise + 100");   // hand-edited total
+        var result = await h.Sender.Send(new RestoreBackupCommand(backupPath));
+        Assert.Equal(ErrorCodes.RestoreInvalidFile, result.Error.Code);
+    }
+
+    [Fact]
+    public async Task T3_02_RestoreBackupWithRewoundSequence_IsRejected()
+    {
+        using var h = new AppHost();
+        var item = await ReadyAsync(h);
+        Assert.True((await SellAsync(h, item)).IsSuccess);
+        var backupPath = (await h.Sender.Send(new ExportBackupCommand())).Value;
+
+        Tamper(backupPath, "UPDATE ShopProfile SET NextBillSequence = 1");   // A-000001 already exists
+        var result = await h.Sender.Send(new RestoreBackupCommand(backupPath));
+        Assert.Equal(ErrorCodes.RestoreInvalidFile, result.Error.Code);
+    }
+
+    [Fact]
+    public async Task T3_03_RestoreBackupWithOrphanStockMove_IsRejected()
+    {
+        using var h = new AppHost();
+        var item = await ReadyAsync(h);
+        Assert.True((await SellAsync(h, item)).IsSuccess);
+        var backupPath = (await h.Sender.Send(new ExportBackupCommand())).Value;
+
+        Tamper(backupPath, "INSERT INTO StockMove (Id, ItemId, DeltaMilli, Reason, BillId, Note, Day, CreatedAtMs) " +
+            "VALUES ('11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222', 1000, 0, NULL, 'orphan', 20261019, 0)");
+        var result = await h.Sender.Send(new RestoreBackupCommand(backupPath));
+        Assert.Equal(ErrorCodes.RestoreInvalidFile, result.Error.Code);
     }
 }
