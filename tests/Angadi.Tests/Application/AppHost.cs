@@ -112,6 +112,12 @@ public sealed class FakeShare : IReceiptShare
         WhatsApp.Add((phoneE164, message));
         return Task.FromResult(Result.Success());
     }
+    public List<string> SharedText { get; } = [];
+    public Task<Result> ShareTextAsync(string text, string title, CancellationToken ct = default)
+    {
+        SharedText.Add(text);
+        return Task.FromResult(Result.Success());
+    }
 }
 
 public sealed class FakeRenderer : IReceiptRenderer

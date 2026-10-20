@@ -51,6 +51,7 @@ public sealed class AngadiDb : IUnitOfWork, IDisposable
         c.CreateTable<OutboxRow>();
         c.CreateTable<ShopProfileRow>();
         c.CreateTable<MetaRow>();
+        c.CreateTable<NoteRow>();
 
         c.InsertOrReplace(new MetaRow { Key = "app", Value = AppMarker });
         var current = c.Find<MetaRow>("schema_version");

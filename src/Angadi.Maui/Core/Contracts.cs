@@ -20,6 +20,7 @@ public static class Routes
     public const string StockAdjust = "stock-adjust";    // ?itemId=
     public const string LowStock = "low-stock";
     public const string CustomerDetail = "customer";     // ?customerId=
+    public const string Notes = "notes";                 // notes + feedback
     public const string CustomerEdit = "customer-edit";  // ?customerId= (absent = new)
     public const string BillDetail = "bill";             // ?billId=
     public const string Insights = "insights";

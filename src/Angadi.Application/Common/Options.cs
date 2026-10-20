@@ -30,3 +30,10 @@ public sealed class InsightsOptions
     /// <summary>FR-33: the morning summary compares yesterday with the average of this many days.</summary>
     public int MorningSummaryDays { get; set; } = 7;
 }
+
+/// <summary>Bound from appsettings.json "Support". Where in-app feedback goes.</summary>
+public sealed class SupportOptions
+{
+    /// <summary>Support WhatsApp number (10-digit Indian mobile). Empty → feedback opens the share sheet.</summary>
+    public string WhatsAppNumber { get; set; } = "";
+}

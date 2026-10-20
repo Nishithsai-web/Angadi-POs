@@ -23,6 +23,7 @@ public static class PagesRegistration
         Route<CustomerDetailPage>(s, Routes.CustomerDetail);
         Route<ShopSetupPage>(s, Routes.ShopSetup);
         Route<SubscriptionPage>(s, Routes.Subscription);
+        Route<NotesPage>(s, Routes.Notes);
         return s;
     }
 

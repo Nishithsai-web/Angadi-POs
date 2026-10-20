@@ -3,6 +3,7 @@ using Angadi.Application.Billing;
 using Angadi.Application.Catalog;
 using Angadi.Application.Common;
 using Angadi.Application.Insights;
+using Angadi.Application.Inventory;
 using Angadi.Application.Platform;
 using Angadi.Application.Reports;
 using Angadi.Domain.Billing;
@@ -328,6 +329,8 @@ public sealed class ReportsPage : ContentPage
         var morning = await _insights.GetMorningSummaryAsync();
         var reorder = await _insights.GetReorderForecastAsync();
         var dead = await _insights.GetDeadStockAsync(30);
+        var inventory = await _sender.Send(new GetInventoryReportQuery());
+        var moves = await _sender.Send(new GetStockMovesQuery(day, day));
 
         _body.Children.Clear();
         _body.Add(Card(_text["reports.dayend"],
@@ -339,6 +342,16 @@ public sealed class ReportsPage : ContentPage
             (_text["bill.discount"], IndianFormat.Rupees(r.Discounts)),
             (_text["bill.tax"], IndianFormat.Rupees(r.Tax)),
             (_text["reports.voids"], r.VoidCount.ToString(System.Globalization.CultureInfo.InvariantCulture))));
+        // Inventory: what is on the shelf, what it is worth, and whether every change was recorded.
+        _body.Add(Card(_text["inventory.title"],
+            (_text["inventory.value"], IndianFormat.Rupees(inventory.StockValue)),
+            (_text["inventory.items"], inventory.ItemCount.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            (_text["inventory.low"], inventory.LowCount.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            (_text["inventory.out"], inventory.OutCount.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            (inventory.LedgerMatches ? _text["inventory.ledger.ok"] : _text.Format("inventory.ledger.bad", inventory.Mismatches.Count), "")));
+        _body.Add(Card(_text["inventory.moves"], moves.Take(15).Select(m => (
+            $"{m.Name} · {_text["stock.move." + m.Reason]}",
+            (m.Delta.Milli > 0 ? "+" : "") + IndianFormat.Quantity(m.Delta) + " " + _text.UnitLabel(m.Unit))).ToArray()));
         _body.Add(Card(_text["reports.gst"], gst.Select(s => ($"GST {(int)s.Slab / 100}% · {_text["receipt.taxable"]} {IndianFormat.Rupees(s.Taxable)}", IndianFormat.Rupees(s.Tax))).ToArray()));
         _body.Add(Card(_text["reports.top"], top.Select(t => ($"{t.DisplayName} · {IndianFormat.Quantity(t.QtySold)} {_text.UnitLabel(t.Unit)}", IndianFormat.Rupees(t.Value))).ToArray()));
         _body.Add(Card(_text["insights.title"],

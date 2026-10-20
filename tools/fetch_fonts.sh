@@ -11,6 +11,10 @@ declare -A files=(
   [NotoSans-Bold.ttf]="$base/NotoSans/hinted/ttf/NotoSans-Bold.ttf"
 )
 targets=(src/Angadi.Maui/Resources/Fonts src/Angadi.Maui/Resources/Raw/fonts tests/Angadi.Tests/Fonts)
+# Fonts are committed to the repo (vendor-fonts workflow); only download when any copy is missing.
+missing=0
+for t in "${targets[@]}"; do for name in "${!files[@]}"; do [ -s "$t/$name" ] || missing=1; done; done
+if [ "$missing" = 0 ]; then echo "fonts already present"; exit 0; fi
 tmp=$(mktemp -d)
 for name in "${!files[@]}"; do
   curl -fsSL --retry 3 -o "$tmp/$name" "${files[$name]}"

@@ -183,6 +183,7 @@ public sealed class SettingsPage : ContentPage
             Ui.Title(text["nav.settings"]),
             Item("settings.shop", () => Shell.Current.GoToAsync(Routes.ShopSetup)),
             Item("settings.subscription", () => Shell.Current.GoToAsync(Routes.Subscription)),
+            Item("settings.notes", () => Shell.Current.GoToAsync(Routes.Notes)),
             Item("settings.backup", BackupAsync),
             Item("settings.restore", RestoreAsync, danger: true),
             Item("settings.logs", ExportLogsAsync),

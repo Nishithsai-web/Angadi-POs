@@ -219,12 +219,49 @@ internal sealed class StockLedger(AngadiDb db, IClock clock) : IStockLedger
                 (int)StockMoveReason.Sale, (int)StockMoveReason.VoidRestore, Day(from), Day(to))
             .Select(r => new DailySales(r.ItemId, FromDay(r.Day), new Qty(r.SoldMilli))).ToList(), ct);
 
+    public Task<IReadOnlyList<StockMove>> ListMovesAsync(DateOnly from, DateOnly to, CancellationToken ct = default)
+        => db.RunAsync<IReadOnlyList<StockMove>>(c => c.Query<StockMoveRow>(
+                "SELECT * FROM StockMove WHERE Day >= ? AND Day <= ? ORDER BY CreatedAtMs DESC", Day(from), Day(to))
+            .Select(ToDomain).ToList(), ct);
+
+    public Task<IReadOnlyDictionary<Guid, long>> LedgerTotalsAsync(CancellationToken ct = default)
+        => db.RunAsync<IReadOnlyDictionary<Guid, long>>(c => c.Query<LedgerTotalRow>(
+                "SELECT ItemId, SUM(DeltaMilli) AS TotalMilli FROM StockMove GROUP BY ItemId")
+            .ToDictionary(r => r.ItemId, r => r.TotalMilli), ct);
+
+    private sealed class LedgerTotalRow
+    {
+        public Guid ItemId { get; set; }
+        public long TotalMilli { get; set; }
+    }
+
     private sealed class DailySalesRow
     {
         public Guid ItemId { get; set; }
         public int Day { get; set; }
         public long SoldMilli { get; set; }
     }
+}
+
+internal sealed class NoteRepository(AngadiDb db, IClock clock) : INoteRepository
+{
+    public Task<IReadOnlyList<Angadi.Domain.Notes.Note>> ListAsync(CancellationToken ct = default)
+        => db.RunAsync<IReadOnlyList<Angadi.Domain.Notes.Note>>(c => c.Query<NoteRow>(
+                "SELECT * FROM Note ORDER BY UpdatedAtMs DESC").Select(ToDomain).ToList(), ct);
+
+    public Task<Angadi.Domain.Notes.Note?> GetAsync(Guid id, CancellationToken ct = default)
+        => db.RunAsync(c => c.Find<NoteRow>(id) is { } r ? ToDomain(r) : null, ct);
+
+    public Task SaveAsync(Angadi.Domain.Notes.Note note, CancellationToken ct = default)
+    {
+        var now = clock.Now;
+        if (note.CreatedAt == default) note.CreatedAt = now;
+        note.UpdatedAt = now;
+        return db.RunAsync(c => c.InsertOrReplace(ToRow(note)), ct);
+    }
+
+    public Task DeleteAsync(Guid id, CancellationToken ct = default)
+        => db.RunAsync(c => c.Delete<NoteRow>(id), ct);
 }
 
 internal sealed class Outbox(AngadiDb db, IClock clock) : IOutbox

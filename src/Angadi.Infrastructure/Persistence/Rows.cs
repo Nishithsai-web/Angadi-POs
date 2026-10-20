@@ -150,3 +150,13 @@ internal sealed class MetaRow
     [PrimaryKey] public string Key { get; set; } = "";
     public string Value { get; set; } = "";
 }
+
+[Table("Note")]
+internal sealed class NoteRow
+{
+    [PrimaryKey] public Guid Id { get; set; }
+    public string Text { get; set; } = "";
+    public bool IsDone { get; set; }
+    public long CreatedAtMs { get; set; }
+    [Indexed] public long UpdatedAtMs { get; set; }
+}

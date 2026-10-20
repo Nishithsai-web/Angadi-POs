@@ -122,6 +122,17 @@ internal static class Mapping
         CreatedAt = At(r.CreatedAtMs), UpdatedAt = At(r.CreatedAtMs),
     };
 
+    // ---- Note
+    public static NoteRow ToRow(Angadi.Domain.Notes.Note n) => new()
+    {
+        Id = n.Id, Text = n.Text, IsDone = n.IsDone, CreatedAtMs = Ms(n.CreatedAt), UpdatedAtMs = Ms(n.UpdatedAt),
+    };
+
+    public static Angadi.Domain.Notes.Note ToDomain(NoteRow r) => new()
+    {
+        Id = r.Id, Text = r.Text, IsDone = r.IsDone, CreatedAt = At(r.CreatedAtMs), UpdatedAt = At(r.UpdatedAtMs),
+    };
+
     // ---- Shop
     public static ShopProfileRow ToRow(ShopProfile s) => new()
     {

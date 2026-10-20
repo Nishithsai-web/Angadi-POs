@@ -1,0 +1,30 @@
+# One-off, run by hand (Actions → vendor-fonts → Run workflow): downloads the OFL Noto fonts and commits them,
+# so a fresh clone builds in Visual Studio with no script to run. The sandbox that writes most of this repo
+# cannot reach font hosts; GitHub's runners can.
+name: vendor-fonts
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  vendor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download fonts
+        run: tools/fetch_fonts.sh
+      - name: Add the OFL licence next to the fonts
+        run: |
+          curl -fsSL --retry 3 -o /tmp/OFL.txt https://raw.githubusercontent.com/notofonts/telugu/main/OFL.txt \
+            || curl -fsSL --retry 3 -o /tmp/OFL.txt https://raw.githubusercontent.com/notofonts/latin-greek-cyrillic/main/OFL.txt
+          for d in src/Angadi.Maui/Resources/Fonts src/Angadi.Maui/Resources/Raw/fonts tests/Angadi.Tests/Fonts; do cp /tmp/OFL.txt "$d/OFL.txt"; done
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/Angadi.Maui/Resources/Fonts src/Angadi.Maui/Resources/Raw/fonts tests/Angadi.Tests/Fonts
+          git diff --cached --quiet && { echo "fonts already committed"; exit 0; }
+          git commit -m "Vendor Noto Sans Telugu + Noto Sans fonts (OFL 1.1)
+
+          Why: a fresh clone must build and run in Visual Studio without a download script."
+          git push

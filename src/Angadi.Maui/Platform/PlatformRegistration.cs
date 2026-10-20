@@ -75,6 +75,20 @@ internal sealed class ReceiptShare(ILogger<ReceiptShare> log) : IReceiptShare
         }
     }
 
+    public async Task<Result> ShareTextAsync(string text, string title, CancellationToken ct = default)
+    {
+        try
+        {
+            await MainThread.InvokeOnMainThreadAsync(() => Share.Default.RequestAsync(new ShareTextRequest { Text = text, Title = title }));
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            log.LogError(ex, "Text share failed");
+            return Result.Failure(ErrorCodes.ShareFailed, ex.GetType().Name);
+        }
+    }
+
     public async Task<Result> OpenWhatsAppAsync(string phoneE164, string message, CancellationToken ct = default)
     {
         try

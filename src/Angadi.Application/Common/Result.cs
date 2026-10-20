@@ -81,6 +81,10 @@ public static class ErrorCodes
     public const string BackupFailed = "BACKUP_FAILED";
     public const string RestoreInvalidFile = "RESTORE_INVALID_FILE";
     public const string LogExportFailed = "LOG_EXPORT_FAILED";
+    public const string NoteTextRequired = "NOTE_TEXT_REQUIRED";
+    public const string NoteTooLong = "NOTE_TOO_LONG";
+    public const string NoteNotFound = "NOTE_NOT_FOUND";
+    public const string FeedbackTextRequired = "FEEDBACK_TEXT_REQUIRED";
     public const string ItemNotFound = "ITEM_NOT_FOUND";
     public const string CustomerNotFound = "CUSTOMER_NOT_FOUND";
     public const string DuesExceedsBalance = "DUES_EXCEEDS_BALANCE";

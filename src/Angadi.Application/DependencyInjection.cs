@@ -2,6 +2,8 @@ using Angadi.Application.Billing;
 using Angadi.Application.Catalog;
 using Angadi.Application.Common;
 using Angadi.Application.Insights;
+using Angadi.Application.Inventory;
+using Angadi.Application.Notes;
 using Angadi.Application.Platform;
 using Angadi.Application.Reports;
 using Angadi.Application.Voice;
@@ -9,6 +11,7 @@ using Angadi.Domain.Billing;
 using Angadi.Domain.Customers;
 using Angadi.Domain.Inventory;
 using Angadi.Domain.Items;
+using Angadi.Domain.Notes;
 using Angadi.Domain.Shop;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -78,6 +81,21 @@ public static class DependencyInjection
         services.AddTransient<IRequestHandler<ExportBackupCommand, Result<string>>>(sp => sp.GetRequiredService<ShopHandlers>());
         services.AddTransient<IRequestHandler<RestoreBackupCommand, Result>>(sp => sp.GetRequiredService<ShopHandlers>());
         services.AddTransient<IRequestHandler<ExportLogsCommand, Result<string>>, ExportLogsHandler>();
+
+        // Notes & feedback
+        services.AddSingleton<IValidator<SaveNoteCommand>, SaveNoteValidator>();
+        services.AddSingleton<IValidator<SendFeedbackCommand>, SendFeedbackValidator>();
+        services.AddTransient<NotesHandlers>();
+        services.AddTransient<IRequestHandler<SaveNoteCommand, Result<Guid>>>(sp => sp.GetRequiredService<NotesHandlers>());
+        services.AddTransient<IRequestHandler<SetNoteDoneCommand, Result>>(sp => sp.GetRequiredService<NotesHandlers>());
+        services.AddTransient<IRequestHandler<DeleteNoteCommand, Result>>(sp => sp.GetRequiredService<NotesHandlers>());
+        services.AddTransient<IRequestHandler<ListNotesQuery, IReadOnlyList<Note>>>(sp => sp.GetRequiredService<NotesHandlers>());
+        services.AddTransient<IRequestHandler<SendFeedbackCommand, Result>, SendFeedbackHandler>();
+
+        // Inventory
+        services.AddTransient<InventoryHandlers>();
+        services.AddTransient<IRequestHandler<GetInventoryReportQuery, InventoryReport>>(sp => sp.GetRequiredService<InventoryHandlers>());
+        services.AddTransient<IRequestHandler<GetStockMovesQuery, IReadOnlyList<StockMoveLine>>>(sp => sp.GetRequiredService<InventoryHandlers>());
 
         // Reports
         services.AddTransient<ReportHandlers>();

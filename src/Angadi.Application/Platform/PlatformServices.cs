@@ -33,6 +33,8 @@ public interface IReceiptShare
     Task<Result> ShareFileAsync(string filePath, string title, CancellationToken ct = default);
     /// <summary>Opens wa.me/&lt;phone&gt;?text=… (FR-19 receipt note, FR-23 dues reminder).</summary>
     Task<Result> OpenWhatsAppAsync(string phoneE164, string message, CancellationToken ct = default);
+    /// <summary>OS share sheet with plain text (feedback when no support number is configured).</summary>
+    Task<Result> ShareTextAsync(string text, string title, CancellationToken ct = default);
 }
 
 /// <summary>Google Play Billing (Agent D). FR-34/35.</summary>

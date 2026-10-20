@@ -66,6 +66,19 @@ public interface IStockLedger
     Task<IReadOnlyList<StockMove>> GetHistoryAsync(Guid itemId, CancellationToken ct = default);   // FR-26
     /// <summary>Σ sold qty per item per day, for insights (FR-31/32).</summary>
     Task<IReadOnlyList<DailySales>> GetDailySalesAsync(DateOnly from, DateOnly to, CancellationToken ct = default);
+    /// <summary>Every move in the date range, newest first (inventory movement report).</summary>
+    Task<IReadOnlyList<StockMove>> ListMovesAsync(DateOnly from, DateOnly to, CancellationToken ct = default);
+    /// <summary>Σ Delta per item over the whole ledger — the source of truth Item.Stock must equal.</summary>
+    Task<IReadOnlyDictionary<Guid, long>> LedgerTotalsAsync(CancellationToken ct = default);
+}
+
+/// <summary>Shop notes (on-device).</summary>
+public interface INoteRepository
+{
+    Task<IReadOnlyList<Angadi.Domain.Notes.Note>> ListAsync(CancellationToken ct = default);
+    Task<Angadi.Domain.Notes.Note?> GetAsync(Guid id, CancellationToken ct = default);
+    Task SaveAsync(Angadi.Domain.Notes.Note note, CancellationToken ct = default);
+    Task DeleteAsync(Guid id, CancellationToken ct = default);
 }
 
 public sealed record DailySales(Guid ItemId, DateOnly Day, Qty Sold);
