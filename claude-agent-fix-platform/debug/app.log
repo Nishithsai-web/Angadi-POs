@@ -1,0 +1,14 @@
+2026-10-20 23:46:16.246 +00:00 [INF] Angadi.Requests f01b59b6 GetShopProfileQuery ok in 97 ms
+2026-10-20 23:46:16.735 +00:00 [INF] Angadi.Requests c7b29518 GetDataRecoveryQuery ok in 2 ms
+2026-10-20 23:46:16.833 +00:00 [INF] Angadi.Requests 4b9d9429 GetShopProfileQuery ok in 365 ms
+2026-10-20 23:46:16.911 +00:00 [INF] Angadi.Infrastructure.Persistence.DataSafety 86838cbc Safety copy saved (151552 bytes)
+2026-10-20 23:46:16.912 +00:00 [INF] Angadi.Requests 86838cbc TakeSafetySnapshotCommand ok in 106 ms
+2026-10-20 23:46:18.067 +00:00 [INF] Angadi.Requests 2bdd1c33 GetShopProfileQuery ok in 1331 ms
+2026-10-20 23:46:18.414 +00:00 [INF] Angadi.Requests 4e31978e GetBillDraftQuery ok in 335 ms
+2026-10-20 23:46:18.729 +00:00 [INF] Angadi.Requests a109a625 SaveBillDraftCommand ok in 270 ms
+2026-10-20 23:46:18.834 +00:00 [INF] Angadi.Requests 88fcef23 GetQuickSaleItemsQuery ok in 367 ms
+2026-10-20 23:46:18.883 +00:00 [INF] Angadi.Requests e2cd65c9 GetBillQuotaQuery ok in 45 ms
+2026-10-20 23:46:18.934 +00:00 [INF] Angadi.Requests 61298dcc GetDueRemindersQuery ok in 47 ms
+2026-10-20 23:46:18.974 +00:00 [INF] Angadi.Requests ff3e1553 GetBackupStatusQuery ok in 36 ms
+2026-10-20 23:46:29.376 +00:00 [INF] Angadi.Requests c25f13ed GetShopProfileQuery ok in 1 ms
+2026-10-20 23:46:29.400 +00:00 [INF] Angadi.Requests ea1aa5a1 GetShopProfileQuery ok in 0 ms
