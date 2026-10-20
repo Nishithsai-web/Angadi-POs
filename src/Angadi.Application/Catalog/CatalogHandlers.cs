@@ -38,6 +38,8 @@ internal sealed class SaveCustomerValidator : IValidator<SaveCustomerCommand>
         if (string.IsNullOrWhiteSpace(c.Customer.Name)) return new Error(ErrorCodes.ValidationFailed, "customer needs a name");
         if (!string.IsNullOrWhiteSpace(c.Customer.Phone) && PhoneNumbers.Normalize(c.Customer.Phone) is null)
             return new Error(ErrorCodes.PhoneInvalid);
+        if ((c.Customer.Notes?.Trim().Length ?? 0) > Angadi.Domain.Notes.Note.MaxLength || (c.Customer.Address?.Trim().Length ?? 0) > 300)
+            return new Error(ErrorCodes.NoteTooLong);
         return null;
     }
 }

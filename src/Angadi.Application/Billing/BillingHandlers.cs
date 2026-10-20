@@ -108,11 +108,10 @@ internal sealed class FinalizeBillHandler(
                         IndianFormat.Rupees(new Paise(bill.GrandTotal.Value - bill.CashReceived.Value))));
                 if (bill.CashReceived.Value == 0) bill.CashReceived = bill.GrandTotal;   // exact cash, nothing typed
                 break;
-            case TenderType.Udhaar:
-                if (await customers.GetAsync(bill.CustomerId!.Value, ct) is null)
-                    return Result.Failure<FinalizedBill>(ErrorCodes.CustomerNotFound);
-                break;
         }
+        // Any tender may carry a customer (account history); it must exist. Udhaar requires one (validator).
+        if (bill.CustomerId is { } attached && await customers.GetAsync(attached, ct) is null)
+            return Result.Failure<FinalizedBill>(ErrorCodes.CustomerNotFound);
 
         try
         {
@@ -237,7 +236,7 @@ internal sealed class RecordDuesPaymentHandler(ICustomerRepository customers, IO
 
 /// <summary>FR-23. Prefilled Telugu WhatsApp message via wa.me (ADR-4). No transaction.</summary>
 internal sealed class SendDuesReminderHandler(
-    ICustomerRepository customers, IShopProfileRepository shop, IReceiptShare share, ILocalizer text)
+    ICustomerRepository customers, IShopProfileRepository shop, IReceiptShare share, ILocalizer text, IClock clock)
     : IRequestHandler<SendDuesReminderCommand, Result>
 {
     public async Task<Result> Handle(SendDuesReminderCommand command, CancellationToken ct)
@@ -249,7 +248,17 @@ internal sealed class SendDuesReminderHandler(
 
         var profile = await shop.GetAsync(ct);
         var message = text.Format("customers.remind.message", customer.Name, profile?.Name ?? "", IndianFormat.Rupees(customer.DuesBalance));
-        return await share.OpenWhatsAppAsync(customer.Phone, message, ct);
+        if (customer.PromisedPayDate is { } promised)
+            message += " " + text.Format("customers.remind.promised", promised.ToString("dd MMM", System.Globalization.CultureInfo.InvariantCulture));
+
+        var sent = command.Channel == ReminderChannel.Sms
+            ? await share.OpenSmsAsync(customer.Phone, message, ct)
+            : await share.OpenWhatsAppAsync(customer.Phone, message, ct);
+        if (sent.IsFailure) return sent;
+
+        customer.LastRemindedAt = clock.Now;   // keeps them off "Due for reminder" for a few days
+        await customers.SaveAsync(customer, ct);
+        return sent;
     }
 }
 

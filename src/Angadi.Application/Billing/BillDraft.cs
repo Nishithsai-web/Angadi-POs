@@ -123,8 +123,16 @@ public sealed class BillDraft
     {
         Bill.UpiRef = tender == TenderType.Upi && !string.IsNullOrWhiteSpace(upiRef) ? upiRef.Trim() : null;
         Bill.Tender = tender;
-        Bill.CustomerId = tender == TenderType.Udhaar ? customerId : null;
+        // A customer can be attached to any bill (account history); udhaar requires one.
+        if (customerId is not null) Bill.CustomerId = customerId;
         Bill.CashReceived = tender == TenderType.Cash ? cashReceived ?? Paise.Zero : Paise.Zero;
+        Changed?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>Attach (or with null, detach) the customer whose account this bill belongs to.</summary>
+    public void SetCustomer(Guid? customerId)
+    {
+        Bill.CustomerId = customerId;
         Changed?.Invoke(this, EventArgs.Empty);
     }
 

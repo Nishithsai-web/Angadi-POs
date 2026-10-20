@@ -92,6 +92,10 @@ internal sealed class BillRepository(AngadiDb db, IClock clock) : IBillRepositor
         => db.RunAsync<IReadOnlyList<Bill>>(c => Load(c,
             c.Query<BillRow>("SELECT * FROM Bill WHERE Day >= ? AND Day <= ? AND Status <> 0 ORDER BY FinalizedAtMs DESC", Day(from), Day(to))), ct);
 
+    public Task<IReadOnlyList<Bill>> ListByCustomerAsync(Guid customerId, int limit, CancellationToken ct = default)
+        => db.RunAsync<IReadOnlyList<Bill>>(c => Load(c,
+            c.Query<BillRow>("SELECT * FROM Bill WHERE CustomerId = ? AND Status <> 0 ORDER BY FinalizedAtMs DESC LIMIT ?", customerId, limit)), ct);
+
     private static List<Bill> Load(SQLite.SQLiteConnection c, List<BillRow> rows)
     {
         if (rows.Count == 0) return [];

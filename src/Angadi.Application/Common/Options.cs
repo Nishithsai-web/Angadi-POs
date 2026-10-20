@@ -37,3 +37,12 @@ public sealed class SupportOptions
     /// <summary>Support WhatsApp number (10-digit Indian mobile). Empty → feedback opens the share sheet.</summary>
     public string WhatsAppNumber { get; set; } = "";
 }
+
+/// <summary>Bound from appsettings.json "Dues". When an udhaar/appu customer shows up in "Due for reminder".</summary>
+public sealed class DuesOptions
+{
+    /// <summary>With no promised date: remind once the oldest unpaid udhaar is this many days old.</summary>
+    public int RemindAfterDays { get; set; } = 7;
+    /// <summary>Don't list a customer again within this many days of the last reminder.</summary>
+    public int RemindAgainAfterDays { get; set; } = 3;
+}

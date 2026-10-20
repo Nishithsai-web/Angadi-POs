@@ -86,6 +86,10 @@ internal sealed class CustomerRow
     public long DuesBalancePaise { get; set; }
     public long CreatedAtMs { get; set; }
     public long UpdatedAtMs { get; set; }
+    public string? Address { get; set; }
+    public string? Notes { get; set; }
+    public int? PromisedPayDay { get; set; }       // yyyymmdd
+    public long? LastRemindedAtMs { get; set; }
 }
 
 [Table("DuesEntry")]

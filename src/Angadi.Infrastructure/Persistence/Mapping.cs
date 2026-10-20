@@ -96,12 +96,18 @@ internal static class Mapping
     {
         Id = c.Id, Name = c.Name.Trim(), Phone = NullIfBlank(c.Phone), DuesBalancePaise = c.DuesBalance.Value,
         CreatedAtMs = Ms(c.CreatedAt), UpdatedAtMs = Ms(c.UpdatedAt),
+        Address = NullIfBlank(c.Address), Notes = NullIfBlank(c.Notes),
+        PromisedPayDay = c.PromisedPayDate is { } d ? Day(d) : null,
+        LastRemindedAtMs = c.LastRemindedAt is { } t ? Ms(t) : null,
     };
 
     public static Customer ToDomain(CustomerRow r) => new()
     {
         Id = r.Id, Name = r.Name, Phone = r.Phone, DuesBalance = new Paise(r.DuesBalancePaise),
         CreatedAt = At(r.CreatedAtMs), UpdatedAt = At(r.UpdatedAtMs),
+        Address = r.Address, Notes = r.Notes,
+        PromisedPayDate = r.PromisedPayDay is { } d ? FromDay(d) : null,
+        LastRemindedAt = r.LastRemindedAtMs is { } t ? At(t) : null,
     };
 
     public static DuesEntryRow ToRow(DuesEntry e) => new()

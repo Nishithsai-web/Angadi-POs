@@ -136,6 +136,9 @@ public sealed class PosPage : PageBase
         total.SetBinding(Label.TextProperty, nameof(PosViewModel.Total));
         var quota = Ui.Caption();
         quota.SetBinding(Label.TextProperty, nameof(PosViewModel.QuotaText));
+        var customer = Ui.Secondary("");
+        customer.SetBinding(Button.TextProperty, nameof(PosViewModel.CustomerLabel));
+        customer.SetBinding(Button.CommandProperty, nameof(PosViewModel.AttachCustomerCommand));
 
         var tools = new Grid { ColumnDefinitions = { new(GridLength.Star), new(GridLength.Star) }, ColumnSpacing = 8 };
         var discount = Ui.Secondary(vm.Text["pos.discount.bill"]);
@@ -157,15 +160,16 @@ public sealed class PosPage : PageBase
         var grid = new Grid
         {
             RowSpacing = 8,
-            RowDefinitions = { new(GridLength.Star), new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Auto) },
+            RowDefinitions = { new(GridLength.Auto), new(GridLength.Star), new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Auto) },
         };
-        grid.Add(lines, 0, 0);
-        grid.Add(totals, 0, 1);
-        grid.Add(total, 0, 2);
-        grid.Add(quota, 0, 3);
-        grid.Add(tools, 0, 4);
-        grid.Add(busy, 0, 5);
-        grid.Add(tender, 0, 6);
+        grid.Add(customer, 0, 0);
+        grid.Add(lines, 0, 1);
+        grid.Add(totals, 0, 2);
+        grid.Add(total, 0, 3);
+        grid.Add(quota, 0, 4);
+        grid.Add(tools, 0, 5);
+        grid.Add(busy, 0, 6);
+        grid.Add(tender, 0, 7);
         return Ui.Card(grid);
     }
 

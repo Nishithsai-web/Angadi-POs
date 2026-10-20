@@ -30,6 +30,11 @@
       <action android:name="android.intent.action.SEND" />
       <data android:mimeType="*/*" />
     </intent>
+    <!-- SMS app (dues reminders for customers without WhatsApp). -->
+    <intent>
+      <action android:name="android.intent.action.SENDTO" />
+      <data android:scheme="smsto" />
+    </intent>
     <!-- UPI apps (upi://pay intent links). -->
     <intent>
       <action android:name="android.intent.action.VIEW" />

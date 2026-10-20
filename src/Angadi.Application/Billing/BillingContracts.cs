@@ -25,7 +25,9 @@ public sealed record ShareReceiptCommand(Guid BillId) : ICommand<Result>, INoTra
 public sealed record RecordDuesPaymentCommand(Guid CustomerId, Paise Amount, string? Note, string? UpiRef = null) : ICommand<Result>;
 
 /// <summary>FR-23. Builds the Telugu reminder text and opens wa.me.</summary>
-public sealed record SendDuesReminderCommand(Guid CustomerId) : ICommand<Result>, INoTransaction;
+public sealed record SendDuesReminderCommand(Guid CustomerId, ReminderChannel Channel = ReminderChannel.WhatsApp) : ICommand<Result>, INoTransaction;
+/// <summary>How a dues reminder reaches the customer's phone: WhatsApp, or SMS for customers without it.</summary>
+public enum ReminderChannel { WhatsApp = 0, Sms = 1 }
 
 /// <summary>FR-24. Purchase, damage, count correction.</summary>
 public sealed record AdjustStockCommand(Guid ItemId, Qty Delta, StockMoveReason Reason, string? Note) : ICommand<Result>;

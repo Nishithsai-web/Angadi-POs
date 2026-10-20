@@ -40,14 +40,18 @@ public class BillDraftTests
     {
         var d = new BillDraft(false);
         d.Add(Rice());
-        d.SetTender(TenderType.Upi, Guid.NewGuid(), Paise.FromRupees(100), " 123456 ");
-        Assert.Null(d.Bill.CustomerId);
+        var customer = Guid.NewGuid();
+        d.SetTender(TenderType.Upi, customer, Paise.FromRupees(100), " 123456 ");
+        Assert.Equal(customer, d.Bill.CustomerId);   // any bill may belong to a customer's account
         Assert.Equal(0, d.Bill.CashReceived.Value);
         Assert.Equal("123456", d.Bill.UpiRef);
         Assert.Equal(0, d.ChangeDue.Value);   // B1: change is cash-only
 
         d.SetTender(TenderType.Cash, cashReceived: Paise.FromRupees(100));
         Assert.Null(d.Bill.UpiRef);
+        Assert.Equal(customer, d.Bill.CustomerId);   // switching tender keeps the attached customer
+        d.SetCustomer(null);
+        Assert.Null(d.Bill.CustomerId);
         Assert.Equal(4000, d.ChangeDue.Value);
     }
 

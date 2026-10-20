@@ -57,6 +57,9 @@ public sealed partial class PosViewModel : ViewModelBase
     [ObservableProperty] private string _total = IndianFormat.Rupees(Paise.Zero);
     [ObservableProperty] private string _emptyText = "";
     [ObservableProperty] private string _quotaText = "";
+    /// <summary>The customer whose account this bill goes to (any tender); "+ Customer" when none.</summary>
+    [ObservableProperty] private string _customerLabel = "";
+    private Customer? _customer;
 
     public override async Task OnAppearingAsync()
     {
@@ -66,6 +69,7 @@ public sealed partial class PosViewModel : ViewModelBase
             _draft = new BillDraft(shopHasGstin: !string.IsNullOrWhiteSpace(_shop?.Gstin));
             _draft.Changed += (_, _) => Refresh();
         }
+        SetCustomer(_customer);   // label text, and keeps an attached customer on a fresh draft
         QuickSale.Clear();
         foreach (var i in await Sender.Send(new GetQuickSaleItemsQuery())) QuickSale.Add(Tile(i));
         var quota = await Sender.Send(new GetBillQuotaQuery());
@@ -205,6 +209,7 @@ public sealed partial class PosViewModel : ViewModelBase
     {
         if (!_draft.IsEmpty && !await Dialogs.ConfirmAsync(Text["pos.newbill"], Text["pos.newbill.confirm"], Text["common.yes"], Text["common.no"])) return;
         _draft.Clear();
+        SetCustomer(null);
     }
 
     [RelayCommand]
@@ -238,20 +243,42 @@ public sealed partial class PosViewModel : ViewModelBase
     private async Task PayUdhaar()
     {
         if (_draft.IsEmpty) return;
-        var customer = await PickCustomerAsync();
+        var customer = _customer ?? await PickCustomerAsync();
         if (customer is null) return;
+        SetCustomer(customer);
         _draft.SetTender(TenderType.Udhaar, customer.Id);
         await FinalizeAsync();
     }
 
+    /// <summary>"+ Customer" on the bill: attach a customer so the bill shows in their account; tap again to remove.</summary>
+    [RelayCommand]
+    private async Task AttachCustomer()
+    {
+        if (_customer is not null)
+        {
+            if (await Dialogs.ConfirmAsync(_customer.Name, Text["pos.customer.remove"], Text["common.yes"], Text["common.no"])) SetCustomer(null);
+            return;
+        }
+        SetCustomer(await PickCustomerAsync());
+    }
+
+    private void SetCustomer(Customer? customer)
+    {
+        _customer = customer;
+        _draft.SetCustomer(customer?.Id);
+        CustomerLabel = customer is null ? Text["pos.customer.add"]
+            : customer.DuesBalance.Value > 0 ? $"{customer.Name} · {IndianFormat.Rupees(customer.DuesBalance)}"
+            : customer.Name;
+    }
+
     private async Task<Customer?> PickCustomerAsync()
     {
-        var search = await Dialogs.PromptAsync(Text["tender.udhaar"], Text["customers.name"], Text["common.ok"], Text["common.cancel"]);
+        var search = await Dialogs.PromptAsync(Text["nav.customers"], Text["customers.search"], Text["common.ok"], Text["common.cancel"]);
         if (search is null) return null;
         var found = await Sender.Send(new SearchCustomersQuery(search));
         var newOne = Text["customers.add"];
         var labels = found.Select(c => $"{c.Name} · {IndianFormat.Rupees(c.DuesBalance)}").ToList();
-        var pick = await Dialogs.ChooseAsync(Text["tender.udhaar"], Text["common.cancel"], [.. labels, newOne]);
+        var pick = await Dialogs.ChooseAsync(Text["nav.customers"], Text["common.cancel"], [.. labels, newOne]);
         if (pick is null) return null;
         if (pick != newOne) return found[labels.IndexOf(pick)];
 
@@ -275,6 +302,7 @@ public sealed partial class PosViewModel : ViewModelBase
             var done = result.Value;
             _draft = new BillDraft(shopHasGstin: !string.IsNullOrWhiteSpace(_shop?.Gstin));
             _draft.Changed += (_, _) => Refresh();
+            SetCustomer(null);
             Refresh();
             await Nav.GoToAsync(Routes.Receipt, new Dictionary<string, object>
             {

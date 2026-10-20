@@ -1,6 +1,7 @@
 using Angadi.Application.Billing;
 using Angadi.Application.Catalog;
 using Angadi.Application.Common;
+using Angadi.Application.Customers;
 using Angadi.Application.Insights;
 using Angadi.Application.Inventory;
 using Angadi.Application.Notes;
@@ -91,6 +92,13 @@ public static class DependencyInjection
         services.AddTransient<IRequestHandler<DeleteNoteCommand, Result>>(sp => sp.GetRequiredService<NotesHandlers>());
         services.AddTransient<IRequestHandler<ListNotesQuery, IReadOnlyList<Note>>>(sp => sp.GetRequiredService<NotesHandlers>());
         services.AddTransient<IRequestHandler<SendFeedbackCommand, Result>, SendFeedbackHandler>();
+
+        // Customer accounts
+        services.AddTransient<CustomerAccountHandlers>();
+        services.AddTransient<IRequestHandler<GetCustomerBillsQuery, IReadOnlyList<BillSummary>>>(sp => sp.GetRequiredService<CustomerAccountHandlers>());
+        services.AddTransient<IRequestHandler<GetCustomerReportQuery, CustomerReport?>>(sp => sp.GetRequiredService<CustomerAccountHandlers>());
+        services.AddTransient<IRequestHandler<SetPromisedPayDateCommand, Result>>(sp => sp.GetRequiredService<CustomerAccountHandlers>());
+        services.AddTransient<IRequestHandler<GetDueRemindersQuery, IReadOnlyList<DueReminder>>>(sp => sp.GetRequiredService<CustomerAccountHandlers>());
 
         // Inventory
         services.AddTransient<InventoryHandlers>();

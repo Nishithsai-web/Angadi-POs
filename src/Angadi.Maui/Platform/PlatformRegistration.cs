@@ -75,6 +75,21 @@ internal sealed class ReceiptShare(ILogger<ReceiptShare> log) : IReceiptShare
         }
     }
 
+    public async Task<Result> OpenSmsAsync(string phoneE164, string message, CancellationToken ct = default)
+    {
+        try
+        {
+            if (!Sms.Default.IsComposeSupported) return Result.Failure(ErrorCodes.ShareFailed, "no sms");
+            await MainThread.InvokeOnMainThreadAsync(() => Sms.Default.ComposeAsync(new SmsMessage(message, ["+" + phoneE164])));
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            log.LogError(ex, "SMS compose failed");
+            return Result.Failure(ErrorCodes.ShareFailed, ex.GetType().Name);
+        }
+    }
+
     public async Task<Result> ShareTextAsync(string text, string title, CancellationToken ct = default)
     {
         try
