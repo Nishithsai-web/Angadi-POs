@@ -4,8 +4,11 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
-    <!-- Flip to true after the first green build (Agent E, Day 2). -->
-    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <!-- FIX(LOCAL-1, 2026-10-20, FIX-5): Flaw: this stayed false with the note "Flip to true after the
+         first green build" — that condition was met on 2026-10-19 and never acted on, so local Visual
+         Studio builds (the owner's maintenance path) compiled with warnings CI would reject.
+         Fix: default is now true on every machine, matching CI. Logged in docs/AGENT_FIX_LOG.md. -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <Company>Angadi</Company>
     <Product>Angadi POS</Product>
   </PropertyGroup>
