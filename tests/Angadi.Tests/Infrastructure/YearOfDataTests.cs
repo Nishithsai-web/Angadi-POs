@@ -51,6 +51,7 @@ public sealed class YearOfDataTests(ITestOutputHelper output) : IDisposable
     private readonly AppHost _h = new();
     private readonly List<string> _rows = [];
     private readonly List<string> _over = [];
+    private readonly List<string> _compact = [];   // TEMP (D2 measurement): CI annotations keep only 400 chars
 
     public void Dispose() => _h.Dispose();
 
@@ -84,43 +85,43 @@ public sealed class YearOfDataTests(ITestOutputHelper output) : IDisposable
         Log($"{"Operation",-40} {"first ms",9} {"median ms",10} {"budget ms",10}");
 
         // ---- Counter: the shopkeeper is standing there with a customer
-        await TimeAsync("Search Telugu prefix (బియ్యం)", CounterBudgetMs, () => s.Send(new SearchItemsQuery("బియ్యం")), r => Assert.NotEmpty(r));
-        await TimeAsync("Search Telugu middle (గోల్డ్)", CounterBudgetMs, () => s.Send(new SearchItemsQuery("గోల్డ్")), r => Assert.NotEmpty(r));
-        await TimeAsync("Search English prefix (Rice)", CounterBudgetMs, () => s.Send(new SearchItemsQuery("Rice")), r => Assert.NotEmpty(r));
-        await TimeAsync("Search English middle (dal 29)", CounterBudgetMs, () => s.Send(new SearchItemsQuery("dal 29")), r => Assert.NotEmpty(r));
-        await TimeAsync("Search no match (xyzq)", CounterBudgetMs, () => s.Send(new SearchItemsQuery("xyzq")), r => Assert.Empty(r));
-        await TimeAsync("Barcode lookup", CounterBudgetMs, () => s.Send(new GetItemByBarcodeQuery(data.SomeBarcode)), r => Assert.NotNull(r));
-        await TimeAsync("Customer search (name)", CounterBudgetMs, () => s.Send(new SearchCustomersQuery("కస్టమర్ 12")), r => Assert.NotEmpty(r));
-        await TimeAsync("Bill quota (free-bills meter)", CounterBudgetMs, () => s.Send(new GetBillQuotaQuery()), _ => { });
+        await TimeAsync("Search Telugu prefix (బియ్యం)", "tp", CounterBudgetMs, () => s.Send(new SearchItemsQuery("బియ్యం")), r => Assert.NotEmpty(r));
+        await TimeAsync("Search Telugu middle (గోల్డ్)", "tm", CounterBudgetMs, () => s.Send(new SearchItemsQuery("గోల్డ్")), r => Assert.NotEmpty(r));
+        await TimeAsync("Search English prefix (Rice)", "ep", CounterBudgetMs, () => s.Send(new SearchItemsQuery("Rice")), r => Assert.NotEmpty(r));
+        await TimeAsync("Search English middle (dal 29)", "em", CounterBudgetMs, () => s.Send(new SearchItemsQuery("dal 29")), r => Assert.NotEmpty(r));
+        await TimeAsync("Search no match (xyzq)", "nm", CounterBudgetMs, () => s.Send(new SearchItemsQuery("xyzq")), r => Assert.Empty(r));
+        await TimeAsync("Barcode lookup", "bc", CounterBudgetMs, () => s.Send(new GetItemByBarcodeQuery(data.SomeBarcode)), r => Assert.NotNull(r));
+        await TimeAsync("Customer search (name)", "cs", CounterBudgetMs, () => s.Send(new SearchCustomersQuery("కస్టమర్ 12")), r => Assert.NotEmpty(r));
+        await TimeAsync("Bill quota (free-bills meter)", "qt", CounterBudgetMs, () => s.Send(new GetBillQuotaQuery()), _ => { });
         var sale = 0;
-        await TimeAsync("Finalize one bill (4 lines, cash)", CounterBudgetMs, async () =>
+        await TimeAsync("Finalize one bill (4 lines, cash)", "fin", CounterBudgetMs, async () =>
         {
             var lines = Enumerable.Range(0, 4).Select(k => (data.Items[(sale * 7 + k * 13) % data.Items.Count], 1000L)).ToArray();
             sale++;
             return await s.Send(new FinalizeBillCommand(AppHost.Draft(TenderType.Cash, lines)));
         }, r => Assert.True(r.IsSuccess, r.IsSuccess ? "" : r.Error.Code));
-        await TimeAsync("Dues reminders (counter banner)", CounterBudgetMs, () => s.Send(new GetDueRemindersQuery()), r => Assert.NotEmpty(r));
+        await TimeAsync("Dues reminders (counter banner)", "due", CounterBudgetMs, () => s.Send(new GetDueRemindersQuery()), r => Assert.NotEmpty(r));
 
         // ---- Reports and accounts
-        await TimeAsync("Day-end report (yesterday)", ReportBudgetMs, () => s.Send(new GetDayEndReportQuery(yesterday)),
+        await TimeAsync("Day-end report (yesterday)", "de", ReportBudgetMs, () => s.Send(new GetDayEndReportQuery(yesterday)),
             r => Assert.True(r.BillCount >= BillsPerDay - 5, "day-end bill count " + r.BillCount));
-        await TimeAsync("GST summary (whole last month)", ReportBudgetMs, () => s.Send(new GetGstSummaryQuery(lastMonthStart, lastMonthEnd)), r => Assert.NotEmpty(r));
-        await TimeAsync("Top items (7 days)", ReportBudgetMs, () => s.Send(new GetTopItemsQuery(today.AddDays(-6), today, 5)), r => Assert.NotEmpty(r));
-        await TimeAsync("Bill list (one day)", ReportBudgetMs, () => s.Send(new ListBillsQuery(yesterday, yesterday)), r => Assert.NotEmpty(r));
-        await TimeAsync("Inventory report (ledger totals)", ReportBudgetMs, () => s.Send(new GetInventoryReportQuery()), r =>
+        await TimeAsync("GST summary (whole last month)", "gst", ReportBudgetMs, () => s.Send(new GetGstSummaryQuery(lastMonthStart, lastMonthEnd)), r => Assert.NotEmpty(r));
+        await TimeAsync("Top items (7 days)", "top", ReportBudgetMs, () => s.Send(new GetTopItemsQuery(today.AddDays(-6), today, 5)), r => Assert.NotEmpty(r));
+        await TimeAsync("Bill list (one day)", "bl", ReportBudgetMs, () => s.Send(new ListBillsQuery(yesterday, yesterday)), r => Assert.NotEmpty(r));
+        await TimeAsync("Inventory report (ledger totals)", "inv", ReportBudgetMs, () => s.Send(new GetInventoryReportQuery()), r =>
         {
             Assert.Equal(ItemCount, r.ItemCount);
             Assert.True(r.LedgerMatches, "ledger mismatch after the year build");
         });
-        await TimeAsync("Stock moves (one day)", ReportBudgetMs, () => s.Send(new GetStockMovesQuery(yesterday, yesterday)), r => Assert.NotEmpty(r));
-        await TimeAsync("Customer bills (busiest customer)", ReportBudgetMs, () => s.Send(new GetCustomerBillsQuery(data.BusiestCustomer)), r => Assert.NotEmpty(r));
-        await TimeAsync("Customer report (busiest customer)", ReportBudgetMs, () => s.Send(new GetCustomerReportQuery(data.BusiestCustomer)), r => Assert.NotNull(r));
-        await TimeAsync("Customer ledger (busiest customer)", ReportBudgetMs, () => s.Send(new GetCustomerLedgerQuery(data.BusiestCustomer)), r => Assert.NotEmpty(r));
-        await TimeAsync("Dues outstanding", ReportBudgetMs, () => s.Send(new GetDuesOutstandingQuery()), r => Assert.NotEmpty(r.Customers));
-        await TimeAsync("Insights: morning summary", ReportBudgetMs, () => insights.GetMorningSummaryAsync(), r => Assert.True(r.YesterdaySales.Value > 0));
-        await TimeAsync("Insights: reorder forecast", ReportBudgetMs, () => insights.GetReorderForecastAsync(), _ => { });
-        await TimeAsync("Insights: dead stock (30 days)", ReportBudgetMs, () => insights.GetDeadStockAsync(30), r => Assert.NotEmpty(r));
-        await TimeAsync("Reports screen (all 8 loads)", ReportsPageBudgetMs, async () =>
+        await TimeAsync("Stock moves (one day)", "mv", ReportBudgetMs, () => s.Send(new GetStockMovesQuery(yesterday, yesterday)), r => Assert.NotEmpty(r));
+        await TimeAsync("Customer bills (busiest customer)", "cb", ReportBudgetMs, () => s.Send(new GetCustomerBillsQuery(data.BusiestCustomer)), r => Assert.NotEmpty(r));
+        await TimeAsync("Customer report (busiest customer)", "cr", ReportBudgetMs, () => s.Send(new GetCustomerReportQuery(data.BusiestCustomer)), r => Assert.NotNull(r));
+        await TimeAsync("Customer ledger (busiest customer)", "cl", ReportBudgetMs, () => s.Send(new GetCustomerLedgerQuery(data.BusiestCustomer)), r => Assert.NotEmpty(r));
+        await TimeAsync("Dues outstanding", "do", ReportBudgetMs, () => s.Send(new GetDuesOutstandingQuery()), r => Assert.NotEmpty(r.Customers));
+        await TimeAsync("Insights: morning summary", "am", ReportBudgetMs, () => insights.GetMorningSummaryAsync(), r => Assert.True(r.YesterdaySales.Value > 0));
+        await TimeAsync("Insights: reorder forecast", "ro", ReportBudgetMs, () => insights.GetReorderForecastAsync(), _ => { });
+        await TimeAsync("Insights: dead stock (30 days)", "ds", ReportBudgetMs, () => insights.GetDeadStockAsync(30), r => Assert.NotEmpty(r));
+        await TimeAsync("Reports screen (all 8 loads)", "RP", ReportsPageBudgetMs, async () =>
         {
             var month = new DateOnly(yesterday.Year, yesterday.Month, 1);
             await s.Send(new GetDayEndReportQuery(yesterday));
@@ -134,9 +135,10 @@ public sealed class YearOfDataTests(ITestOutputHelper output) : IDisposable
         }, _ => { }, runs: 3);
 
         // ---- Background safety copy (app start / app to background): copies the whole file under the lock
-        await TimeAsync("Safety snapshot (full copy + check)", SnapshotBudgetMs, () => s.Send(new TakeSafetySnapshotCommand()),
+        await TimeAsync("Safety snapshot (full copy + check)", "SN", SnapshotBudgetMs, () => s.Send(new TakeSafetySnapshotCommand()),
             r => Assert.True(r.IsSuccess, r.IsSuccess ? "" : r.Error.Code), runs: 1);
 
+        Assert.Fail($"MB {bytes / 1e6:F1} B/bill {perBill} | " + string.Join("|", _compact));   // TEMP (D2 measurement)
         var table = string.Join(Environment.NewLine, _rows);
         Assert.True(_over.Count == 0, "Over budget: " + string.Join("; ", _over) + Environment.NewLine + table);
         Assert.True(perBill <= MaxBytesPerBill, $"{perBill} bytes per bill > {MaxBytesPerBill}" + Environment.NewLine + table);
@@ -144,7 +146,7 @@ public sealed class YearOfDataTests(ITestOutputHelper output) : IDisposable
 
     // ------------------------------------------------------------------ timing
 
-    private async Task TimeAsync<T>(string name, double budgetMs, Func<Task<T>> op, Action<T> check, int runs = 5)
+    private async Task TimeAsync<T>(string name, string code, double budgetMs, Func<Task<T>> op, Action<T> check, int runs = 5)
     {
         var sw = Stopwatch.StartNew();
         var first = await op();
@@ -160,6 +162,7 @@ public sealed class YearOfDataTests(ITestOutputHelper output) : IDisposable
         var warm = times.Count > 1 ? times.Skip(1).Order().ToList() : times;
         var median = warm[warm.Count / 2];
         Log(string.Create(CultureInfo.InvariantCulture, $"{name,-40} {firstMs,9:F1} {median,10:F1} {budgetMs,10:F0}{(median > budgetMs ? "  OVER" : "")}"));
+        _compact.Add(string.Create(CultureInfo.InvariantCulture, $"{code} {median:F1}"));
         if (median > budgetMs) _over.Add(string.Create(CultureInfo.InvariantCulture, $"{name} {median:F0} ms > {budgetMs:F0} ms"));
     }
 
