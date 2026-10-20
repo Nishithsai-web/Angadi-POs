@@ -77,7 +77,7 @@ public sealed class ItemsPage : ContentPage
                      || i.Aliases.Any(a => TeluguText.Normalize(a).Contains(q, StringComparison.Ordinal))
                      || (i.Barcode ?? "").StartsWith(q, StringComparison.Ordinal)))
         {
-            _rows.Add(new ItemListRow(i.Id, ItemMatcher.DisplayName(i),
+            _rows.Add(new ItemListRow(i.Id, _text.Name(i),
                 $"{i.EnglishName} · {IndianFormat.Rupees(i.Price)} / {_text.UnitLabel(i.Unit)} · GST {(int)i.GstSlab / 100}%",
                 $"{IndianFormat.Quantity(i.Stock)} {_text.UnitLabel(i.Unit)}",
                 i.IsLowStock ? Theme.Danger : Theme.TextSecondary));
@@ -190,7 +190,7 @@ public sealed class ItemEditPage : ContentPage, IQueryAttributable
         if (item is null) return;
         _item = item;
         _isNew = false;
-        Title = ItemMatcher.DisplayName(item);
+        Title = _text.Name(item);
         _te.Text = item.TeluguName;
         _en.Text = item.EnglishName;
         _aliases.Text = string.Join(", ", item.Aliases);

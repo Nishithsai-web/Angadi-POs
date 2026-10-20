@@ -116,7 +116,7 @@ public sealed class BillDetailPage : ContentPage, IQueryAttributable
         _body.Add(Ui.Title(bill.Number + (bill.Status == BillStatus.Void ? " · " + _text["receipt.void"] : "")));
         _body.Add(Ui.Caption($"{bill.FinalizedAt:dd MMM yyyy HH:mm} · {_text["bill." + (bill.IsTaxInvoice ? "taxinvoice" : "billofsupply")]}"));
         foreach (var l in bill.Lines)
-            _body.Add(Line($"{(string.IsNullOrWhiteSpace(l.TeluguName) ? l.EnglishName : l.TeluguName)}  {IndianFormat.Quantity(l.Qty)} {_text.UnitLabel(l.Unit)}", IndianFormat.Rupees(l.LineTotal)));
+            _body.Add(Line($"{_text.Name(l)}  {IndianFormat.Quantity(l.Qty)} {_text.UnitLabel(l.Unit)}", IndianFormat.Rupees(l.LineTotal)));
         _body.Add(new BoxView { HeightRequest = 1, Color = Theme.Border });
         _body.Add(Line(_text["bill.subtotal"], IndianFormat.Rupees(bill.SubTotal)));
         _body.Add(Line(_text["bill.discount"], IndianFormat.Rupees(BillCalculator.TotalDiscount(bill))));

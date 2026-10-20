@@ -152,3 +152,23 @@ public static class IndianFormat
         return value.ToString("0.###", CultureInfo.InvariantCulture);
     }
 }
+
+/// <summary>
+/// Item names follow the app language: English mode shows the English name, Telugu mode the Telugu one,
+/// each falling back to the other when it is blank. One rule for every screen, report and insight.
+/// </summary>
+public static class ItemNames
+{
+    public static string Pick(UiLanguage language, string? telugu, string? english)
+    {
+        var te = telugu?.Trim() ?? "";
+        var en = english?.Trim() ?? "";
+        return language == UiLanguage.English
+            ? (en.Length > 0 ? en : te)
+            : (te.Length > 0 ? te : en);
+    }
+
+    public static string Name(this ILocalizer text, Item item) => Pick(text.Language, item.TeluguName, item.EnglishName);
+
+    public static string Name(this ILocalizer text, Angadi.Domain.Billing.BillLine line) => Pick(text.Language, line.TeluguName, line.EnglishName);
+}

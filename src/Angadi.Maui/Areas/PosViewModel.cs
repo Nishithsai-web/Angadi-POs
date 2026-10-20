@@ -73,7 +73,7 @@ public sealed partial class PosViewModel : ViewModelBase
         Refresh();
     }
 
-    private ItemTile Tile(Item i) => new(i.Id, ItemMatcher.DisplayName(i), IndianFormat.Rupees(i.Price) + " / " + Text.UnitLabel(i.Unit), i);
+    private ItemTile Tile(Item i) => new(i.Id, Text.Name(i), IndianFormat.Rupees(i.Price) + " / " + Text.UnitLabel(i.Unit), i);
 
     partial void OnSearchTextChanged(string value) => _ = SearchAsync(value);
 
@@ -185,7 +185,7 @@ public sealed partial class PosViewModel : ViewModelBase
     {
         var line = _draft.Lines.FirstOrDefault(l => l.Id == lineId);
         if (line is null) return;
-        var value = await Dialogs.PromptAsync(line.TeluguName, Text["bill.qty"] + " (" + Text.UnitLabel(line.Unit) + ")",
+        var value = await Dialogs.PromptAsync(Text.Name(line), Text["bill.qty"] + " (" + Text.UnitLabel(line.Unit) + ")",
             Text["common.ok"], Text["common.cancel"], IndianFormat.Quantity(line.Qty), Keyboard.Numeric);
         if (value is not null && PosInput.TryParseQty(value, out var qty)) _draft.SetQty(lineId, qty);
     }
@@ -288,7 +288,7 @@ public sealed partial class PosViewModel : ViewModelBase
     {
         Lines.Clear();
         foreach (var l in _draft.Lines)
-            Lines.Add(new LineRow(l.Id, string.IsNullOrWhiteSpace(l.TeluguName) ? l.EnglishName : l.TeluguName,
+            Lines.Add(new LineRow(l.Id, Text.Name(l),
                 IndianFormat.Quantity(l.Qty) + " " + Text.UnitLabel(l.Unit) + " × " + IndianFormat.Rupees(l.UnitPrice),
                 IndianFormat.Rupees(l.LineTotal)));
         var b = _draft.Bill;

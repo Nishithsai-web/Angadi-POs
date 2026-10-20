@@ -1,5 +1,6 @@
 using Angadi.Application.Common;
 using Angadi.Application.Persistence;
+using Angadi.Application.Platform;
 using Angadi.Domain.Billing;
 using Angadi.Domain.Common;
 using Angadi.Domain.Items;
@@ -7,7 +8,7 @@ using Angadi.Domain.Items;
 namespace Angadi.Application.Reports;
 
 /// <summary>FR-27–30 and the bill list (FR-20). Read-only; voided bills are excluded from money totals.</summary>
-internal sealed class ReportHandlers(IBillRepository bills, ICustomerRepository customers) :
+internal sealed class ReportHandlers(IBillRepository bills, ICustomerRepository customers, ILocalizer text) :
     IRequestHandler<GetDayEndReportQuery, DayEndReport>,
     IRequestHandler<GetGstSummaryQuery, IReadOnlyList<TaxSplit>>,
     IRequestHandler<GetTopItemsQuery, IReadOnlyList<TopItem>>,
@@ -50,7 +51,7 @@ internal sealed class ReportHandlers(IBillRepository bills, ICustomerRepository 
             .Select(g =>
             {
                 var first = g.First().line;
-                var name = string.IsNullOrWhiteSpace(first.TeluguName) ? first.EnglishName : first.TeluguName;
+                var name = text.Name(first);
                 return new TopItem(g.Key, name, first.Unit, new Qty(g.Sum(x => x.line.Qty.Milli)),
                     new Paise(g.Sum(x => x.line.Net.Value)), g.Select(x => x.bill).Distinct().Count());
             });

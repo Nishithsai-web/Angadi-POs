@@ -1,7 +1,6 @@
 using Angadi.Application.Common;
 using Angadi.Application.Persistence;
 using Angadi.Application.Platform;
-using Angadi.Application.Voice;
 using Angadi.Domain.Billing;
 using Angadi.Domain.Common;
 using Microsoft.Extensions.Options;
@@ -18,6 +17,7 @@ internal sealed class InsightsService(
     IBillRepository bills,
     ICustomerRepository customers,
     IClock clock,
+    ILocalizer text,
     IOptions<InsightsOptions> options) : IInsightsService
 {
     private const int LastSoldLookbackDays = 365;
@@ -36,7 +36,7 @@ internal sealed class InsightsService(
             var avgPerDay = sold / (double)window;
             var daysLeft = item.Stock.Milli <= 0 ? 0 : (int)Math.Floor(item.Stock.Milli / avgPerDay);
             if (daysLeft > withinDays) continue;
-            result.Add(new ReorderForecast(item.Id, ItemMatcher.DisplayName(item), item.Unit, item.Stock,
+            result.Add(new ReorderForecast(item.Id, text.Name(item), item.Unit, item.Stock,
                 new Qty((long)Math.Round(avgPerDay, MidpointRounding.AwayFromZero)), daysLeft));
         }
         return result.OrderBy(r => r.DaysLeft).ThenBy(r => r.DisplayName, StringComparer.Ordinal).ToList();
@@ -59,7 +59,7 @@ internal sealed class InsightsService(
             if (!dead) continue;
 
             var value = new Paise((2 * item.Price.Value * item.Stock.Milli + 1000) / 2000);   // price × qty, half up
-            result.Add(new DeadStockItem(item.Id, ItemMatcher.DisplayName(item), item.Stock, value, last));
+            result.Add(new DeadStockItem(item.Id, text.Name(item), item.Stock, value, last));
         }
         return result.OrderByDescending(r => r.StockValue.Value).ToList();
     }
@@ -80,7 +80,7 @@ internal sealed class InsightsService(
             .GroupBy(l => l.ItemId)
             .OrderByDescending(g => g.Sum(l => l.Net.Value))
             .Select(g => g.First())
-            .Select(l => string.IsNullOrWhiteSpace(l.TeluguName) ? l.EnglishName : l.TeluguName)
+            .Select(l => text.Name(l))
             .FirstOrDefault();
 
         var dues = (await customers.GetWithDuesAsync(ct)).Where(c => c.DuesBalance.Value > 0).Sum(c => c.DuesBalance.Value);

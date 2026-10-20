@@ -1,6 +1,8 @@
 using Angadi.Application.Common;
 using Angadi.Application.Persistence;
+using Angadi.Application.Platform;
 using Angadi.Domain.Items;
+using Angadi.Domain.Shop;
 using Microsoft.Extensions.Options;
 
 namespace Angadi.Application.Voice;
@@ -12,7 +14,7 @@ namespace Angadi.Application.Voice;
 ///   otherwise                      → 1 − edit distance / length
 /// Two near-equal winners above the auto threshold are downgraded to Confirm.
 /// </summary>
-public sealed class ItemMatcher(IItemRepository items, IOptions<VoiceOptions> options) : IItemMatcher
+public sealed class ItemMatcher(IItemRepository items, IOptions<VoiceOptions> options, ILocalizer text) : IItemMatcher
 {
     private const double AmbiguityGap = 0.05;
     private const double MinCandidateScore = 0.40;
@@ -21,10 +23,10 @@ public sealed class ItemMatcher(IItemRepository items, IOptions<VoiceOptions> op
     public async Task<MatchResult> MatchAsync(ParsedLine line, CancellationToken ct = default)
     {
         var active = await items.GetActiveAsync(ct);
-        return Match(line, active, _o);
+        return Match(line, active, _o, text.Language);
     }
 
-    internal static MatchResult Match(ParsedLine line, IReadOnlyList<Item> active, VoiceOptions o)
+    internal static MatchResult Match(ParsedLine line, IReadOnlyList<Item> active, VoiceOptions o, UiLanguage language = UiLanguage.Telugu)
     {
         var query = TeluguText.MatchKey(line.Name);
         if (query.Length == 0) return new MatchResult(line, MatchKind.NoMatch, []);
@@ -38,7 +40,7 @@ public sealed class ItemMatcher(IItemRepository items, IOptions<VoiceOptions> op
             .OrderByDescending(x => x.score)
             .ThenBy(x => x.item.TeluguName, StringComparer.Ordinal)
             .Take(Math.Max(1, o.MaxCandidates))
-            .Select(x => new MatchCandidate(x.item.Id, DisplayName(x.item), Math.Round(x.score, 4)))
+            .Select(x => new MatchCandidate(x.item.Id, ItemNames.Pick(language, x.item.TeluguName, x.item.EnglishName), Math.Round(x.score, 4)))
             .ToList();
 
         if (ranked.Count == 0) return new MatchResult(line, MatchKind.NoMatch, []);
