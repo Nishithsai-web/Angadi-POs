@@ -70,8 +70,14 @@ public sealed class CustomersPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-        await LoadDueAsync();
-        await LoadListAsync();
+        // FIX(UI-1, 2026-10-20, FIX-3): Flaw: unwrapped async void OnAppearing on a ContentPage — a failed load
+        // escaped SafeUi (no toast, half-loaded page). Fix: run the load through SafeUi.Run like the other 7
+        // secondary pages. Why: "never-fail UI" must hold on every page. Logged in docs/AGENT_FIX_LOG.md.
+        await SafeUi.Run(async () =>
+        {
+            await LoadDueAsync();
+            await LoadListAsync();
+        });
     }
 
     private async Task LoadDueAsync()
@@ -228,7 +234,13 @@ public sealed class CustomerDetailPage : ContentPage, IQueryAttributable
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-        if (_customer is not null) await LoadAsync();   // back from a bill or a payment
+        // FIX(UI-1, 2026-10-20, FIX-3): Flaw: unwrapped async void OnAppearing on a ContentPage — a failed load
+        // escaped SafeUi (no toast, half-loaded page). Fix: run the load through SafeUi.Run like the other 7
+        // secondary pages. Why: "never-fail UI" must hold on every page. Logged in docs/AGENT_FIX_LOG.md.
+        await SafeUi.Run(async () =>
+        {
+            if (_customer is not null) await LoadAsync();   // back from a bill or a payment
+        });
     }
 
     private async Task LoadAsync()

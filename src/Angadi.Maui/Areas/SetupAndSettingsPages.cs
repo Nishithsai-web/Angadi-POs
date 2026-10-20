@@ -92,20 +92,26 @@ public sealed class ShopSetupPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-        _existing = await _sender.Send(new GetShopProfileQuery());
-        _seedBox.IsVisible = _existing is null;
-        if (_existing is null) return;
-        _name.Text = _existing.Name;
-        _address.Text = _existing.Address;
-        _phone.Text = _existing.Phone;
-        _upi.Text = _existing.UpiId;
-        _gstin.Text = _existing.Gstin;
-        _prefix.Text = _existing.BillPrefix;
-        _language.SelectedIndex = _existing.Language == UiLanguage.English ? 1 : 0;
-        _qrPayload = _existing.UpiQrPayload;
-        _qrImage = _existing.UpiQrImage;
-        if (UpiQr.Parse(_qrPayload) is { } qr) _qrStatus.Text = _text.Format("setup.upi.found", qr.PayeeAddress);
-        else if (_qrImage is not null) _qrStatus.Text = _text["setup.upi.photo.saved"];
+        // FIX(UI-1, 2026-10-20, FIX-3): Flaw: unwrapped async void OnAppearing on a ContentPage — a failed load
+        // escaped SafeUi (no toast, half-loaded page). Fix: run the load through SafeUi.Run like the other 7
+        // secondary pages. Why: "never-fail UI" must hold on every page. Logged in docs/AGENT_FIX_LOG.md.
+        await SafeUi.Run(async () =>
+        {
+            _existing = await _sender.Send(new GetShopProfileQuery());
+            _seedBox.IsVisible = _existing is null;
+            if (_existing is null) return;
+            _name.Text = _existing.Name;
+            _address.Text = _existing.Address;
+            _phone.Text = _existing.Phone;
+            _upi.Text = _existing.UpiId;
+            _gstin.Text = _existing.Gstin;
+            _prefix.Text = _existing.BillPrefix;
+            _language.SelectedIndex = _existing.Language == UiLanguage.English ? 1 : 0;
+            _qrPayload = _existing.UpiQrPayload;
+            _qrImage = _existing.UpiQrImage;
+            if (UpiQr.Parse(_qrPayload) is { } qr) _qrStatus.Text = _text.Format("setup.upi.found", qr.PayeeAddress);
+            else if (_qrImage is not null) _qrStatus.Text = _text["setup.upi.photo.saved"];
+        });
     }
 
     private async Task UploadQrAsync()
@@ -181,8 +187,14 @@ public sealed class SubscriptionPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-        var q = await _sender.Send(new GetBillQuotaQuery());
-        _status.Text = q.IsPro ? _text["sub.pro"] : _text.Format("sub.free", q.UsedThisMonth, q.FreeLimit);
+        // FIX(UI-1, 2026-10-20, FIX-3): Flaw: unwrapped async void OnAppearing on a ContentPage — a failed load
+        // escaped SafeUi (no toast, half-loaded page). Fix: run the load through SafeUi.Run like the other 7
+        // secondary pages. Why: "never-fail UI" must hold on every page. Logged in docs/AGENT_FIX_LOG.md.
+        await SafeUi.Run(async () =>
+        {
+            var q = await _sender.Send(new GetBillQuotaQuery());
+            _status.Text = q.IsPro ? _text["sub.pro"] : _text.Format("sub.free", q.UsedThisMonth, q.FreeLimit);
+        });
     }
 
     private async Task BuyAsync(SubscriptionPlan plan) => await ShowAsync(await _subscription.PurchaseAsync(plan));

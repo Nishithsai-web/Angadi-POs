@@ -70,8 +70,14 @@ public sealed class BillsPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-        if (_day.Date == DateTime.MinValue || _rows.Count == 0) _day.Date = _clock.Today.ToDateTime(TimeOnly.MinValue);
-        await LoadAsync();
+        // FIX(UI-1, 2026-10-20, FIX-3): Flaw: unwrapped async void OnAppearing on a ContentPage — a failed load
+        // escaped SafeUi (no toast, half-loaded page). Fix: run the load through SafeUi.Run like the other 7
+        // secondary pages. Why: "never-fail UI" must hold on every page. Logged in docs/AGENT_FIX_LOG.md.
+        await SafeUi.Run(async () =>
+        {
+            if (_day.Date == DateTime.MinValue || _rows.Count == 0) _day.Date = _clock.Today.ToDateTime(TimeOnly.MinValue);
+            await LoadAsync();
+        });
     }
 
     private async Task LoadAsync()
@@ -186,8 +192,14 @@ public sealed class ReportsPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-        if (_day.Date == DateTime.MinValue || _body.Children.Count == 0) _day.Date = _clock.Today.ToDateTime(TimeOnly.MinValue);
-        await LoadAsync();
+        // FIX(UI-1, 2026-10-20, FIX-3): Flaw: unwrapped async void OnAppearing on a ContentPage — a failed load
+        // escaped SafeUi (no toast, half-loaded page). Fix: run the load through SafeUi.Run like the other 7
+        // secondary pages. Why: "never-fail UI" must hold on every page. Logged in docs/AGENT_FIX_LOG.md.
+        await SafeUi.Run(async () =>
+        {
+            if (_day.Date == DateTime.MinValue || _body.Children.Count == 0) _day.Date = _clock.Today.ToDateTime(TimeOnly.MinValue);
+            await LoadAsync();
+        });
     }
 
     private async Task LoadAsync()

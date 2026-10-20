@@ -76,14 +76,21 @@ public sealed class ItemsPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-        _all = await _sender.Send(new GetAllItemsQuery());
-        var low = _all.Count(i => i.IsLowStock);
-        _summary.Text = low > 0 ? $"{_text["stock.low.title"]}: {low}" : "";
-        // H8: 12%/28% items cannot be billed under GST 2.0 — say so here, before the counter finds out.
-        var legacy = await _sender.Send(new GetLegacySlabItemsQuery());
-        _legacy.IsVisible = legacy.Count > 0;
-        _legacy.Text = legacy.Count > 0 ? _text.Format("items.legacy.notice", legacy.Count) : "";
-        Filter();
+        // FIX(UI-1, 2026-10-20, FIX-3): Flaw: this page derives from ContentPage (not PageBase) and awaited sender
+        // calls unwrapped in async void — a failure escaped SafeUi, leaving a half-loaded page and no toast.
+        // Fix: the whole load runs through SafeUi.Run (log + UNEXPECTED toast, page stays usable). Why: the
+        // "never-fail UI" guarantee must cover every page, not only the POS. Logged in docs/AGENT_FIX_LOG.md.
+        await SafeUi.Run(async () =>
+        {
+            _all = await _sender.Send(new GetAllItemsQuery());
+            var low = _all.Count(i => i.IsLowStock);
+            _summary.Text = low > 0 ? $"{_text["stock.low.title"]}: {low}" : "";
+            // H8: 12%/28% items cannot be billed under GST 2.0 — say so here, before the counter finds out.
+            var legacy = await _sender.Send(new GetLegacySlabItemsQuery());
+            _legacy.IsVisible = legacy.Count > 0;
+            _legacy.Text = legacy.Count > 0 ? _text.Format("items.legacy.notice", legacy.Count) : "";
+            Filter();
+        });
     }
 
     private void Filter()
