@@ -1,4 +1,5 @@
 using System.Globalization;
+using Angadi.Application.Billing;
 using Angadi.Application.Common;
 using Angadi.Application.Platform;
 using Angadi.Maui.Core;
@@ -79,8 +80,15 @@ internal sealed class ReceiptShare(ILogger<ReceiptShare> log) : IReceiptShare
     {
         try
         {
+            // FIX(SEND-1, 2026-10-20, FIX-4): Flaw: the number was used exactly as stored — a row arriving via
+            // an old-backup restore or import can hold an un-normalized number, and the message (a full bill,
+            // or a dues balance) would go to a malformed or wrong-country number. Fix: normalize at this choke
+            // point — every WhatsApp/SMS send passes through here — and fail closed when it cannot be a valid
+            // Indian mobile. Why here: the send handlers live upstream; this is the last place the number can
+            // be checked before it leaves the device. Logged in docs/AGENT_FIX_LOG.md.
+            if (PhoneNumbers.Normalize(phoneE164) is not { } phone) return Result.Failure(ErrorCodes.CustomerNoPhone);
             if (!Sms.Default.IsComposeSupported) return Result.Failure(ErrorCodes.ShareFailed, "no sms");
-            await MainThread.InvokeOnMainThreadAsync(() => Sms.Default.ComposeAsync(new SmsMessage(message, ["+" + phoneE164])));
+            await MainThread.InvokeOnMainThreadAsync(() => Sms.Default.ComposeAsync(new SmsMessage(message, ["+" + phone])));
             return Result.Success();
         }
         catch (Exception ex)
@@ -108,7 +116,10 @@ internal sealed class ReceiptShare(ILogger<ReceiptShare> log) : IReceiptShare
     {
         try
         {
-            var uri = new Uri("https://wa.me/" + phoneE164 + "?text=" + Uri.EscapeDataString(message));
+            // FIX(SEND-1, 2026-10-20, FIX-4): same choke-point normalize-or-fail-closed as OpenSmsAsync above —
+            // the wa.me URL is built only from a validated, normalized number, never from the raw stored one.
+            if (PhoneNumbers.Normalize(phoneE164) is not { } phone) return Result.Failure(ErrorCodes.CustomerNoPhone);
+            var uri = new Uri("https://wa.me/" + phone + "?text=" + Uri.EscapeDataString(message));
             var opened = await MainThread.InvokeOnMainThreadAsync(() => Launcher.Default.OpenAsync(uri));
             return opened ? Result.Success() : Result.Failure(ErrorCodes.ShareFailed, "no handler");
         }
