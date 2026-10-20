@@ -1,10 +1,3 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg width="456" height="456" viewBox="0 0 456 456" xmlns="http://www.w3.org/2000/svg">
-  <!-- Original mark: a shop awning over a counter, with a sound wave for voice billing. -->
-  <g transform="translate(108 118)">
-    <path d="M0 40 L240 40 L216 0 L24 0 Z" fill="#F4A300"/>
-    <path d="M0 40 q20 26 40 0 q20 26 40 0 q20 26 40 0 q20 26 40 0 q20 26 40 0 q20 26 40 0" fill="none" stroke="#F4A300" stroke-width="10" stroke-linejoin="round"/>
-    <rect x="20" y="92" width="200" height="110" rx="12" fill="none" stroke="#FFFFFF" stroke-width="14"/>
-    <path d="M78 147 v0 M102 127 v40 M126 112 v70 M150 127 v40 M174 147 v0" stroke="#FFFFFF" stroke-width="14" stroke-linecap="round"/>
-  </g>
-</svg>
+<!-- Angadi mark: a kirana awning over అ (first letter of అంగడి, "shop"). Outline from Noto Sans Telugu Bold (OFL). -->
+<svg xmlns="http://www.w3.org/2000/svg" width="456" height="456" viewBox="0 0 456 456"><rect x="113.80" y="130.81" width="228.41" height="24" rx="12" fill="#FFF6E0"/><path d="M123.80 148.81 h34.73 v41.68 a17.37 17.37 0 0 1 -34.73 0 Z" fill="#F4A300"/><path d="M158.53 148.81 h34.73 v41.68 a17.37 17.37 0 0 1 -34.73 0 Z" fill="#FFF6E0"/><path d="M193.27 148.81 h34.73 v41.68 a17.37 17.37 0 0 1 -34.73 0 Z" fill="#F4A300"/><path d="M228.00 148.81 h34.73 v41.68 a17.37 17.37 0 0 1 -34.73 0 Z" fill="#FFF6E0"/><path d="M262.73 148.81 h34.73 v41.68 a17.37 17.37 0 0 1 -34.73 0 Z" fill="#F4A300"/><path d="M297.47 148.81 h34.73 v41.68 a17.37 17.37 0 0 1 -34.73 0 Z" fill="#FFF6E0"/><path transform="translate(149.55 312.03) scale(0.17224 -0.17224)" d="M448 -12Q300 -12 208.0 26.0Q116 64 74.0 129.0Q32 194 32 273Q32 378 91.5 439.0Q151 500 251 500Q328 500 369.5 457.0Q411 414 411 354Q411 208 237 208Q218 208 201.0 211.5Q184 215 169 221Q180 190 212.0 164.5Q244 139 303.0 124.0Q362 109 452 109Q602 109 671.0 149.5Q740 190 740 286Q740 333 717.5 360.0Q695 387 657 387Q633 387 617.0 373.0Q601 359 601 333Q601 308 618.5 289.5Q636 271 667 261V172H393V274H519Q502 294 493.0 318.5Q484 343 484 362Q484 419 528.0 459.5Q572 500 652 500Q721 500 772.0 473.0Q823 446 851.0 397.0Q879 348 879 282Q879 139 765.5 63.5Q652 -12 448 -12ZM243 401Q212 401 190.5 378.0Q169 355 164 321Q176 314 190.5 309.5Q205 305 221 305Q251 305 270.5 316.5Q290 328 290 355Q290 372 278.0 386.5Q266 401 243 401Z" fill="#FFF6E0"/></svg>
