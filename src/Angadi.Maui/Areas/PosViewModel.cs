@@ -57,6 +57,8 @@ public sealed partial class PosViewModel : ViewModelBase
     [ObservableProperty] private string _total = IndianFormat.Rupees(Paise.Zero);
     [ObservableProperty] private string _emptyText = "";
     [ObservableProperty] private string _quotaText = "";
+    /// <summary>"3 customers are due a dues reminder — tap" (empty = hidden).</summary>
+    [ObservableProperty] private string _dueBanner = "";
     /// <summary>The customer whose account this bill goes to (any tender); "+ Customer" when none.</summary>
     [ObservableProperty] private string _customerLabel = "";
     private Customer? _customer;
@@ -75,6 +77,8 @@ public sealed partial class PosViewModel : ViewModelBase
         foreach (var i in await Sender.Send(new GetQuickSaleItemsQuery())) QuickSale.Add(Tile(i));
         var quota = await Sender.Send(new GetBillQuotaQuery());
         QuotaText = quota.IsPro ? "" : Text.Format("sub.limit.left", Math.Max(0, quota.FreeLimit - quota.UsedThisMonth));
+        var due = await Sender.Send(new Angadi.Application.Customers.GetDueRemindersQuery());
+        DueBanner = due.Count > 0 ? Text.Format("pos.due.banner", due.Count) : "";
         Refresh();
     }
 
@@ -293,6 +297,9 @@ public sealed partial class PosViewModel : ViewModelBase
         _draft.SetTender(TenderType.Udhaar, customer.Id);
         await FinalizeAsync();
     }
+
+    [RelayCommand]
+    private Task OpenDue() => SafeAsync(() => Nav.GoToAsync("//" + Routes.Customers));
 
     /// <summary>"+ Customer" on the bill: attach a customer so the bill shows in their account; tap again to remove.</summary>
     [RelayCommand]

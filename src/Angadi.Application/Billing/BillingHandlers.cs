@@ -216,6 +216,37 @@ internal sealed class ShareReceiptHandler(
     }
 }
 
+/// <summary>
+/// After a bill for a customer with a phone: the bill summary and their udhaar balance, to THEIR registered number.
+/// </summary>
+internal sealed class SendBillToCustomerHandler(
+    IBillRepository bills, ICustomerRepository customers, IShopProfileRepository shop, IReceiptShare share, ILocalizer text)
+    : IRequestHandler<SendBillToCustomerCommand, Result>
+{
+    public async Task<Result> Handle(SendBillToCustomerCommand command, CancellationToken ct)
+    {
+        if (await bills.GetAsync(command.BillId, ct) is not { } bill) return Result.Failure(ErrorCodes.BillNotFound);
+        if (bill.CustomerId is not { } customerId || await customers.GetAsync(customerId, ct) is not { } customer)
+            return Result.Failure(ErrorCodes.CustomerNotFound);
+        if (string.IsNullOrWhiteSpace(customer.Phone)) return Result.Failure(ErrorCodes.CustomerNoPhone);
+
+        var profile = await shop.GetAsync(ct);
+        var tender = bill.Tender switch
+        {
+            TenderType.Cash => text["tender.cash"],
+            TenderType.Upi => text["tender.upi"],
+            _ => text["tender.udhaar"],
+        };
+        var items = string.Join("\n", bill.Lines.Take(15).Select(l =>
+            $"• {text.Name(l)} {IndianFormat.Quantity(l.Qty)} {text.UnitLabel(l.Unit)} — {IndianFormat.Rupees(l.LineTotal)}"));
+        var message = text.Format("receipt.customer.message", customer.Name, profile?.Name ?? "", bill.Number,
+            IndianFormat.Rupees(bill.GrandTotal), tender) + "\n" + items;
+        if (customer.DuesBalance.Value > 0)
+            message += "\n" + text.Format("receipt.customer.balance", IndianFormat.Rupees(customer.DuesBalance));
+        return await share.OpenWhatsAppAsync(customer.Phone, message, ct);
+    }
+}
+
 internal sealed class RecordDuesPaymentHandler(ICustomerRepository customers, IOutbox outbox, IClock clock)
     : IRequestHandler<RecordDuesPaymentCommand, Result>
 {
@@ -249,8 +280,16 @@ internal sealed class SendDuesReminderHandler(
 
         var profile = await shop.GetAsync(ct);
         var message = text.Format("customers.remind.message", customer.Name, profile?.Name ?? "", IndianFormat.Rupees(customer.DuesBalance));
+        // The udhaar itself: which days, how much is still open (oldest first, at most 5 lines).
+        var open = Angadi.Application.Customers.DuesAging.UnpaidCharges(await customers.GetLedgerAsync(customer.Id, ct));
+        if (open.Count > 0)
+        {
+            var lines = open.Take(5).Select(o => "• " + text.Short(o.At) + " — " + IndianFormat.Rupees(o.Remaining));
+            message += "\n" + text["customers.remind.bills"] + "\n" + string.Join("\n", lines);
+            if (open.Count > 5) message += "\n• …";
+        }
         if (customer.PromisedPayDate is { } promised)
-            message += " " + text.Format("customers.remind.promised", text.Short(promised));
+            message += "\n" + text.Format("customers.remind.promised", text.Short(promised));
 
         var sent = command.Channel == ReminderChannel.Sms
             ? await share.OpenSmsAsync(customer.Phone, message, ct)

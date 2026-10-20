@@ -53,6 +53,7 @@ public static class DependencyInjection
         services.AddTransient<IRequestHandler<FinalizeBillCommand, Result<FinalizedBill>>, FinalizeBillHandler>();
         services.AddTransient<IRequestHandler<VoidBillCommand, Result>, VoidBillHandler>();
         services.AddTransient<IRequestHandler<ShareReceiptCommand, Result>, ShareReceiptHandler>();
+        services.AddTransient<IRequestHandler<SendBillToCustomerCommand, Result>, SendBillToCustomerHandler>();
         services.AddTransient<IRequestHandler<RecordDuesPaymentCommand, Result>, RecordDuesPaymentHandler>();
         services.AddTransient<IRequestHandler<SendDuesReminderCommand, Result>, SendDuesReminderHandler>();
         services.AddTransient<IRequestHandler<AdjustStockCommand, Result>, AdjustStockHandler>();

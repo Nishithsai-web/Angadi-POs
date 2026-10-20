@@ -89,6 +89,25 @@ public static class DuesAging
     /// Reversals cancel their own bill's charge; payments then settle the oldest charges first (FIFO).
     /// Returns the age in days of the first charge not fully paid, or null when nothing is owed.
     /// </summary>
+    /// <summary>The udhaar still unpaid, oldest first: (when it was taken, the bill, what is left of it).</summary>
+    public static IReadOnlyList<(DateTimeOffset At, Guid? BillId, Paise Remaining)> UnpaidCharges(IEnumerable<DuesEntry> ledger)
+    {
+        var entries = ledger.ToList();
+        var reversed = entries.Where(e => e.Kind == DuesEntryKind.Reversal && e.BillId is not null).Select(e => e.BillId!.Value).ToHashSet();
+        var charges = entries.Where(e => e.Kind == DuesEntryKind.Charge && (e.BillId is null || !reversed.Contains(e.BillId.Value)))
+            .OrderBy(e => e.CreatedAt).ToList();
+        var paid = entries.Where(e => e.Kind == DuesEntryKind.Payment).Sum(e => e.Amount.Value)
+                 + entries.Where(e => e.Kind == DuesEntryKind.Reversal && e.BillId is null).Sum(e => e.Amount.Value);
+        var open = new List<(DateTimeOffset, Guid?, Paise)>();
+        foreach (var charge in charges)
+        {
+            if (paid >= charge.Amount.Value) { paid -= charge.Amount.Value; continue; }
+            open.Add((charge.CreatedAt, charge.BillId, new Paise(charge.Amount.Value - paid)));
+            paid = 0;
+        }
+        return open;
+    }
+
     public static int? OldestUnpaidDays(IEnumerable<DuesEntry> ledger, DateOnly today)
     {
         var entries = ledger.ToList();

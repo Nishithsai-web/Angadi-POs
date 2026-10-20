@@ -62,6 +62,10 @@ public sealed class PosPage : PageBase
         var scan = Ui.Secondary("▦  " + vm.Text["pos.scan"]);
         scan.SetBinding(Button.CommandProperty, nameof(PosViewModel.ScanCommand));
 
+        var dueBanner = new Button { BackgroundColor = Color.FromArgb("#FDF1E3"), TextColor = Theme.UdhaarColor, FontSize = 15, CornerRadius = 10 };
+        dueBanner.SetBinding(Button.TextProperty, nameof(PosViewModel.DueBanner));
+        dueBanner.SetBinding(Button.CommandProperty, nameof(PosViewModel.OpenDueCommand));
+        dueBanner.SetBinding(VisualElement.IsVisibleProperty, new Binding(nameof(PosViewModel.DueBanner), converter: new NotEmpty()));
         var voiceText = Ui.Caption();
         voiceText.SetBinding(Label.TextProperty, nameof(PosViewModel.VoiceText));
 
@@ -88,14 +92,15 @@ public sealed class PosPage : PageBase
         var grid = new Grid
         {
             RowSpacing = 8,
-            RowDefinitions = { new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Star) },
+            RowDefinitions = { new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Star) },
         };
-        grid.Add(actions, 0, 0);
-        grid.Add(voiceText, 0, 1);
-        grid.Add(search, 0, 2);
-        grid.Add(results, 0, 3);
-        grid.Add(Ui.Caption(vm.Text["pos.quicksale"]), 0, 4);
-        grid.Add(quick, 0, 5);
+        grid.Add(dueBanner, 0, 0);
+        grid.Add(actions, 0, 1);
+        grid.Add(voiceText, 0, 2);
+        grid.Add(search, 0, 3);
+        grid.Add(results, 0, 4);
+        grid.Add(Ui.Caption(vm.Text["pos.quicksale"]), 0, 5);
+        grid.Add(quick, 0, 6);
         return grid;
     }
 
@@ -214,6 +219,12 @@ public sealed class PosPage : PageBase
     });
 }
 
+internal sealed class NotEmpty : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture) => !string.IsNullOrEmpty(value as string);
+    public object ConvertBack(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture) => throw new NotSupportedException();
+}
+
 internal static class ObjectExtensions
 {
     public static T Also<T>(this T value, Action<T> action)
@@ -271,6 +282,7 @@ public sealed class ReceiptPage : ContentPage, IQueryAttributable
     private readonly Label _number = Ui.Title("");
     private readonly Label _total = Ui.Amount();
     private readonly Label _change = Ui.Body();
+    private readonly Button _toCustomer;
     private Guid _billId;
 
     public ReceiptPage(ISender sender, IDialogService dialogs, ILocalizer text)
@@ -284,9 +296,17 @@ public sealed class ReceiptPage : ContentPage, IQueryAttributable
         _change.HorizontalTextAlignment = TextAlignment.Center;
         var share = Ui.Button(text["receipt.share"], Theme.Success, big: true);
         share.Clicked += SafeUi.On(async () => await ShareAsync());
+        // Bill for a registered customer: send it (and their udhaar balance) to THEIR WhatsApp number.
+        _toCustomer = Ui.Button("", Theme.Success, big: true);
+        _toCustomer.IsVisible = false;
+        _toCustomer.Clicked += SafeUi.On(async () =>
+        {
+            var r = await _sender.Send(new SendBillToCustomerCommand(_billId));
+            if (r.IsFailure) await _dialogs.ToastAsync(_text.Error(r.Error));
+        });
         var next = Ui.Secondary(text["pos.newbill"]);
         next.Clicked += SafeUi.On(async () => await Shell.Current.GoToAsync("//" + Routes.Pos));
-        Content = Ui.Scroll(new Label { Text = "✅", FontSize = 56, HorizontalTextAlignment = TextAlignment.Center }, _number, _total, _change, share, next);
+        Content = Ui.Scroll(new Label { Text = "✅", FontSize = 56, HorizontalTextAlignment = TextAlignment.Center }, _number, _total, _change, _toCustomer, share, next);
     }
 
     public void ApplyQueryAttributes(IDictionary<string, object> query)
@@ -303,6 +323,9 @@ public sealed class ReceiptPage : ContentPage, IQueryAttributable
         if (bill is null) return;
         _number.Text = _text["receipt.bill"] + " " + bill.Number;
         _total.Text = IndianFormat.Rupees(bill.GrandTotal);
+        var customer = bill.CustomerId is { } cid ? await _sender.Send(new Angadi.Application.Catalog.GetCustomerQuery(cid)) : null;
+        _toCustomer.IsVisible = customer is { Phone: { Length: > 0 } };
+        if (customer is not null) _toCustomer.Text = _text.Format("receipt.send.customer", customer.Name);
     }
 
     private async Task ShareAsync()

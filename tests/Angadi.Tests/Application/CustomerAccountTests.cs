@@ -151,4 +151,35 @@ public class CustomerAccountTests : IDisposable
         Assert.Equal("919876543210", Assert.Single(_h.Share.WhatsApp).Phone);
         Assert.NotNull((await _h.Sender.Send(new GetCustomerQuery(ravi.Id)))!.LastRemindedAt);
     }
+
+    [Fact]
+    public async Task Reminder_ListsTheUdhaarStillUnpaid_ToTheRegisteredNumber()
+    {
+        var (ravi, rice, milk) = await SetupAsync();
+        await SellAsync(TenderType.Udhaar, ravi.Id, (rice, 1000));                // ₹60
+        _h.Clock.Advance(TimeSpan.FromDays(2));
+        await SellAsync(TenderType.Udhaar, ravi.Id, (milk, 1000));                // ₹30
+        await _h.Sender.Send(new RecordDuesPaymentCommand(ravi.Id, Paise.FromRupees(20), null));   // ₹40 of the first left
+
+        Assert.True((await _h.Sender.Send(new SendDuesReminderCommand(ravi.Id))).IsSuccess);
+        var (phone, message) = Assert.Single(_h.Share.WhatsApp);
+        Assert.Equal("919876543210", phone);
+        Assert.Contains("₹70.00", message, StringComparison.Ordinal);   // total
+        Assert.Contains("₹40.00", message, StringComparison.Ordinal);   // what's left of the first udhaar
+        Assert.Contains("₹30.00", message, StringComparison.Ordinal);   // the second
+    }
+
+    [Fact]
+    public async Task BillToCustomer_GoesToTheirWhatsApp_WithBalance()
+    {
+        var (ravi, rice, _) = await SetupAsync();
+        var bill = await SellAsync(TenderType.Udhaar, ravi.Id, (rice, 2000));    // ₹120
+        Assert.True((await _h.Sender.Send(new SendBillToCustomerCommand(bill))).IsSuccess);
+        var (phone, message) = Assert.Single(_h.Share.WhatsApp);
+        Assert.Equal("919876543210", phone);
+        Assert.Contains("₹120.00", message, StringComparison.Ordinal);
+
+        var walkIn = await SellAsync(TenderType.Cash, null, (rice, 1000));
+        Assert.Equal(ErrorCodes.CustomerNotFound, (await _h.Sender.Send(new SendBillToCustomerCommand(walkIn))).Error.Code);
+    }
 }

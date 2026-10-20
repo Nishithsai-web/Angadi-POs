@@ -71,5 +71,10 @@
   "customers.due.old": "{0} రోజులుగా బాకీ",
   "customers.reminded": "గుర్తు పంపాం — {0}",
   "pos.customer.add": "+ కస్టమర్",
-  "pos.customer.remove": "కస్టమర్‌ను తీసేయి"
+  "pos.customer.remove": "కస్టమర్‌ను తీసేయి",
+  "customers.remind.bills": "తీసుకున్న ఉద్దెర (ఇంకా కట్టాల్సినవి):",
+  "receipt.customer.message": "నమస్కారం {0} గారు, {1} — బిల్లు {2}: మొత్తం {3} ({4}).",
+  "receipt.customer.balance": "మీ మొత్తం బాకీ: {0}. ధన్యవాదాలు!",
+  "receipt.send.customer": "{0} కి WhatsApp లో పంపు",
+  "pos.due.banner": "{0} కస్టమర్లకు బాకీ గుర్తు చేయాలి — నొక్కండి"
 }

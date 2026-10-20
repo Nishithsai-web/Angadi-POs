@@ -20,6 +20,8 @@ public sealed record VoidBillCommand(Guid BillId, string Reason) : ICommand<Resu
 
 /// <summary>FR-17/19. Renders (or re-renders, FR-20) and opens the share sheet.</summary>
 public sealed record ShareReceiptCommand(Guid BillId) : ICommand<Result>, INoTransaction;
+/// <summary>Open WhatsApp to the bill's customer (their registered number) with the bill and their udhaar balance.</summary>
+public sealed record SendBillToCustomerCommand(Guid BillId) : ICommand<Result>, INoTransaction;
 
 /// <summary>FR-22.</summary>
 public sealed record RecordDuesPaymentCommand(Guid CustomerId, Paise Amount, string? Note, string? UpiRef = null) : ICommand<Result>;

@@ -71,5 +71,10 @@
   "customers.due.old": "Owing for {0} days",
   "customers.reminded": "Reminder sent — {0}",
   "pos.customer.add": "+ Customer",
-  "pos.customer.remove": "Remove customer"
+  "pos.customer.remove": "Remove customer",
+  "customers.remind.bills": "Udhaar taken (still to pay):",
+  "receipt.customer.message": "Hello {0}, {1} — bill {2}: total {3} ({4}).",
+  "receipt.customer.balance": "Your total dues: {0}. Thank you!",
+  "receipt.send.customer": "Send to {0} on WhatsApp",
+  "pos.due.banner": "{0} customers are due a dues reminder — tap"
 }
