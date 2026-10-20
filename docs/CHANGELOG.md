@@ -1,6 +1,13 @@
 # CHANGELOG.md — Angadi POS v1
 Every meaningful change: date, what, the issue it addresses, and the one-line why. Newest first.
 
+## 2026-10-19 (late, Claude Code)
+- **Highs closed: H2/B2 quota clock defence, H3 safe restore, H9 UPI reference.** Why: free-tier abuse by changing the phone date, and a bad backup wiping a shop, were the two ways v1 could lose money or data.
+- **Mediums closed: M2, M4, M6, M7, M8, M12, M14 + voice pass H5/H6/M1/M3/M13.** Why: learning that can't poison the catalog, no crash on typos or broken resources, sync-ready outbox.
+- **Every rejection now has its own Telugu message, with the numbers in it** (cash shortfall, dues balance, free limit and price). Why: "something is wrong" at the counter means a phone call; "₹20 short" doesn't.
+- **H8 Items-page warning, H11 log export through the dispatcher.** Why: legacy-slab items surface before billing fails; log export can't crash on a full disk.
+- CI run 39350733740: core + Android green, 178/178 tests.
+
 ## 2026-10-19 (evening, Claude Code)
 - **First green CI on .NET 10** (run 39345220912): core build with warnings as errors, all tests pass, coverage gate passes, Android Debug APK built. Why: definition of done is "CI observed, not assumed".
 - **C1/C2/P1–P4/H1/H4/H7/H8/B1/M9/M10/V1 fixed** with regression tests. Status per fix ID: `docs/CLAUDE_STATUS.md`. Why: the Muse review queue, in severity order.
