@@ -1,7 +1,9 @@
+using Angadi.Application.Common;
 using Angadi.Application.Persistence;
 using Angadi.Application.Platform;
 using Angadi.Domain.Items;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Angadi.Application.Voice;
 
@@ -13,9 +15,9 @@ namespace Angadi.Application.Voice;
 ///   • Never learns words that already belong to another item's curated names/aliases (seed-collision guard).
 ///   • Curated Aliases are never touched; LearnedAliases are LRU-capped.
 /// </summary>
-public sealed class AliasLearner(IItemRepository items, IClock clock, ILogger<AliasLearner> log) : IAliasLearner
+public sealed class AliasLearner(IItemRepository items, IClock clock, IOptions<VoiceOptions> options, ILogger<AliasLearner> log) : IAliasLearner
 {
-    public const int MaxLearnedPerItem = 30;
+    private int MaxLearnedPerItem => Math.Max(1, options.Value.MaxLearnedAliasesPerItem);
 
     public async Task LearnAsync(Guid itemId, string heard, CancellationToken ct = default)
     {

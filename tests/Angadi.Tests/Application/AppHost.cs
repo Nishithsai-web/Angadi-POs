@@ -26,7 +26,7 @@ public sealed class AppHost : IDisposable
     public ServiceProvider Services { get; }
     public ISender Sender => Services.GetRequiredService<ISender>();
 
-    public AppHost(bool fakePlatform = true)
+    public AppHost(bool fakePlatform = true, Action<IServiceCollection>? configure = null)
     {
         Directory.CreateDirectory(Folder);
         var services = new ServiceCollection();
@@ -45,6 +45,7 @@ public sealed class AppHost : IDisposable
             services.AddSingleton<ISubscriptionService>(Subscription);
             services.AddSingleton<IReceiptRenderer, FakeRenderer>();
         }
+        configure?.Invoke(services);
         Services = services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
     }
 

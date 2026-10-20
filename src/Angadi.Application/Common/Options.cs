@@ -7,6 +7,8 @@ public sealed class VoiceOptions
     public double AutoAddThreshold { get; set; } = 0.90;
     public double ConfirmThreshold { get; set; } = 0.70;
     public int MaxCandidates { get; set; } = 5;   // 3 hid two of five dals on a generic "పప్పు"
+    /// <summary>M2: learned aliases kept per item before least-recently-used eviction. Curated aliases are never counted.</summary>
+    public int MaxLearnedAliasesPerItem { get; set; } = 30;
 }
 
 /// <summary>Bound from appsettings.json "Billing". FR-34/35.</summary>
@@ -25,4 +27,6 @@ public sealed class InsightsOptions
 {
     public int ForecastWindowDays { get; set; } = 14;
     public int[] DeadStockDays { get; set; } = [30, 60, 90];
+    /// <summary>FR-33: the morning summary compares yesterday with the average of this many days.</summary>
+    public int MorningSummaryDays { get; set; } = 7;
 }

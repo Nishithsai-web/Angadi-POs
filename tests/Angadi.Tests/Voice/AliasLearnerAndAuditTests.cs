@@ -11,7 +11,8 @@ public class AliasLearnerAndAuditTests : IDisposable
     private readonly TempDb _t = new();
     public void Dispose() => _t.Dispose();
 
-    private AliasLearner Learner() => new(_t.Items, _t.Clock, TempDb.Log<AliasLearner>());
+    private static readonly VoiceOptions Voice = new();
+    private AliasLearner Learner() => new(_t.Items, _t.Clock, Microsoft.Extensions.Options.Options.Create(Voice), TempDb.Log<AliasLearner>());
 
     private async Task<(Item rice, Item sugar)> TwoItemsAsync()
     {
@@ -64,13 +65,13 @@ public class AliasLearnerAndAuditTests : IDisposable
     public async Task M2_LruCap_NeverEvictsCuratedAliases()
     {
         var (rice, _) = await TwoItemsAsync();
-        for (var i = 0; i < AliasLearner.MaxLearnedPerItem + 5; i++)
+        for (var i = 0; i < Voice.MaxLearnedAliasesPerItem + 5; i++)
         {
             _t.Clock.Advance(TimeSpan.FromSeconds(1));
             await Learner().LearnAsync(rice.Id, $"రకం{i:D2}");
         }
         var after = await ReloadAsync(rice.Id);
-        Assert.Equal(AliasLearner.MaxLearnedPerItem, after.LearnedAliases.Count);
+        Assert.Equal(Voice.MaxLearnedAliasesPerItem, after.LearnedAliases.Count);
         Assert.Equal(["biyyam"], after.Aliases);
         Assert.DoesNotContain(after.LearnedAliases, a => a.Text == "రకం00");   // oldest went first
     }

@@ -68,12 +68,13 @@ internal sealed class InsightsService(
     {
         var today = clock.Today;
         var yesterday = today.AddDays(-1);
-        var week = await bills.ListByDayAsync(today.AddDays(-7), yesterday, ct);
+        var days = Math.Max(1, options.Value.MorningSummaryDays);
+        var week = await bills.ListByDayAsync(today.AddDays(-days), yesterday, ct);
         var sold = week.Where(b => b.Status == BillStatus.Finalized && b.FinalizedAt is not null).ToList();
 
         var yesterdayBills = sold.Where(b => DateOnly.FromDateTime(b.FinalizedAt!.Value.DateTime) == yesterday).ToList();
         var yesterdaySales = yesterdayBills.Sum(b => b.GrandTotal.Value);
-        var weekAverage = sold.Sum(b => b.GrandTotal.Value) / 7;
+        var weekAverage = sold.Sum(b => b.GrandTotal.Value) / days;
 
         var topMover = yesterdayBills.SelectMany(b => b.Lines)
             .GroupBy(l => l.ItemId)

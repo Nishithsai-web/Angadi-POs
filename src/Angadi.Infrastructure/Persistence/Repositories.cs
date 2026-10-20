@@ -132,6 +132,9 @@ internal sealed class BillRepository(AngadiDb db, IClock clock) : IBillRepositor
 
 internal sealed class CustomerRepository(AngadiDb db, IClock clock) : ICustomerRepository
 {
+    /// <summary>A kirana's regulars fit on one scrollable list; typing narrows past this.</summary>
+    internal const int CustomerSearchLimit = 50;
+
     public Task<Customer?> GetAsync(Guid id, CancellationToken ct = default)
         => db.RunAsync(c => c.Find<CustomerRow>(id) is { } r ? ToDomain(r) : null, ct);
 
@@ -139,7 +142,7 @@ internal sealed class CustomerRepository(AngadiDb db, IClock clock) : ICustomerR
     {
         var like = "%" + text.Trim().Replace("%", "", StringComparison.Ordinal).Replace("_", "", StringComparison.Ordinal) + "%";
         return db.RunAsync<IReadOnlyList<Customer>>(c => c.Query<CustomerRow>(
-                "SELECT * FROM Customer WHERE Name LIKE ? OR Phone LIKE ? ORDER BY Name LIMIT 50", like, like)
+                "SELECT * FROM Customer WHERE Name LIKE ? OR Phone LIKE ? ORDER BY Name LIMIT ?", like, like, CustomerSearchLimit)
             .Select(ToDomain).ToList(), ct);
     }
 

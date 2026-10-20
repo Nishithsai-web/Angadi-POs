@@ -59,6 +59,10 @@ internal sealed class Sender(IServiceProvider services) : ISender
             var name = typeof(TRequest).Name;
             var log = sp.GetRequiredService<ILoggerFactory>().CreateLogger("Angadi.Requests");
 
+            // LOW (audit): the correlation scope opens before validation, so a rejected request's log line carries it too.
+            var correlationId = Guid.NewGuid().ToString("N", System.Globalization.CultureInfo.InvariantCulture)[..8];
+            using var scope = log.BeginScope(new Dictionary<string, object> { ["CorrelationId"] = correlationId });
+
             // Validation
             foreach (var validator in sp.GetServices<IValidator<TRequest>>())
             {
@@ -69,9 +73,7 @@ internal sealed class Sender(IServiceProvider services) : ISender
                 }
             }
 
-            // Logging (with a correlation id that shows up in every log line inside this request)
-            var correlationId = Guid.NewGuid().ToString("N", System.Globalization.CultureInfo.InvariantCulture)[..8];
-            using var scope = log.BeginScope(new Dictionary<string, object> { ["CorrelationId"] = correlationId });
+            // Logging (the correlation id shows up in every log line inside this request)
             var sw = Stopwatch.StartNew();
             try
             {
