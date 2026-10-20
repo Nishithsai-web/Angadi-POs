@@ -122,7 +122,7 @@ internal sealed class FinalizeBillHandler(
             if (await items.GetAsync(itemId, ct) is null)
                 return Result.Failure<FinalizedBill>(ErrorCodes.ItemNotFound, itemId.ToString("D", System.Globalization.CultureInfo.InvariantCulture));
 
-        try { BillCalculator.Compute(bill, shopHasGstin: profile.ChargesGst);   // A2-01: composition → Bill of Supply }
+        try { BillCalculator.Compute(bill, shopHasGstin: profile.ChargesGst); }   // A2-01: a composition shop issues a Bill of Supply
         catch (OverflowException) { return Result.Failure<FinalizedBill>(ErrorCodes.BillAmountTooLarge); }   // M7: checked maths
 
         var cashTyped = bill.CashReceived;
