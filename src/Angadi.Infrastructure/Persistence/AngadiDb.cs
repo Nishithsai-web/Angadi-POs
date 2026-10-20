@@ -1,3 +1,4 @@
+using System.Globalization;
 using Angadi.Application.Persistence;
 using Angadi.Application.Platform;
 using SQLite;
@@ -129,8 +130,17 @@ public sealed class AngadiDb : IUnitOfWork, IDisposable
 
         c.InsertOrReplace(new MetaRow { Key = "app", Value = AppMarker });
         var current = c.Find<MetaRow>("schema_version");
-        if (current is null || int.Parse(current.Value, System.Globalization.CultureInfo.InvariantCulture) < SchemaVersion)
-            c.InsertOrReplace(new MetaRow { Key = "schema_version", Value = SchemaVersion.ToString(System.Globalization.CultureInfo.InvariantCulture) });
+        // FIX(DATA-1a, 2026-10-20, FIX-2): Flaw: int.Parse on the stored schema_version — a corrupt or
+        // hand-edited value (e.g. 'abc') threw FormatException out of startup: a damaged database crashed
+        // the app instead of being recovered. Fix: TryParse; an unparseable version IS database damage and
+        // throws DamagedDatabaseException, which startup recovery already handles (quarantine the file,
+        // adopt the newest good copy or start fresh, tell the shopkeeper once). Why: damage has exactly
+        // one front door. Logged in docs/AGENT_FIX_LOG.md.
+        var storedVersion = 0;
+        if (current is not null && !int.TryParse(current.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out storedVersion))
+            throw new DamagedDatabaseException($"schema_version '{current.Value}' is not a number");
+        if (current is null || storedVersion < SchemaVersion)
+            c.InsertOrReplace(new MetaRow { Key = "schema_version", Value = SchemaVersion.ToString(CultureInfo.InvariantCulture) });
     }
 
     /// <summary>Runs a read or write; joins the open transaction when called inside ExecuteAsync.</summary>
@@ -241,9 +251,11 @@ public sealed class AngadiDb : IUnitOfWork, IDisposable
                 // which adopts the .pre-restore file (the pre-swap live DB) when usable. Why: the swap is
                 // the one moment damage can be caught exactly where it happened. Logged in docs/AGENT_FIX_LOG.md.
                 try { _conn = OpenVerified(DatabasePath); }
-                catch (DamagedDatabaseException)
+                catch (DamagedDatabaseException ex)
                 {
-                    RecoverIfNeeded(DatabasePath);
+                    // Same recovery as the constructor: quarantine the damaged file, adopt the newest
+                    // good copy (here: the .pre-restore pre-swap database), report it once.
+                    _recovery = DatabaseRecovery.Recover(DatabasePath, SnapshotDirectory, ex.Message, DateTimeOffset.Now);
                     _conn = OpenVerified(DatabasePath);
                 }
             }
