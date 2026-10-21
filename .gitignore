@@ -8,3 +8,4 @@ TestResults/
 
 # Local agent worktrees and settings (never committed)
 .claude/
+__pycache__/
