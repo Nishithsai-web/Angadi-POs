@@ -14,6 +14,4 @@ The Telugu letter is a path traced from Noto Sans Telugu Bold (SIL Open Font Lic
 Then render the PNGs with Chromium: `node tools/brand/render.js store/play-icon.svg store/play-icon-512.png 512 512`
 and `node tools/brand/render.js tools/brand/feature.html store/feature-graphic-1024x500.png 1024 500`.
 
-**Listing text (suggested)**
-- App name: `Angadi – Telugu Billing POS` (27/30)
-- Short description: `Speak in Telugu, get the bill. UPI, udhaar, stock & GST receipts.` (66/80)
+**Listing text, screenshots, Data safety, content rating, subscriptions:** see `listing/README.md`.

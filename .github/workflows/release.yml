@@ -38,6 +38,9 @@ jobs:
           # Play needs a strictly increasing integer: the workflow run number never repeats.
           echo "code=$((100 + GITHUB_RUN_NUMBER))" >> "$GITHUB_OUTPUT"
 
+      - name: Release readiness (privacy policy, support number, versions, product IDs)
+        run: python3 tools/release_check.py --version "${{ steps.v.outputs.display }}"
+
       - name: Check signing secrets
         env:
           KS: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}

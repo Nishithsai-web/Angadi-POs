@@ -170,7 +170,10 @@ jobs:
           profile: pixel_6
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back emulated
-          script: python3 tools/e2e_android.py "$(ls apk/*-Signed.apk | head -1)"
+          # Second line: Play Store screenshots (debug run only), on the same emulator. Never fails the job.
+          script: |
+            python3 tools/e2e_android.py "$(ls apk/*-Signed.apk | head -1)"
+            if [ "${{ matrix.build }}" = "debug" ]; then python3 tools/store_screenshots.py || echo "::warning::store screenshots failed"; fi
 
       - uses: actions/upload-artifact@v4
         if: always()
