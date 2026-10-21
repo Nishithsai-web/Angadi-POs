@@ -86,11 +86,28 @@ public sealed class BillDraft
         return Add(item, qty, LineSource.Voice);
     }
 
-    public void SetQty(Guid lineId, Qty qty)
+    /// <summary>The most one line may hold: 1,00,000 whole units (finalize rejects more with BILL_QTY_TOO_LARGE).</summary>
+    public const long MaxLineQtyMilli = 100_000_000;
+
+    /// <summary>
+    /// Sets a line's quantity (zero or less removes it). A1-08: returns false and leaves the line unchanged when the
+    /// quantity is above <see cref="MaxLineQtyMilli"/> or the bill's money maths would overflow.
+    /// </summary>
+    public bool SetQty(Guid lineId, Qty qty)
     {
-        if (qty.Milli <= 0) { Remove(lineId); return; }
-        Line(lineId).Qty = qty;
-        Recompute();
+        if (qty.Milli <= 0) { Remove(lineId); return true; }
+        if (qty.Milli > MaxLineQtyMilli) return false;
+        var line = Line(lineId);
+        var previous = line.Qty;
+        line.Qty = qty;
+        try { Recompute(); }
+        catch (OverflowException)
+        {
+            line.Qty = previous;   // the screen and the bill stay in step
+            Recompute();
+            return false;
+        }
+        return true;
     }
 
     /// <summary>FR-11: price override for this bill only (the item's price is unchanged).</summary>

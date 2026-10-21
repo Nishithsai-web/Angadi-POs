@@ -198,5 +198,17 @@
   "DATABASE_BUSY": {
     "te": "యాప్ ఇంకో పని చేస్తోంది. కొన్ని సెకన్లు ఆగి మళ్ళీ ప్రయత్నించండి",
     "en": "The app is busy saving. Wait a few seconds and try again"
+  },
+  "BILL_QTY_TOO_LARGE": {
+    "te": "పరిమాణం చాలా ఎక్కువ — ఒక్క వరుసలో 1,00,000 వరకు మాత్రమే",
+    "en": "Quantity too large — at most 1,00,000 on one line"
+  },
+  "BILL_VOID_PAST_MONTH": {
+    "te": "ఈ బిల్లు గత నెలది. రద్దు చేస్తే ఆ నెల GST సారాంశం మారుతుంది — నిర్ధారించండి",
+    "en": "This bill is from an earlier month. Cancelling it changes that month's GST summary — please confirm"
+  },
+  "BILL_PREFIX_INVALID": {
+    "te": "బిల్లు ముందు అక్షరం 1–8 అక్షరాలు/అంకెలు మాత్రమే (/ మరియు - కూడా సరే)",
+    "en": "Bill prefix must be 1–8 letters or digits (/ and - allowed)"
   }
 }

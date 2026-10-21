@@ -94,7 +94,7 @@ public sealed class InsightsTruthTests : IDisposable
         Assert.Null(m.TopMoverName);
     }
 
-    [Fact(Skip = "BUG T2-02: reorder forecast divides by the full 14-day window even when the shop has 1 day of sales, so a new shop is told it has 14x the days it really has")]
+    [Fact]
     public async Task OneDayOfData_FastSeller_IsForecastToRunOutSoon()
     {
         await _h.SeedShopAsync();
@@ -211,7 +211,7 @@ public sealed class InsightsTruthTests : IDisposable
         Assert.Equal((6_000 + a.GrandTotal.Value + b.GrandTotal.Value) / 7, m.SevenDayAverage.Value);
     }
 
-    [Fact(Skip = "BUG T2-03: dead stock reads the item's added-on date in UTC, so an item added before 05:30 IST is a day older than it is")]
+    [Fact]
     public async Task DeadStock_ItemAddedEarlyMorningIst_IsAgedByItsIstDay()
     {
         await _h.SeedShopAsync();

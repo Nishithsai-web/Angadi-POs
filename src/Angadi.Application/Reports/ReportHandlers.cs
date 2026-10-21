@@ -8,7 +8,7 @@ using Angadi.Domain.Items;
 namespace Angadi.Application.Reports;
 
 /// <summary>FR-27–30 and the bill list (FR-20). Read-only; voided bills are excluded from money totals.</summary>
-internal sealed class ReportHandlers(IBillRepository bills, ICustomerRepository customers, ILocalizer text) :
+internal sealed class ReportHandlers(IBillRepository bills, ICustomerRepository customers, ILocalizer text, IClock clock) :
     IRequestHandler<GetDayEndReportQuery, DayEndReport>,
     IRequestHandler<GetGstSummaryQuery, IReadOnlyList<TaxSplit>>,
     IRequestHandler<GetTopItemsQuery, IReadOnlyList<TopItem>>,
@@ -17,14 +17,20 @@ internal sealed class ReportHandlers(IBillRepository bills, ICustomerRepository 
 {
     public async Task<DayEndReport> Handle(GetDayEndReportQuery q, CancellationToken ct)
     {
+        // T2-01: a closed day never changes. A bill voided on a LATER day stays in the day it was sold (that cash was
+        // in that day's drawer); the void is reported on the day it happened. A same-day void is not a sale at all.
         var all = await bills.ListByDayAsync(q.Day, q.Day, ct);
-        var sold = all.Where(b => b.Status == BillStatus.Finalized).ToList();
+        var sold = all.Where(b => b.Status == BillStatus.Finalized
+            || (b.Status == BillStatus.Void && b.VoidedAt is { } voided && DateOnly.FromDateTime(voided.DateTime) > q.Day)).ToList();
+        var offset = clock.Now.Offset;
+        var dayStart = new DateTimeOffset(q.Day.ToDateTime(TimeOnly.MinValue), offset);
+        var voidsToday = await bills.CountVoidedAsync(dayStart, dayStart.AddDays(1), ct);
         Paise Sum(IEnumerable<Bill> bs) => new(bs.Sum(b => b.GrandTotal.Value));
 
         return new DayEndReport(
             q.Day,
             BillCount: sold.Count,
-            VoidCount: all.Count(b => b.Status == BillStatus.Void),
+            VoidCount: voidsToday,
             SalesTotal: Sum(sold),
             Cash: Sum(sold.Where(b => b.Tender == TenderType.Cash)),
             Upi: Sum(sold.Where(b => b.Tender == TenderType.Upi)),

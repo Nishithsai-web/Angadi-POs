@@ -174,7 +174,7 @@ public class DuesReminderTests : IDisposable
         Assert.Equal(["Promised", "Big", "Small"], (await DueAsync()).Select(d => d.Name));
     }
 
-    [Fact(Skip = "BUG T3-1: a promise date is never cleared when the udhaar is paid off, so the next new udhaar is 'due' the same day")]
+    [Fact]
     public async Task APromiseForUdhaarAlreadyPaidOff_DoesNotMakeNewUdhaarDueAtOnce()
     {
         var (rice, _) = await SeedAsync();

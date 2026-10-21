@@ -33,7 +33,13 @@ public sealed class ItemMatcher(IItemRepository items, IOptions<VoiceOptions> op
         var query = TeluguText.MatchKey(line.Name);
         if (query.Length == 0) return new MatchResult(line, MatchKind.NoMatch, []);
         // M1-CORRECTION: "650 పారాసెటమాల్" — a dosage spoken first; also try it rotated to the end of the name.
-        var rotated = RotateLeadingDigits(line.Name) is { } r ? TeluguText.MatchKey(r) : null;
+        // FIX(VOICE-10, 2026-10-21, S1): Flaw: for the BARE phrase "650 పారాసెటమాల్" the parser (M1) takes 650 as the
+        // quantity and flags it ambiguous, so the name holds no digits and the rotation above never ran: both
+        // paracetamols tied on "పారాసెటమాల్" and the alphabetical tie-break put 500 mg on top (SPEC-11 test, added by
+        // VOICE-8, never passed). Fix: when the parser flagged an ambiguous bare leading number (no unit, not an
+        // amount), also try that number as the end of the name. Why: the shopkeeper said 650; the Confirm sheet must
+        // offer the 650 mg strip first. Logged in docs/AGENT_FIX_LOG.md.
+        var rotated = (RotateLeadingDigits(line.Name) ?? LeadingDosageAsName(line)) is { } r ? TeluguText.MatchKey(r) : null;
 
         // PERF: scores every active item per phrase — fine to ~2k items; add a first-letter prefilter beyond that.
         var ranked = active
@@ -130,6 +136,14 @@ public sealed class ItemMatcher(IItemRepository items, IOptions<VoiceOptions> op
     {
         var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         return parts.Length > 1 && parts[0].All(char.IsAsciiDigit) ? string.Join(' ', parts.Skip(1).Append(parts[0])) : null;
+    }
+
+    /// <summary>VOICE-10: "650 పారాసెటమాల్" parsed as qty 650 (ambiguous) → "పారాసెటమాల్ 650" as a name to try.</summary>
+    internal static string? LeadingDosageAsName(ParsedLine line)
+    {
+        if (!line.IsAmbiguous || line.Unit is not null || line.Amount is not null) return null;
+        var first = line.Raw.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+        return first is { Length: > 0 } && first.All(char.IsAsciiDigit) ? line.Name + " " + first : null;
     }
 
     private static IEnumerable<string> Names(Item item)

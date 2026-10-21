@@ -20,6 +20,8 @@ public sealed class ShopSetupPage : ContentPage
     private readonly Picker _language = new();
     private readonly CheckBox _kirana = new() { IsChecked = true, Color = Theme.Primary };
     private readonly CheckBox _pharmacy = new() { Color = Theme.Primary };
+    private readonly CheckBox _composition = new() { Color = Theme.Primary };   // A2-01
+    private readonly Label _prefixReturning;                                       // A2-07
     private readonly View _seedBox;
     private readonly Label _qrStatus = Ui.Caption();
     private ShopProfile? _existing;
@@ -40,6 +42,7 @@ public sealed class ShopSetupPage : ContentPage
         _upi = Ui.Entry(text["settings.shop.upi"], Keyboard.Email);
         _gstin = Ui.Entry(text["settings.shop.gstin"]);
         _prefix = Ui.Entry("A");
+        _prefixReturning = Ui.Caption(text["setup.prefix.returning"]);
         _language.Items.Add(text["lang.telugu"]);
         _language.Items.Add(text["lang.english"]);
         _language.SelectedIndex = text.Language == UiLanguage.English ? 1 : 0;   // follows the first-run choice
@@ -83,7 +86,10 @@ public sealed class ShopSetupPage : ContentPage
             Ui.Caption(text["setup.upi.help"]), qrRow, _qrStatus,
             Ui.Caption(text["settings.shop.gstin"]), _gstin,
             Ui.Caption(text["setup.gstin.note"]),
+            Labeled(_composition, text["setup.composition"]),
+            Ui.Caption(text["setup.composition.note"]),
             Ui.Caption(text["setup.prefix"]), _prefix,
+            _prefixReturning,
             Ui.Caption(text["settings.language"]), _language,
             _seedBox,
             save);
@@ -101,6 +107,7 @@ public sealed class ShopSetupPage : ContentPage
         {
             _existing = await _sender.Send(new GetShopProfileQuery());
             _seedBox.IsVisible = _existing is null;
+            _prefixReturning.IsVisible = _existing is null;   // first run only: a reinstall must not reuse old bill numbers
             if (_existing is null) return;
             _name.Text = _existing.Name;
             _address.Text = _existing.Address;
@@ -108,6 +115,7 @@ public sealed class ShopSetupPage : ContentPage
             _upi.Text = _existing.UpiId;
             _gstin.Text = _existing.Gstin;
             _prefix.Text = _existing.BillPrefix;
+            _composition.IsChecked = _existing.IsComposition;
             _language.SelectedIndex = _existing.Language == UiLanguage.English ? 1 : 0;
             _qrPayload = _existing.UpiQrPayload;
             _qrImage = _existing.UpiQrImage;
@@ -152,6 +160,7 @@ public sealed class ShopSetupPage : ContentPage
         profile.UpiId = (_upi.Text ?? "").Trim();
         profile.Gstin = string.IsNullOrWhiteSpace(_gstin.Text) ? null : _gstin.Text.Trim().ToUpperInvariant();
         profile.BillPrefix = string.IsNullOrWhiteSpace(_prefix.Text) ? "A" : _prefix.Text.Trim();
+        profile.IsComposition = _composition.IsChecked;
         profile.Language = _language.SelectedIndex == 1 ? UiLanguage.English : UiLanguage.Telugu;
         // A scanned QR only counts while the UPI ID still matches it (the owner may have typed a different one).
         profile.UpiQrPayload = UpiQr.Parse(_qrPayload) is { } own && string.Equals(own.PayeeAddress, profile.UpiId, StringComparison.OrdinalIgnoreCase) ? _qrPayload : null;
