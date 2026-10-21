@@ -1,5 +1,6 @@
 using Angadi.Application.Billing;
 using Angadi.Application.Catalog;
+using Angadi.Application.Voice;
 using Angadi.Domain.Billing;
 using Angadi.Domain.Customers;
 using Microsoft.Extensions.DependencyInjection;
@@ -43,6 +44,24 @@ public class LoggingTests
 
         Assert.NotEmpty(sink.Entries);
         Assert.DoesNotContain(sink.Entries, e => (e.Message + e.Scopes).Contains(Phone, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task NFR08_LearnedAliasText_NeverReachesTheLogs()
+    {
+        // PRIVACY-1 regression: AliasLearner used to write the learned alias text itself to the
+        // debug log. Learned words are the shopkeeper's own speech — NFR-08 covers them too.
+        // (The old NFR-08 test never called LearnAsync, so it could not catch this.)
+        const string Heard = "రహస్య పదం";
+        var sink = new CaptureProvider();
+        using var h = new AppHost(configure: s => s.AddLogging(b => b.AddProvider(sink).SetMinimumLevel(LogLevel.Trace)));
+        await h.SeedShopAsync();
+        var rice = await h.AddItemAsync("బియ్యం", 6000);
+        var learner = h.Services.GetRequiredService<IAliasLearner>();
+        await learner.LearnAsync(rice.Id, Heard);
+
+        Assert.NotEmpty(sink.Entries);
+        Assert.DoesNotContain(sink.Entries, e => (e.Message + e.Scopes).Contains(Heard, StringComparison.Ordinal));
     }
 
     private sealed record Entry(string Category, string Message, string Scopes);

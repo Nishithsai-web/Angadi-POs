@@ -33,16 +33,62 @@ internal sealed class FinalizeBillValidator : IValidator<FinalizeBillCommand>
         if (bill.Tender is null || !Enum.IsDefined(bill.Tender.Value)) return new Error(ErrorCodes.BillTenderMissing);   // LOW: no cast-in tenders
         if (bill.Tender == TenderType.Udhaar && bill.CustomerId is null) return new Error(ErrorCodes.BillUdhaarNeedsCustomer);
         // Status is checked in the handler, after the idempotency check: a retry of a bill that already saved is not an error.
+        // FIX(MONEY-3, 2026-10-20, FIX-2): Flaw: nothing validated CashReceived >= 0, so −₹500 on a ₹120 bill
+        // reported a shortfall of ₹620 — more than the bill. Fix: reject negative cash here. Why: it failed
+        // closed, but a wrong number at the counter reads as an app bug and erodes trust in every other number.
+        // Logged in docs/AGENT_FIX_LOG.md.
+        if (bill.CashReceived.Value < 0) return new Error(ErrorCodes.ValidationFailed, "negative cash received");
         // B1: only a cash tender may carry cash received.
         if (bill.Tender != TenderType.Cash && bill.CashReceived.Value != 0) return new Error(ErrorCodes.ValidationFailed, "cash received on a non-cash tender");
         if (bill.Tender != TenderType.Upi && !string.IsNullOrWhiteSpace(bill.UpiRef)) return new Error(ErrorCodes.ValidationFailed, "UPI reference on a non-UPI tender");
         // M9: a typo like 150% must stop the bill, never silently clamp to free goods.
         if (IsOver100Percent(bill.BillDiscount) || bill.Lines.Any(l => IsOver100Percent(l.LineDiscount)))
             return new Error(ErrorCodes.BillDiscountTooLarge);
+        // FIX(MONEY-1, 2026-10-20, FIX-2): Flaw: the lines' GstSlab was never Enum.IsDefined-checked (the tender
+        // was). A slab cast in through a restored draft snapshot reached BillCalculator raw: (GstSlab)9999 taxes
+        // ~50% of net and (GstSlab)(-500) makes tax negative. Fix: the same check item save does (CatalogHandlers),
+        // before the legacy check. Why: fail closed on wrong tax, like every other bad enum here (H8 principle).
+        // Logged in docs/AGENT_FIX_LOG.md.
+        if (bill.Lines.Any(l => !Enum.IsDefined(l.GstSlab))) return new Error(ErrorCodes.ValidationFailed, "unknown GST slab");
         // H8: GST 2.0 abolished 12%/28% (22 Sep 2025); fail closed rather than bill wrong tax.
         var legacy = bill.Lines.FirstOrDefault(l => GstSlabs.IsLegacy(l.GstSlab));
         if (legacy is not null) return new Error(ErrorCodes.BillLegacySlab, legacy.EnglishName);
+        // FIX(L-7, 2026-10-20, FIX-2): Flaw: a ₹0 bill (100% discount, or every line priced ₹0) finalized
+        // silently — burning a bill number + a quota slot and decrementing stock with no confirmation, so a
+        // discount typo looked like a normal sale while the goods left free. Fix: when the computed grand
+        // total is ₹0 (lines are guaranteed non-empty above), the command must carry FreeBillConfirmed,
+        // which the UI sets from an explicit "this bill is free" confirmation (owner decision, 2026-10-20).
+        // Why: free goods must be a decision, never an accident.
+        // TODO-INTEGRATOR: coded as generic VALIDATION_FAILED — the catalog has no dedicated code. Add
+        // BILL_FREE_NOT_CONFIRMED (errors.json + ErrorCodes) so the UI can trigger the confirmation on
+        // exactly this failure instead of matching detail text. Logged in docs/AGENT_FIX_LOG.md.
+        if (!c.FreeBillConfirmed && ComputesToZero(bill))
+            return new Error(ErrorCodes.ValidationFailed, "free bill not confirmed");
         return null;
+    }
+
+    /// <summary>L-7: the draft's grand total, computed on a copy (Compute mutates its bill). A compute
+    /// failure (overflow) means "not provably zero" — the handler will report the real error.</summary>
+    private static bool ComputesToZero(Bill bill)
+    {
+        try
+        {
+            var copy = new Bill
+            {
+                BillDiscount = bill.BillDiscount,
+                Lines = bill.Lines.Select(l => new BillLine
+                {
+                    ItemId = l.ItemId, TeluguName = l.TeluguName, EnglishName = l.EnglishName, Unit = l.Unit,
+                    UnitPrice = l.UnitPrice, GstSlab = l.GstSlab, Qty = l.Qty, LineDiscount = l.LineDiscount, Source = l.Source,
+                }).ToList(),
+            };
+            BillCalculator.Compute(copy, shopHasGstin: false);   // the grand total is GSTIN-independent (prices are tax-inclusive)
+            return copy.GrandTotal.Value == 0;
+        }
+        catch (Exception ex) when (ex is ArgumentException or OverflowException)
+        {
+            return false;
+        }
     }
 }
 
@@ -80,7 +126,8 @@ internal sealed class FinalizeBillHandler(
     IQuotaStore quota,
     IBillDraftStore drafts,
     IClock clock,
-    IOptions<BillingOptions> options) : IRequestHandler<FinalizeBillCommand, Result<FinalizedBill>>
+    IOptions<BillingOptions> options,
+    ILogger<FinalizeBillHandler> log) : IRequestHandler<FinalizeBillCommand, Result<FinalizedBill>>
 {
     public async Task<Result<FinalizedBill>> Handle(FinalizeBillCommand command, CancellationToken ct)
     {
@@ -99,7 +146,7 @@ internal sealed class FinalizeBillHandler(
 
         // FR-34 free-tier quota. Defence in depth: a status that doesn't answer at once counts as free (fail closed),
         // so billing can never hang on the subscription service while this transaction holds the database.
-        var status = await SubscriptionGuard.StatusAsync(subscription, ct);
+        var status = await SubscriptionGuard.StatusAsync(subscription, ct, log);
         if (!status.IsPro && await quota.UsedThisMonthAsync(now, ct) >= options.Value.FreeBillsPerMonth)
             return Result.Failure<FinalizedBill>(Error.With(ErrorCodes.FreeLimitReached,
                 options.Value.FreeBillsPerMonth, options.Value.MonthlyPriceRupees));
@@ -243,7 +290,14 @@ internal sealed class SendBillToCustomerHandler(
         if (await bills.GetAsync(command.BillId, ct) is not { } bill) return Result.Failure(ErrorCodes.BillNotFound);
         if (bill.CustomerId is not { } customerId || await customers.GetAsync(customerId, ct) is not { } customer)
             return Result.Failure(ErrorCodes.CustomerNotFound);
-        if (string.IsNullOrWhiteSpace(customer.Phone)) return Result.Failure(ErrorCodes.CustomerNoPhone);
+        // FIX(SEND-1, 2026-10-20, FIX-2): Flaw: the stored phone went to the share layer verbatim — a
+        // number stored with a trunk 0 or spaces ("098765 43210", e.g. written by an old backup restore,
+        // which the repository stores raw) produced a dead wa.me link. Fix: normalize here (the handler is
+        // the first line of defence; the share layer also normalizes and fails closed — FIX-4, b4e0a89c)
+        // and send to the normalized number; an un-normalizable number fails as CustomerNoPhone. Why: a
+        // bill or reminder that silently goes nowhere is a collection the shopkeeper thinks happened.
+        // Logged in docs/AGENT_FIX_LOG.md.
+        if (PhoneNumbers.Normalize(customer.Phone) is not { } phone) return Result.Failure(ErrorCodes.CustomerNoPhone);
 
         var profile = await shop.GetAsync(ct);
         var tender = bill.Tender switch
@@ -258,7 +312,7 @@ internal sealed class SendBillToCustomerHandler(
             IndianFormat.Rupees(bill.GrandTotal), tender) + "\n" + items;
         if (customer.DuesBalance.Value > 0)
             message += "\n" + text.Format("receipt.customer.balance", IndianFormat.Rupees(customer.DuesBalance));
-        return await share.OpenWhatsAppAsync(customer.Phone, message, ct);
+        return await share.OpenWhatsAppAsync(phone, message, ct);   // SEND-1: normalized above
     }
 }
 
@@ -290,7 +344,7 @@ internal sealed class SendDuesReminderHandler(
     {
         var customer = await customers.GetAsync(command.CustomerId, ct);
         if (customer is null) return Result.Failure(ErrorCodes.CustomerNotFound);
-        if (string.IsNullOrWhiteSpace(customer.Phone)) return Result.Failure(ErrorCodes.CustomerNoPhone);
+        if (PhoneNumbers.Normalize(customer.Phone) is not { } phone) return Result.Failure(ErrorCodes.CustomerNoPhone);   // SEND-1: see SendBillToCustomerHandler
         if (customer.DuesBalance.Value <= 0) return Result.Failure(ErrorCodes.CustomerNoDues);
 
         var profile = await shop.GetAsync(ct);
@@ -307,8 +361,8 @@ internal sealed class SendDuesReminderHandler(
             message += "\n" + text.Format("customers.remind.promised", text.Short(promised));
 
         var sent = command.Channel == ReminderChannel.Sms
-            ? await share.OpenSmsAsync(customer.Phone, message, ct)
-            : await share.OpenWhatsAppAsync(customer.Phone, message, ct);
+            ? await share.OpenSmsAsync(phone, message, ct)   // SEND-1: normalized above
+            : await share.OpenWhatsAppAsync(phone, message, ct);
         if (sent.IsFailure) return sent;
 
         customer.LastRemindedAt = clock.Now;   // keeps them off "Due for reminder" for a few days
@@ -329,13 +383,13 @@ internal sealed class AdjustStockHandler(IItemRepository items, IStockLedger led
     }
 }
 
-internal sealed class GetBillQuotaHandler(IQuotaStore quota, ISubscriptionService subscription, IClock clock, IOptions<BillingOptions> options)
+internal sealed class GetBillQuotaHandler(IQuotaStore quota, ISubscriptionService subscription, IClock clock, IOptions<BillingOptions> options, ILogger<GetBillQuotaHandler> log)
     : IRequestHandler<GetBillQuotaQuery, BillQuota>
 {
     public async Task<BillQuota> Handle(GetBillQuotaQuery query, CancellationToken ct)
     {
         var now = clock.Now;
-        var status = await SubscriptionGuard.StatusAsync(subscription, ct);
+        var status = await SubscriptionGuard.StatusAsync(subscription, ct, log);
         var used = await quota.UsedThisMonthAsync(now, ct);
         return new BillQuota(status.IsPro, used, options.Value.FreeBillsPerMonth);
     }
@@ -347,10 +401,28 @@ internal static class SubscriptionGuard
     public static readonly TimeSpan Timeout = TimeSpan.FromSeconds(2);
     private static readonly SubscriptionStatus Free = new(false, null, null);
 
-    public static async Task<SubscriptionStatus> StatusAsync(ISubscriptionService subscription, CancellationToken ct)
+    public static async Task<SubscriptionStatus> StatusAsync(ISubscriptionService subscription, CancellationToken ct, ILogger? log = null)
     {
         try { return await subscription.GetStatusAsync(ct).WaitAsync(Timeout, ct); }
-        catch (TimeoutException) { return Free; }
+        // FIX(LOG-3a, 2026-10-20, FIX-2): Flaw: the timeout fallback was silent — a genuinely hanging Play
+        // service (the counter-freeze scenario) left no trace in the logs support asks for. Fix: log a warning.
+        // Why: the fallback is correct behaviour, but it must be visible when it happens in a real shop.
+        // Logged in docs/AGENT_FIX_LOG.md.
+        catch (TimeoutException)
+        {
+            log?.LogWarning("Subscription status did not answer within {TimeoutSeconds} s; billing continues on the free tier", Timeout.TotalSeconds);
+            return Free;
+        }
+        // FIX(MONEY-2, 2026-10-20, FIX-2): Flaw: only TimeoutException was caught, so any other exception from
+        // an ISubscriptionService implementation propagated and failed EVERY finalize as UNEXPECTED — the
+        // counter-freeze failure class, one layer up. Fix: any non-cancellation failure also falls back to
+        // free tier, logged. Why: billing must never depend on the subscription service answering cleanly.
+        // Logged in docs/AGENT_FIX_LOG.md.
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            log?.LogWarning(ex, "Subscription status failed; billing continues on the free tier");
+            return Free;
+        }
     }
 }
 

@@ -77,3 +77,17 @@ Every change Muse pushes to this repo must explain itself so that a Claude Code 
 3. **WHY this fix** — the reasoning: why this approach, what alternatives were considered and rejected, what breaks if it's done differently.
 
 Fix files (`docs/*_FIXES.md`) follow the **Flaw → Fix → Rationale** pattern per item. Workflow/process changes get the same treatment at the top of the file. `docs/CHANGELOG.md` carries the running log: date, change, issue addressed, and the one-line why. A change whose "why" can't be written clearly doesn't get pushed.
+
+## 10. Multi-implementer rule (owner directive, 2026-10-20 — supersedes §1 row 8 and the "Push application code" row of §6)
+
+**WHAT changed:** Sai directed that Muse's own dev/fix agents push application-code fixes directly to this repo. Implementation is no longer Claude-Code-only. The standing team is: repo anatomy + flaw hunt + market (Muse), testing ×4 (money, voice, data, Android/E2E), audit ×2 (logging/exceptions, audit-trail/security), new-development ×2, fix ×2 — all working from audited flaws, each in its own file lane.
+
+**WHAT THE ISSUE WAS:** A single implementer (Claude Code on the owner's machine) was the bottleneck and a single point of failure for a 14-day sprint with an enterprise-readiness bar.
+
+**WHY this shape:** Speed comes from parallel lanes with file ownership, not from more writers per file. Reviewer independence is preserved one level up: agents author fixes; Muse (main) verifies every push by reading the actual files and never verifies its own code. Production Play releases and any money-spending still require Sai's explicit per-action approval; runtime approval cards on pushes remain (system safeguard).
+
+**Coordination (binding on all implementers, Claude Code included):**
+- Flaws and fixes are recorded in `docs/AGENT_FIX_LOG.md` — log before fixing, update in the same push.
+- Every fix carries a code comment at the fix site: `// FIX(<ID>, <date>, <agent>): Flaw: … Fix: … Why: … Logged in docs/AGENT_FIX_LOG.md.`
+- Claim work by marking the log entry `IN-FIX` with your agent name; never co-edit a file another agent owns in the same wave (`DependencyInjection.cs`, `MauiProgram.cs`, `TeluguParser.cs` remain serialized files — one owner at a time, announced in the log).
+- **Enterprise bar (definition of done):** warnings-as-errors build · tests added/updated and named in the log entry · CI green observed or the entry explicitly marked `UNVERIFIED-CI` · no layer violations · Telugu only in JSON · `Result<T>` at boundaries · no PII in logs · CHANGELOG.md updated in the same push. Anything less is `FIXED-AWAITING-VERIFY` at best, never `VERIFIED`.

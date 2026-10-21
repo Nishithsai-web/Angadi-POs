@@ -13,8 +13,12 @@
 
     <!-- Infrastructure -->
     <PackageVersion Include="sqlite-net-pcl" Version="1.9.172" />
-    <PackageVersion Include="SQLitePCLRaw.bundle_green" Version="2.1.10" />
-    <!-- CVE-2025-6965: native SQLite in lib.e_sqlite3 <= 2.1.11 is vulnerable; tests run on the desktop native lib. -->
+    <PackageVersion Include="SQLitePCLRaw.bundle_green" Version="2.1.11" />
+    <!-- FIX(DEPS-1, 2026-10-20, FIX-2): GHSA-2m69-gcr7-jv3q — SQLitePCLRaw.lib.e_sqlite3 <= 2.1.11 bundles a
+         vulnerable SQLite (NU1903, warning-as-error: the Infrastructure build failed on it). bundle_green has
+         no release past 2.1.11, so the native package is pinned directly at 2.1.12 (first version outside the
+         vulnerable range; native-assets only, no managed API — sqlite-net-pcl 1.9.172 unaffected). The direct
+         PackageReference lives in Angadi.Infrastructure.csproj. Logged in docs/AGENT_FIX_LOG.md. -->
     <PackageVersion Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.12" />
     <PackageVersion Include="Serilog" Version="4.3.0" />
     <PackageVersion Include="Serilog.Extensions.Logging" Version="9.0.2" />

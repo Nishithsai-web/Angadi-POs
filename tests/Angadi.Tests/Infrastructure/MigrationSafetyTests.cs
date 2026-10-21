@@ -32,4 +32,46 @@ public class MigrationSafetyTests
             try { Directory.Delete(folder, recursive: true); } catch (IOException) { }
         }
     }
+
+    [Fact]
+    public async Task Connection_RunsSynchronousFull_SoCommitsSurvivePowerLoss()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "angadi-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+        try
+        {
+            using var db = new AngadiDb(Path.Combine(folder, "angadi.db"));
+            var synchronous = await db.RunAsync(c => c.ExecuteScalar<int>("PRAGMA synchronous"));
+            Assert.Equal(2, synchronous);   // 2 = FULL (DATA-2)
+        }
+        finally
+        {
+            try { Directory.Delete(folder, recursive: true); } catch (IOException) { }
+        }
+    }
+
+    [Fact]
+    public async Task UnparseableSchemaVersion_RecoversInsteadOfCrashing()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "angadi-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+        var path = Path.Combine(folder, "angadi.db");
+        try
+        {
+            using (var db = new AngadiDb(path))
+                await db.RunAsync(c => c.Execute("UPDATE Meta SET Value = 'abc' WHERE Key = 'schema_version'"));
+
+            // DATA-1a: 'abc' used to throw FormatException out of the constructor — the app crashed on a
+            // damaged database instead of recovering it. Now startup recovery handles it: no throw, a
+            // recovery report, and a usable database at the current schema.
+            using var reopened = new AngadiDb(path);
+            Assert.NotNull(reopened.TakeRecovery());
+            var version = await reopened.RunAsync(c => c.ExecuteScalar<string>("SELECT Value FROM Meta WHERE Key = 'schema_version'"));
+            Assert.Equal(AngadiDb.SchemaVersion.ToString(System.Globalization.CultureInfo.InvariantCulture), version);
+        }
+        finally
+        {
+            try { Directory.Delete(folder, recursive: true); } catch (IOException) { }
+        }
+    }
 }

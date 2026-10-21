@@ -20,6 +20,7 @@ public sealed class PosPage : PageBase
     private readonly ScrollView _leftScroll = new();
     private CollectionView? _results;
     private CollectionView? _quick;
+    private Entry? _searchEntry;
     private View? _totals;
     private bool? _wide;
 
@@ -29,6 +30,9 @@ public sealed class PosPage : PageBase
         _left = BuildCatalogue(vm);
         _right = BuildBill(vm);
         Content = _root;
+        // VOICE-9 (FIX-1, 2026-10-20): the voice "manual" fallback raises this so typed search is
+        // actually in front of the shopkeeper — focus the search box, keyboard up.
+        vm.SearchFocusRequested += (_, _) => Microsoft.Maui.ApplicationModel.MainThread.BeginInvokeOnMainThread(() => _searchEntry?.Focus());
     }
 
     protected override void OnSizeAllocated(double width, double height)
@@ -80,7 +84,7 @@ public sealed class PosPage : PageBase
         var voiceText = Ui.Caption();
         voiceText.SetBinding(Label.TextProperty, nameof(PosViewModel.VoiceText));
 
-        var search = Ui.Entry(vm.Text["pos.search"]);
+        var search = _searchEntry = Ui.Entry(vm.Text["pos.search"]);
         search.SetBinding(Entry.TextProperty, nameof(PosViewModel.SearchText));
 
         var results = _results = new CollectionView { SelectionMode = SelectionMode.Single, ItemTemplate = TileTemplate(), MaximumHeightRequest = 240 };

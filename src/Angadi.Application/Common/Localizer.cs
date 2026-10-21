@@ -51,12 +51,25 @@ public sealed partial class JsonLocalizer : ILocalizer
             : _errors.TryGetValue(ErrorCodes.Unexpected, out var u) ? u : Fallback;
         var template = Language == UiLanguage.Telugu ? entry.te : entry.en;
         // A templated message raised without its values must not show "{0}" to a shopkeeper: drop the slot.
-        if (error.Args is not { Length: > 0 } args) return Placeholder().Replace(template, "").Replace("  ", " ", StringComparison.Ordinal).Trim();
+        if (error.Args is not { Length: > 0 } args) return StripPlaceholders(template);
         try { return string.Format(CultureInfo.InvariantCulture, template, args); }
-        catch (FormatException) { return template; }
+        // FIX(LOG-3g, 2026-10-20, FIX-3): Flaw: on an arg-count FormatException this returned the RAW template,
+        // so the shopkeeper could literally see "{1}" in an error message; Format() below didn't catch at all
+        // and threw. Fix: both fall back to the placeholder-stripped template (the no-args path's behaviour).
+        // Why: a raw format slot reads as a broken app at the worst moment — while reporting an error.
+        // Logged in docs/AGENT_FIX_LOG.md.
+        catch (FormatException) { return StripPlaceholders(template); }
     }
 
-    public string Format(string key, params object[] args) => string.Format(CultureInfo.InvariantCulture, this[key], args);
+    public string Format(string key, params object[] args)
+    {
+        var template = this[key];
+        try { return string.Format(CultureInfo.InvariantCulture, template, args); }
+        catch (FormatException) { return StripPlaceholders(template); }   // FIX(LOG-3g): see Error above.
+    }
+
+    private string StripPlaceholders(string template) =>
+        Placeholder().Replace(template, "").Replace("  ", " ", StringComparison.Ordinal).Trim();
 
     public string UnitLabel(Unit unit) => this[$"unit.{unit}"];
 

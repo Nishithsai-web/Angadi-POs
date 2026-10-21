@@ -99,6 +99,15 @@ public sealed record DailySales(Guid ItemId, DateOnly Day, Qty Sold);
 public interface IOutbox
 {
     Task AppendAsync(string aggregateType, IDomainEvent @event, CancellationToken ct = default);
+
+    // FIX(M-11, 2026-10-20, FIX-4): Flaw: in v1 nothing ever removes Outbox rows — the table grows with every
+    // bill, void, payment and edit for the whole life of the install. Fix: a retention sweep deletes rows
+    // older than the caller's cutoff (the app passes 90 days, at startup). Why 90 days: far beyond any
+    // realistic backup/restore horizon and any future offline-sync window, while still bounding the table;
+    // recent rows — the ones a restore or sync could still need — are never touched.
+    // Logged in docs/AGENT_FIX_LOG.md.
+    /// <summary>Deletes rows created before <paramref name="cutoff"/>; returns how many were removed.</summary>
+    Task<int> PruneOlderThanAsync(DateTimeOffset cutoff, CancellationToken ct = default);
 }
 
 public interface IShopProfileRepository

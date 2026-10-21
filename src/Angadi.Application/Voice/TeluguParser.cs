@@ -24,6 +24,9 @@ public sealed partial class TeluguParser(VoiceRules rules) : ITeluguParser
     [GeneratedRegex(@"^[0-9]+(?:\.[0-9]+)?$")]
     private static partial Regex Decimal();
 
+    [GeneratedRegex(@"^[0-9][0-9,]*(\.[0-9]+)?$")]
+    private static partial Regex GroupedDigits();
+
     [GeneratedRegex(@"^([0-9]+)/([0-9]+)$")]
     private static partial Regex Fraction();
 
@@ -113,10 +116,18 @@ public sealed partial class TeluguParser(VoiceRules rules) : ITeluguParser
             if (rules.Fillers.Contains(t)) continue;
             if (nameDigits.Contains(i)) { name.Add(t); continue; }
 
-            if (sawNumber && rules.HundredMultipliers.Contains(t))
+            if (sawNumber && ScaleFactor(t) is { } factor)
             {
-                number = (number == 0 ? 1000 : number) * 100;
-                lastPlace = 100_000;
+                // FIX(VOICE-3/VOICE-4, 2026-10-20, FIX-1): Flaw: only వంద had multiplier treatment.
+                // వెయ్యి sat in the plain number map, so "ఐదు వెయ్యి" tripped the range rule below
+                // (5,000,000 ≥ lastPlace) and the amount came out ₹5, flagged ambiguous; లక్ష/కోటి
+                // were not numbers at all and fell into the item name.
+                // Fix: every scale word multiplies the number before it, exactly like వంద always did
+                // (ఐదు వెయ్యి = 5000, రెండు లక్షలు = 200000); standalone, the word still reads as a
+                // plain number from the map. Why: "ఐదు వెయ్యి రూపాయలు" is how a ₹5,000 order is spoken.
+                // Logged in docs/AGENT_FIX_LOG.md.
+                number = (number == 0 ? 1000 : number) * factor;
+                lastPlace = factor * 1000;
                 continue;
             }
 
@@ -125,6 +136,21 @@ public sealed partial class TeluguParser(VoiceRules rules) : ITeluguParser
                 if (sawNumber && value >= lastPlace)
                 {
                     // "రెండు మూడు కేజీలు" (two-three kg) is a range, not 5. Keep the first number, flag it, let the pipeline ask.
+                    ambiguous = true;
+                    continue;
+                }
+                // FIX(VOICE-5, 2026-10-20, FIX-1): Flaw: two descending BARE quantities added
+                // silently — "మూడు రెండు కేజీలు" billed 5 kg as if it were a compound number.
+                // Fix: when the running total is still a single bare number under ten (number ==
+                // lastPlace, nothing scaled or compounded yet) and the new value is another whole
+                // bare number under ten, flag ambiguous and keep the first — the pipeline asks.
+                // Tens compounds ("ఇరవై ఐదు" = 25) start at ≥ 10_000, scale compounds
+                // ("రెండు వందల యాభై") move lastPlace off the total, and fraction tails
+                // ("రెండు అర" = 2.5) are < 1000 — none of them can trip this guard.
+                // Why: a doubled quantity word is an ASR stutter or two items mushed together;
+                // summing it bills the wrong amount. Logged in docs/AGENT_FIX_LOG.md.
+                if (sawNumber && number == lastPlace && number is > 0 and < 10_000 && value is >= 1000 and < 10_000)
+                {
                     ambiguous = true;
                     continue;
                 }
@@ -194,6 +220,23 @@ public sealed partial class TeluguParser(VoiceRules rules) : ITeluguParser
     /// <summary>Splits fused tokens: "2కేజీలు" → "2","కేజీలు"; "రెండుకేజీలు" → "రెండు","కేజీలు".</summary>
     internal IEnumerable<string> Explode(string token)
     {
+        // FIX(VOICE-1, 2026-10-20, FIX-1): Flaw: DigitsThenWord split "1/2" into "1" + "/2" before
+        // TryNumber could see it, so the fraction branch below was dead code — "1/2 కేజీ" billed 1 kg
+        // and "/2" fell into the item name. Fix: a digits/digits token stays whole.
+        // Why: "half a kilo" is a top counter phrase; billing double on it is a money error.
+        // Logged in docs/AGENT_FIX_LOG.md.
+        if (Fraction().IsMatch(token)) return [token];
+
+        // FIX(VOICE-2, 2026-10-20, FIX-1): Flaw: MarkPunctuationSeparators keeps "2,500" whole (the
+        // comma sits between digits), but Decimal() rejects commas, so DigitsThenWord split it into
+        // "2" + ",500" — quantity 2 and a polluted name. Fix: a digit/comma group is one number with
+        // the grouping commas stripped. Why: Indian-locale speech recognisers emit comma-grouped
+        // digits ("2,500 రూపాయలు" is ₹2,500, not 2). Logged in docs/AGENT_FIX_LOG.md.
+        // Build fix (2026-10-20, FIX-1): CA1307 — the comparison-less Contains/Replace overloads are
+        // ERRORS under this repo's warnings-as-errors analyzers (break found by Muse main's local
+        // build of e657514); StringComparison.Ordinal overloads are the analyzer-clean forms.
+        if (token.Contains(",", StringComparison.Ordinal) && GroupedDigits().IsMatch(token)) return [token.Replace(",", "", StringComparison.Ordinal)];
+
         var m = DigitsThenWord().Match(token);
         if (m.Success) return [m.Groups[1].Value, m.Groups[2].Value];
 
@@ -225,6 +268,12 @@ public sealed partial class TeluguParser(VoiceRules rules) : ITeluguParser
         }
         return [token];
     }
+
+    /// <summary>The factor a scale word applies to the number before it (వంద 100, వెయ్యి 1000, లక్ష 100000, కోటి 10⁷).</summary>
+    private long? ScaleFactor(string token) =>
+        rules.ScaleMultipliers.TryGetValue(token, out var f) ? f
+        : rules.HundredMultipliers.Contains(token) ? 100L
+        : null;
 
     internal bool TryNumber(string token, out long milli)
     {

@@ -20,7 +20,8 @@ public sealed class Customer : Entity
     public DateTimeOffset? LastRemindedAt { get; set; }
 }
 
-/// <summary>Udhaar ledger. Charge from an udhaar bill, Payment when the customer pays, Reversal on void.</summary>
+/// <summary>Udhaar ledger. Charge from an udhaar bill, Payment when the customer pays, Reversal on void,
+/// WriteOff when the owner forgives bad debt (SEC-5: never disguised as a payment).</summary>
 public sealed class DuesEntry : Entity
 {
     public Guid CustomerId { get; set; }
@@ -32,4 +33,9 @@ public sealed class DuesEntry : Entity
     public string? UpiRef { get; set; }
 }
 
-public enum DuesEntryKind { Charge = 0, Payment = 1, Reversal = 2 }
+// FIX(SEC-5, 2026-10-20, FIX-4): Flaw: there was no WriteOff kind, so forgiving bad debt required a fake
+// Payment — collections reports overstated real money, and genuine payment fraud could hide in the same
+// bucket. Fix: WriteOff = 3 (stored as int in DuesEntryRow.Kind, so this is schema-additive — no migration).
+// Why a distinct kind rather than a Note on a payment: reports and aging must be able to tell "money that
+// arrived" from "money forgiven" mechanically, forever. Logged in docs/AGENT_FIX_LOG.md.
+public enum DuesEntryKind { Charge = 0, Payment = 1, Reversal = 2, WriteOff = 3 }

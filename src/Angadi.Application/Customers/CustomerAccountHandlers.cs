@@ -50,7 +50,9 @@ internal sealed class CustomerAccountHandlers(
             new Paise(ledger.Where(e => e.Kind == DuesEntryKind.Payment).Sum(e => e.Amount.Value)),
             DuesAging.OldestUnpaidDays(ledger, clock.Today),
             customer.PromisedPayDate,
-            top);
+            top,
+            // SEC-5: write-offs are reported on their own line — DuesPaidSoFar above counts payments only.
+            new Paise(ledger.Where(e => e.Kind == DuesEntryKind.WriteOff).Sum(e => e.Amount.Value)));
     }
 
     public async Task<Result> Handle(SetPromisedPayDateCommand command, CancellationToken ct)
@@ -85,43 +87,108 @@ internal sealed class CustomerAccountHandlers(
 /// <summary>How long the oldest still-unpaid udhaar has been outstanding.</summary>
 public static class DuesAging
 {
-    /// <summary>
-    /// Reversals cancel their own bill's charge; payments then settle the oldest charges first (FIFO).
-    /// Returns the age in days of the first charge not fully paid, or null when nothing is owed.
-    /// </summary>
     /// <summary>The udhaar still unpaid, oldest first: (when it was taken, the bill, what is left of it).</summary>
     public static IReadOnlyList<(DateTimeOffset At, Guid? BillId, Paise Remaining)> UnpaidCharges(IEnumerable<DuesEntry> ledger)
+        => OpenCharges(ledger);
+
+    /// <summary>
+    /// Age in days of the first charge not fully settled, or null when nothing is owed.
+    /// (Settlement order is defined once, in OpenCharges.)
+    /// </summary>
+    public static int? OldestUnpaidDays(IEnumerable<DuesEntry> ledger, DateOnly today)
+    {
+        var open = OpenCharges(ledger);
+        return open.Count == 0
+            ? null
+            : Math.Max(0, today.DayNumber - DateOnly.FromDateTime(open[0].At.ToLocalTime().DateTime).DayNumber);
+    }
+
+    // FIX(DUES-1, 2026-10-20, FIX-4): Flaw: reversal handling was amount-blind — a Reversal carrying a BillId
+    // cancelled that bill's WHOLE charge whatever its Amount said (the amount was never read; the bill id
+    // went into a HashSet and the charge vanished). That is correct for today's only flow (void = full
+    // reversal) but a partial reversal would silently over-cancel, and the customer would be under-charged
+    // by the difference with no trace. Fix: a reversal cancels min(its amount, its own charge's remaining);
+    // any excess joins the settlement pool and settles other charges like a payment; a reversal naming a
+    // bill with no charge in this ledger joins the pool whole. Payments and write-offs (SEC-5) settle the
+    // remaining charges oldest first (FIFO). Why: the ledger's amounts must mean what they say — aging,
+    // reminders and the customer report are all computed from these numbers. Logged in docs/AGENT_FIX_LOG.md.
+    private static List<(DateTimeOffset At, Guid? BillId, Paise Remaining)> OpenCharges(IEnumerable<DuesEntry> ledger)
     {
         var entries = ledger.ToList();
-        var reversed = entries.Where(e => e.Kind == DuesEntryKind.Reversal && e.BillId is not null).Select(e => e.BillId!.Value).ToHashSet();
-        var charges = entries.Where(e => e.Kind == DuesEntryKind.Charge && (e.BillId is null || !reversed.Contains(e.BillId.Value)))
-            .OrderBy(e => e.CreatedAt).ToList();
-        var paid = entries.Where(e => e.Kind == DuesEntryKind.Payment).Sum(e => e.Amount.Value)
+        var charges = entries.Where(e => e.Kind == DuesEntryKind.Charge).OrderBy(e => e.CreatedAt).ToList();
+
+        var reversalByBill = entries.Where(e => e.Kind == DuesEntryKind.Reversal && e.BillId is not null)
+            .GroupBy(e => e.BillId!.Value).ToDictionary(g => g.Key, g => g.Sum(e => e.Amount.Value));
+
+        // The settlement pool: payments + write-offs + bill-less reversals (+ reversal excess, added below).
+        var pool = entries.Where(e => e.Kind is DuesEntryKind.Payment or DuesEntryKind.WriteOff).Sum(e => e.Amount.Value)
                  + entries.Where(e => e.Kind == DuesEntryKind.Reversal && e.BillId is null).Sum(e => e.Amount.Value);
-        var open = new List<(DateTimeOffset, Guid?, Paise)>();
+
+        var remaining = new List<(DuesEntry Charge, long Left)>(charges.Count);
         foreach (var charge in charges)
         {
-            if (paid >= charge.Amount.Value) { paid -= charge.Amount.Value; continue; }
-            open.Add((charge.CreatedAt, charge.BillId, new Paise(charge.Amount.Value - paid)));
-            paid = 0;
+            var left = charge.Amount.Value;
+            if (charge.BillId is { } billId && reversalByBill.TryGetValue(billId, out var reversal))
+            {
+                var cancelled = Math.Min(reversal, left);
+                left -= cancelled;
+                pool += reversal - cancelled;   // excess reversal settles other charges, like a payment
+                reversalByBill.Remove(billId);
+            }
+            remaining.Add((charge, left));
+        }
+        pool += reversalByBill.Values.Sum();   // reversals naming a bill with no charge here join the pool whole
+
+        var open = new List<(DateTimeOffset, Guid?, Paise)>();
+        foreach (var (charge, left) in remaining)
+        {
+            if (left <= 0) continue;
+            if (pool >= left) { pool -= left; continue; }
+            open.Add((charge.CreatedAt, charge.BillId, new Paise(left - pool)));
+            pool = 0;
         }
         return open;
     }
+}
 
-    public static int? OldestUnpaidDays(IEnumerable<DuesEntry> ledger, DateOnly today)
+// ---------- Dues write-off (SEC-5) ----------
+
+internal sealed class RecordDuesWriteOffValidator : IValidator<RecordDuesWriteOffCommand>
+{
+    public Error? Validate(RecordDuesWriteOffCommand c)
     {
-        var entries = ledger.ToList();
-        var reversed = entries.Where(e => e.Kind == DuesEntryKind.Reversal && e.BillId is not null).Select(e => e.BillId!.Value).ToHashSet();
-        var charges = entries.Where(e => e.Kind == DuesEntryKind.Charge && (e.BillId is null || !reversed.Contains(e.BillId.Value)))
-            .OrderBy(e => e.CreatedAt).ToList();
-        var paid = entries.Where(e => e.Kind == DuesEntryKind.Payment).Sum(e => e.Amount.Value)
-                 + entries.Where(e => e.Kind == DuesEntryKind.Reversal && e.BillId is null).Sum(e => e.Amount.Value);
-
-        foreach (var charge in charges)
-        {
-            if (paid >= charge.Amount.Value) { paid -= charge.Amount.Value; continue; }
-            return Math.Max(0, today.DayNumber - DateOnly.FromDateTime(charge.CreatedAt.ToLocalTime().DateTime).DayNumber);
-        }
+        if (c.Amount.Value <= 0) return new Error(ErrorCodes.AmountInvalid);
+        // The reason is the whole point of the kind: an unexplained forgiveness is indistinguishable
+        // from the fake payment this command exists to replace.
+        if (string.IsNullOrWhiteSpace(c.Reason)) return new Error(ErrorCodes.ValidationFailed, "write-off reason required");
         return null;
+    }
+}
+
+/// <summary>SEC-5: bad debt is forgiven as a WriteOff entry — never as a fake payment.</summary>
+internal sealed class RecordDuesWriteOffHandler(ICustomerRepository customers, IOutbox outbox, IClock clock)
+    : IRequestHandler<RecordDuesWriteOffCommand, Result>
+{
+    public async Task<Result> Handle(RecordDuesWriteOffCommand command, CancellationToken ct)
+    {
+        var customer = await customers.GetAsync(command.CustomerId, ct);
+        if (customer is null) return Result.Failure(ErrorCodes.CustomerNotFound);
+        if (command.Amount > customer.DuesBalance)
+            return Result.Failure(Error.With(ErrorCodes.DuesExceedsBalance,
+                customer.DuesBalance.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+
+        // FIX(SEC-5, 2026-10-20, FIX-4): Flaw: with no WriteOff kind, forgiving bad debt meant recording a
+        // fake Payment — collections totals overstated money that actually arrived, and real payment fraud
+        // could hide in the same bucket. Fix: a WriteOff ledger entry carrying the mandatory reason in its
+        // Note; AddDuesEntryAsync already moves the balance down for every non-Charge kind, report totals
+        // count only Kind == Payment as collected, and DuesAging settles charges with write-offs like
+        // payments. Why: the ledger stays the single truth — forgiveness is visible as itself, forever.
+        // Logged in docs/AGENT_FIX_LOG.md.
+        await customers.AddDuesEntryAsync(new DuesEntry
+        {
+            CustomerId = customer.Id, Kind = DuesEntryKind.WriteOff, Amount = command.Amount, Note = command.Reason.Trim(),
+        }, ct);
+        await outbox.AppendAsync("Customer", new DuesWrittenOff(customer.Id, clock.Now, command.Amount.Value), ct);
+        return Result.Success();
     }
 }

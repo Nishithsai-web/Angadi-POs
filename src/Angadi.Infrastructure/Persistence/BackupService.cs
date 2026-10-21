@@ -1,5 +1,10 @@
+using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 using Angadi.Application.Common;
 using Angadi.Application.Platform;
+using Angadi.Domain.Billing;
 using Microsoft.Extensions.Logging;
 using SQLite;
 
@@ -11,16 +16,35 @@ namespace Angadi.Infrastructure.Persistence;
 /// </summary>
 internal sealed class BackupService(AngadiDb db, IClock clock, string exportDirectory, ILogger<BackupService> log) : IBackupService
 {
-    public async Task<Result<string>> ExportAsync(CancellationToken ct = default)
+    public Task<Result<string>> ExportAsync(CancellationToken ct = default) => ExportCoreAsync(overwrite: true, ct);
+
+    // FIX(DATA-1b, 2026-10-20, FIX-2): Flaw: export names had only minute precision and exports overwrote
+    // freely — two exports inside one minute (a manual one and the restore safety copy) silently replaced
+    // each other, so the "safety" copy could end up being the very file it was meant to protect against.
+    // Fix: names carry seconds plus a GUID suffix, and the restore safety copy is written with
+    // overwrite: false. Why: a backup that the next backup can silently replace is not a safety copy.
+    // Logged in docs/AGENT_FIX_LOG.md.
+    private async Task<Result<string>> ExportCoreAsync(bool overwrite, CancellationToken ct)
     {
         try
         {
             Directory.CreateDirectory(exportDirectory);
-            var path = Path.Combine(exportDirectory, $"angadi-backup-{clock.Now:yyyyMMdd-HHmm}.db");
+            var path = Path.Combine(exportDirectory, $"angadi-backup-{clock.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid().ToString("N")[..8]}.db");
+            // SEC-6: the device HMAC key lives in the live DB's Meta (created once); exports inherit it
+            // through the file copy, and ReadMetadataAsync verifies against the LIVE key.
+            await db.RunAsync(c =>
+            {
+                if (c.Find<MetaRow>(HmacKeyMeta) is null)
+                    c.InsertOrReplace(new MetaRow { Key = HmacKeyMeta, Value = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)) });
+            }, ct);
             await db.CheckpointAsync(ct);
-            await db.RunAsync(_ => File.Copy(db.DatabasePath, path, overwrite: true), ct);
+            await db.RunAsync(_ => File.Copy(db.DatabasePath, path, overwrite), ct);
             // Make the copy self-contained: a WAL-mode file can't always be opened read-only on its own.
-            using (var copy = new SQLiteConnection(path)) copy.ExecuteScalar<string>("PRAGMA journal_mode=DELETE");
+            using (var copy = new SQLiteConnection(path))
+            {
+                copy.ExecuteScalar<string>("PRAGMA journal_mode=DELETE");
+                StampBackup(copy);   // SEC-6: created-at + integrity HMAC, written into the copy's Meta
+            }
             log.LogInformation("Backup exported ({Bytes} bytes)", new FileInfo(path).Length);
             return Result.Success(path);
         }
@@ -31,7 +55,191 @@ internal sealed class BackupService(AngadiDb db, IClock clock, string exportDire
         }
     }
 
+    // FIX(SEC-6, 2026-10-20, FIX-2): Flaw: a backup carried no provenance — before a restore swap the
+    // shopkeeper could not see when it was made or how much data it held, and nothing detected a backup
+    // whose contents were edited after export. Fix: every export stamps the copy's Meta with
+    // backup.created_ms and backup.hmac (HMAC-SHA256 over a canonical dump of every table, keyed by a
+    // device-local key kept in Meta), and ReadMetadataAsync exposes created-at + bill/customer/item
+    // counts + HMAC validity for the pre-restore confirmation (the dialog itself is FIX-3's). Restore
+    // deliberately does NOT reject on HMAC: a backup restored on a new phone legitimately fails it
+    // (different device key) — the signature informs, the shopkeeper decides. Logged in docs/AGENT_FIX_LOG.md.
+    private const string HmacKeyMeta = "backup.hmac_key";
+    private const string HmacMeta = "backup.hmac";
+    private const string CreatedMeta = "backup.created_ms";
+
+    private void StampBackup(SQLiteConnection copy)
+    {
+        copy.InsertOrReplace(new MetaRow { Key = CreatedMeta, Value = clock.Now.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture) });
+        var key = Convert.FromBase64String(copy.Find<MetaRow>(HmacKeyMeta)!.Value);
+        copy.InsertOrReplace(new MetaRow { Key = HmacMeta, Value = ComputeHmac(copy, key) });
+    }
+
+    private static string ComputeHmac(SQLiteConnection c, byte[] key)
+    {
+        using var hmac = new HMACSHA256(key);
+        return Convert.ToBase64String(hmac.ComputeHash(Encoding.UTF8.GetBytes(CanonicalDump(c))));
+    }
+
+    /// <summary>Deterministic dump of every table (Meta minus the HMAC row itself), rows ordered by
+    /// their JSON, so the same logical database always produces the same MAC input.</summary>
+    private static string CanonicalDump(SQLiteConnection c)
+    {
+        var sb = new StringBuilder();
+        Append<ItemRow>(c, sb); Append<BillRow>(c, sb); Append<BillLineRow>(c, sb); Append<CustomerRow>(c, sb);
+        Append<DuesEntryRow>(c, sb); Append<StockMoveRow>(c, sb); Append<OutboxRow>(c, sb); Append<ShopProfileRow>(c, sb);
+        Append<NoteRow>(c, sb);
+        sb.Append("MetaRow\n");
+        foreach (var row in c.Table<MetaRow>().Where(m => m.Key != HmacMeta).ToList().OrderBy(r => JsonSerializer.Serialize(r)))
+            sb.Append(JsonSerializer.Serialize(row)).Append('\n');
+        return sb.ToString();
+
+        static void Append<T>(SQLiteConnection conn, StringBuilder b) where T : new()
+        {
+            b.Append(typeof(T).Name).Append('\n');
+            foreach (var row in conn.Table<T>().ToList().OrderBy(r => JsonSerializer.Serialize(r)))
+                b.Append(JsonSerializer.Serialize(row)).Append('\n');
+        }
+    }
+
+    public async Task<BackupMetadata?> ReadMetadataAsync(string filePath, CancellationToken ct = default)
+    {
+        if (!File.Exists(filePath)) return null;
+        try
+        {
+            using var c = new SQLiteConnection(filePath, SQLiteOpenFlags.ReadOnly);
+            if (c.ExecuteScalar<string>("SELECT Value FROM Meta WHERE Key = 'app'") != AngadiDb.AppMarker) return null;
+            var createdRow = c.Find<MetaRow>(CreatedMeta);
+            var created = createdRow is not null && long.TryParse(createdRow.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var ms)
+                ? (DateTimeOffset?)DateTimeOffset.FromUnixTimeMilliseconds(ms) : null;
+            var storedHmac = c.Find<MetaRow>(HmacMeta)?.Value;
+            var valid = false;
+            if (storedHmac is not null)
+            {
+                var deviceKey = await db.RunAsync(cc => cc.Find<MetaRow>(HmacKeyMeta)?.Value, ct);
+                if (deviceKey is not null)
+                    valid = string.Equals(ComputeHmac(c, Convert.FromBase64String(deviceKey)), storedHmac, StringComparison.Ordinal);
+            }
+            return new BackupMetadata(created,
+                c.ExecuteScalar<int>("SELECT COUNT(*) FROM Bill"),
+                c.ExecuteScalar<int>("SELECT COUNT(*) FROM Customer"),
+                c.ExecuteScalar<int>("SELECT COUNT(*) FROM Item"),
+                storedHmac is not null, valid);
+        }
+        catch (SQLiteException)
+        {
+            return null;
+        }
+    }
+
+    // FIX(SEC-1, 2026-10-20, FIX-2): Flaw: manual backup exports were plaintext SQLite files — the shop's
+    // entire books (customers, dues, prices) readable by anyone the file was shared with or who picked up
+    // the phone. Fix: an encrypted export — AES-256-GCM envelope (magic + version byte, so restore can
+    // tell envelope from legacy plaintext at a glance), key from the owner's passphrase via
+    // PBKDF2-HMAC-SHA256 (210k iterations, random salt per export). Wrong passphrase fails closed on the
+    // GCM tag. Legacy plaintext backups still restore exactly as before. Why this shape: the passphrase
+    // never touches disk, the envelope is self-describing, and there is no key escrow — losing the
+    // passphrase means losing the backup, which the export UI must warn about in Telugu before calling
+    // ExportEncryptedAsync (UI wiring is the integrator step; the service API lands here).
+    // Logged in docs/AGENT_FIX_LOG.md.
+    private static readonly byte[] EncMagic = "ANGADI-ENC"u8.ToArray();
+    private const byte EncVersion = 1;
+    private const int EncSaltSize = 16, EncNonceSize = 12, EncTagSize = 16, EncKeySize = 32, EncIterations = 210_000;
+
+    public async Task<Result<string>> ExportEncryptedAsync(string passphrase, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(passphrase)) return Result.Failure<string>(ErrorCodes.BackupFailed, "passphrase required");
+        var plain = await ExportCoreAsync(overwrite: true, ct);
+        if (plain.IsFailure) return plain;
+        try
+        {
+            var encPath = plain.Value + ".enc";
+            EncryptFile(plain.Value, encPath, passphrase);
+            File.Delete(plain.Value);   // the plaintext must not linger beside its encrypted twin
+            log.LogInformation("Encrypted backup exported");
+            return Result.Success(encPath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or CryptographicException)
+        {
+            log.LogError(ex, "Encrypted backup export failed");
+            return Result.Failure<string>(ErrorCodes.BackupFailed, ex.Message);
+        }
+    }
+
+    private static void EncryptFile(string plainPath, string encPath, string passphrase)
+    {
+        var plain = File.ReadAllBytes(plainPath);
+        var salt = RandomNumberGenerator.GetBytes(EncSaltSize);
+        var nonce = RandomNumberGenerator.GetBytes(EncNonceSize);
+        var key = Rfc2898DeriveBytes.Pbkdf2(passphrase, salt, EncIterations, HashAlgorithmName.SHA256, EncKeySize);
+        var cipher = new byte[plain.Length];
+        var tag = new byte[EncTagSize];
+        using (var aes = new AesGcm(key, EncTagSize)) aes.Encrypt(nonce, plain, cipher, tag);
+        using var fs = File.Create(encPath);
+        fs.Write(EncMagic); fs.WriteByte(EncVersion); fs.Write(salt); fs.Write(nonce); fs.Write(tag); fs.Write(cipher);
+    }
+
+    private static bool IsEncryptedEnvelope(string path)
+    {
+        try
+        {
+            if (!File.Exists(path)) return false;
+            using var fs = File.OpenRead(path);
+            var head = new byte[EncMagic.Length + 1];
+            return fs.Read(head, 0, head.Length) == head.Length
+                && head.AsSpan(0, EncMagic.Length).SequenceEqual(EncMagic) && head[EncMagic.Length] == EncVersion;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return false; }
+    }
+
+    private static void DecryptFile(string encPath, string plainPath, string passphrase)
+    {
+        var all = File.ReadAllBytes(encPath);
+        var header = EncMagic.Length + 1 + EncSaltSize + EncNonceSize + EncTagSize;
+        if (all.Length < header || !all.AsSpan(0, EncMagic.Length).SequenceEqual(EncMagic) || all[EncMagic.Length] != EncVersion)
+            throw new CryptographicException("not an Angadi encrypted backup");
+        var at = EncMagic.Length + 1;
+        var salt = all.AsSpan(at, EncSaltSize).ToArray(); at += EncSaltSize;
+        var nonce = all.AsSpan(at, EncNonceSize).ToArray(); at += EncNonceSize;
+        var tag = all.AsSpan(at, EncTagSize).ToArray(); at += EncTagSize;
+        var key = Rfc2898DeriveBytes.Pbkdf2(passphrase, salt, EncIterations, HashAlgorithmName.SHA256, EncKeySize);
+        var plain = new byte[all.Length - at];
+        using (var aes = new AesGcm(key, EncTagSize)) aes.Decrypt(nonce, all.AsSpan(at), tag, plain);   // throws on wrong passphrase
+        File.WriteAllBytes(plainPath, plain);
+    }
+
+    public async Task<Result> RestoreEncryptedAsync(string filePath, string passphrase, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(passphrase)) return Result.Failure(ErrorCodes.RestoreInvalidFile, "passphrase required");
+        var decrypted = db.DatabasePath + ".restore-dec";
+        try
+        {
+            DecryptFile(filePath, decrypted, passphrase);
+            return await RestoreCoreAsync(decrypted, ct);
+        }
+        catch (CryptographicException)
+        {
+            log.LogWarning("Encrypted restore rejected: wrong passphrase or damaged envelope");
+            return Result.Failure(ErrorCodes.RestoreInvalidFile, "wrong passphrase or damaged encrypted backup");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            log.LogError(ex, "Encrypted restore failed before validation; live data unchanged");
+            return Result.Failure(ErrorCodes.RestoreInvalidFile, ex.GetType().Name);
+        }
+        finally
+        {
+            if (File.Exists(decrypted)) File.Delete(decrypted);
+        }
+    }
+
     public async Task<Result> RestoreAsync(string filePath, CancellationToken ct = default)
+    {
+        // SEC-1: an envelope through the plaintext path fails closed with a signal the UI can act on.
+        if (IsEncryptedEnvelope(filePath)) return Result.Failure(ErrorCodes.RestoreInvalidFile, "encrypted backup — passphrase required");
+        return await RestoreCoreAsync(filePath, ct);
+    }
+
+    private async Task<Result> RestoreCoreAsync(string filePath, CancellationToken ct)
     {
         // H3: never touch the live DB with an unvalidated file. Stage a private copy next to it (same volume,
         // so the final swap is an atomic rename), validate the copy, then swap.
@@ -46,10 +254,50 @@ internal sealed class BackupService(AngadiDb db, IClock clock, string exportDire
             }
 
             // A safety copy the shopkeeper can share, besides the ".pre-restore" file the swap keeps.
-            var safety = await ExportAsync(ct);
+            // DATA-1b: overwrite: false — the safety copy must never replace (or be replaced by) another export.
+            var safety = await ExportCoreAsync(overwrite: false, ct);
             if (safety.IsFailure) return Result.Failure(safety.Error);
 
+            // FIX(RESTORE-1, 2026-10-20, FIX-2): Flaw: the swap replaced NextBillSequence and the quota
+            // counters with the backup's older values. Restoring yesterday's backup after today's sales
+            // made the next bills REUSE already-printed numbers (UNIQUE violation -> finalize fails, the
+            // counter frozen) and reopened spent free quota. Fix: snapshot the live sequence + quota Meta
+            // before the swap; after it, write back the element-wise maximum. Books roll back; numbering
+            // and quota never do. Why: bill numbers are printed on paper in customers' hands — a duplicate
+            // is two different sales claiming to be the same bill. Logged in docs/AGENT_FIX_LOG.md.
+            long liveSequence = 1;
+            var liveQuota = new Dictionary<string, long>();
+            await db.RunAsync(c =>
+            {
+                liveSequence = c.Table<ShopProfileRow>().FirstOrDefault()?.NextBillSequence ?? 1;
+                foreach (var m in c.Table<MetaRow>())
+                    if (m.Key.StartsWith("quota.", StringComparison.Ordinal)
+                        && long.TryParse(m.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var v))
+                        liveQuota[m.Key] = v;
+            }, ct);
+
             await db.ReplaceWithAsync(staged, ct);
+            await db.RunAsync(c =>
+            {
+                var shop = c.Table<ShopProfileRow>().FirstOrDefault();
+                if (shop is not null && liveSequence > shop.NextBillSequence)
+                {
+                    shop.NextBillSequence = liveSequence;
+                    c.Update(shop);
+                }
+                foreach (var (key, value) in liveQuota)
+                {
+                    var row = c.Find<MetaRow>(key);
+                    var current = row is not null
+                        && long.TryParse(row.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var cv) ? cv : long.MinValue;
+                    if (value > current)
+                        c.InsertOrReplace(new MetaRow { Key = key, Value = value.ToString(CultureInfo.InvariantCulture) });
+                }
+                // M-3: the buckets above were just healed to the live maxima, so this DB has absorbed the
+                // device's full lifetime — stamp the watermark, or QuotaStore would floor the count a
+                // second time from the lifetime counter.
+                c.InsertOrReplace(new MetaRow { Key = QuotaStore.WatermarkKey, Value = LifetimeBillCounter.Read(db.DatabasePath).ToString(CultureInfo.InvariantCulture) });
+            }, ct);
             log.LogInformation("Restore completed; previous data kept at {Path}", Path.GetFileName(safety.Value));
             return Result.Success();
         }
@@ -88,6 +336,44 @@ internal sealed class BackupService(AngadiDb db, IClock clock, string exportDire
 
         var orphanLines = c.ExecuteScalar<int>("SELECT COUNT(*) FROM BillLine l WHERE NOT EXISTS (SELECT 1 FROM Bill b WHERE b.Id = l.BillId)");
         if (orphanLines > 0) { reason = $"{orphanLines} bill line(s) without a bill"; return false; }
+
+        var orphanMoves = c.ExecuteScalar<int>("SELECT COUNT(*) FROM StockMove m WHERE NOT EXISTS (SELECT 1 FROM Item i WHERE i.Id = m.ItemId)");
+        if (orphanMoves > 0) { reason = $"{orphanMoves} stock move(s) without an item"; return false; }
+
+        var orphanDues = c.ExecuteScalar<int>("SELECT COUNT(*) FROM DuesEntry e WHERE NOT EXISTS (SELECT 1 FROM Customer cu WHERE cu.Id = e.CustomerId)");
+        if (orphanDues > 0) { reason = $"{orphanDues} dues entries without a customer"; return false; }
+
+        // FIX(RESTORE-2, 2026-10-20, FIX-2): Flaw: the sweep reconciled the ledgers but never recomputed
+        // a single bill — a backup with hand-edited bill totals restored silently, and a rewound
+        // NextBillSequence restored with it (duplicate numbers on the next sales). Fix: recompute every
+        // non-draft bill with the same BillCalculator the counter uses and compare every frozen total and
+        // tax split; reject any bill number at or beyond NextBillSequence; the orphan ledger checks above
+        // are T3-03. Why: a backup is the shop's disaster recovery — whatever it accepts becomes the books
+        // of record. Logged in docs/AGENT_FIX_LOG.md.
+        var nextSequence = c.Table<ShopProfileRow>().FirstOrDefault()?.NextBillSequence ?? 1;
+        foreach (var billRow in c.Table<BillRow>().Where(b => b.Status != 0))
+        {
+            var lines = c.Table<BillLineRow>().Where(l => l.BillId == billRow.Id).ToList();
+            try
+            {
+                var copy = Mapping.ToDomain(billRow, lines);
+                var storedSplits = copy.TaxSplits;
+                BillCalculator.Compute(copy, copy.IsTaxInvoice);
+                var splitsMatch = copy.TaxSplits.Count == storedSplits.Count && copy.TaxSplits.Zip(storedSplits)
+                    .All(p => p.First.Slab == p.Second.Slab && p.First.Taxable.Value == p.Second.Taxable.Value && p.First.Tax.Value == p.Second.Tax.Value);
+                if (copy.SubTotal.Value != billRow.SubTotalPaise || copy.BillDiscountAmount.Value != billRow.BillDiscountPaise
+                    || copy.TaxTotal.Value != billRow.TaxTotalPaise || copy.RoundingAdjustment.Value != billRow.RoundingPaise
+                    || copy.GrandTotal.Value != billRow.GrandTotalPaise || !splitsMatch)
+                { reason = $"bill {billRow.Number} totals do not recompute"; return false; }
+            }
+            catch (Exception ex) when (ex is ArgumentException or OverflowException or System.Text.Json.JsonException)
+            { reason = $"bill {billRow.Number} cannot be recomputed ({ex.GetType().Name})"; return false; }
+
+            var dash = billRow.Number.LastIndexOf('-');
+            if (dash >= 0 && long.TryParse(billRow.Number.AsSpan(dash + 1), NumberStyles.Integer, CultureInfo.InvariantCulture, out var suffix)
+                && suffix >= nextSequence)
+            { reason = $"bill {billRow.Number} is at or beyond the next bill number"; return false; }
+        }
         return true;
     }
 

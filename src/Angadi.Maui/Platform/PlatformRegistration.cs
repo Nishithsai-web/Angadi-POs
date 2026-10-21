@@ -1,4 +1,3 @@
-using System.Globalization;
 using Angadi.Application.Common;
 using Angadi.Application.Platform;
 using Angadi.Maui.Core;
@@ -12,7 +11,12 @@ public static class PlatformRegistration
     public static IServiceCollection AddAndroidPlatform(this IServiceCollection s)
     {
         s.AddSingleton<AndroidSpeechToText>();
-        s.AddSingleton<ISpeechToText, FallbackSpeechToText>();
+        // VOICE-9 (FIX-1, 2026-10-20): FallbackSpeechToText moved to Angadi.Application.Platform
+        // (it now wraps ISpeechToText, so the fallback chain is unit-testable); the factory keeps
+        // the concrete Android recogniser as its inner service. Logged in docs/AGENT_FIX_LOG.md.
+        s.AddSingleton<ISpeechToText>(sp => new FallbackSpeechToText(
+            sp.GetRequiredService<AndroidSpeechToText>(),
+            sp.GetRequiredService<ILogger<FallbackSpeechToText>>()));
         s.AddSingleton<IReceiptShare, ReceiptShare>();
         s.AddSingleton<ManualBarcodeScanner>();
         s.AddSingleton<IBarcodeScanner, CameraBarcodeScanner>();
@@ -20,32 +24,6 @@ public static class PlatformRegistration
         s.AddSingleton<ISubscriptionService, PlaySubscriptionService>();
         return s;
     }
-}
-
-/// <summary>
-/// P4: never a dead mic. te-IN first; if the device has no Telugu recogniser, retry once in the device language;
-/// if speech is unavailable altogether the failure says "manual" and the POS opens typed search.
-/// </summary>
-internal sealed class FallbackSpeechToText(AndroidSpeechToText inner, ILogger<FallbackSpeechToText> log) : ISpeechToText
-{
-    private static readonly string[] LanguageMissing = ["language_not_supported", "language_unavailable"];
-
-    public async Task<Result<string>> ListenAsync(string culture, IProgress<string>? partials, CancellationToken ct = default)
-    {
-        var first = await inner.ListenAsync(culture, partials, ct);
-        if (first.IsSuccess || !LanguageMissing.Contains(first.Error.Detail)) return Manual(first);
-
-        var deviceCulture = CultureInfo.CurrentUICulture.Name;
-        if (string.IsNullOrEmpty(deviceCulture) || deviceCulture.Equals(culture, StringComparison.OrdinalIgnoreCase)) return Manual(first);
-
-        log.LogWarning("Telugu recogniser unavailable; falling back to device language");
-        return Manual(await inner.ListenAsync(deviceCulture, partials, ct));
-    }
-
-    private static Result<string> Manual(Result<string> r) =>
-        r.IsFailure && r.Error.Detail is "recognizer_unavailable" or "language_not_supported" or "language_unavailable"
-            ? Result.Failure<string>(ErrorCodes.VoiceNothingHeard, "manual")
-            : r;
 }
 
 /// <summary>P3: OS share sheet for receipt PDFs/backups/logs; wa.me deep links for WhatsApp (free, ADR-4).</summary>

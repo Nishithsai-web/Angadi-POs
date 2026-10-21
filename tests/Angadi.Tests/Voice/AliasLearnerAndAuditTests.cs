@@ -13,6 +13,7 @@ public class AliasLearnerAndAuditTests : IDisposable
 
     private static readonly VoiceOptions Voice = new();
     private AliasLearner Learner() => new(_t.Items, _t.Clock, Microsoft.Extensions.Options.Options.Create(Voice), TempDb.Log<AliasLearner>());
+    private VoiceBillingPipeline Pipeline() => new(new TeluguParser(), _t.Items, Microsoft.Extensions.Options.Options.Create(Voice), _t.Clock, TempDb.Log<VoiceBillingPipeline>());
 
     private async Task<(Item rice, Item sugar)> TwoItemsAsync()
     {
@@ -39,6 +40,26 @@ public class AliasLearnerAndAuditTests : IDisposable
         var twice = await ReloadAsync(rice.Id);
         Assert.True(Assert.Single(twice.LearnedAliases).CanAutoAdd);
         Assert.Equal(1.0, ItemMatcher.ScoreItem(TeluguText.MatchKey("సోనా బియ్యం"), twice));
+    }
+
+    [Fact]
+    public async Task T2_AutoAdd_TouchesLearnedAliasLastUsed()
+    {
+        // VOICE-7 regression: LastUsedMs moved only on LEARN, so the LRU cap evicted by age —
+        // a daily-used alias learned long ago went first. An AutoAdd decided by a learned alias
+        // must stamp that alias as used.
+        var (rice, _) = await TwoItemsAsync();
+        await Learner().LearnAsync(rice.Id, "సోనా బియ్యం");
+        _t.Clock.Advance(TimeSpan.FromMinutes(1));
+        await Learner().LearnAsync(rice.Id, "సోనా బియ్యం");      // confidence 2 → can auto-add
+        var learnedAt = Assert.Single((await ReloadAsync(rice.Id)).LearnedAliases).LastUsedMs;
+
+        _t.Clock.Advance(TimeSpan.FromDays(30));
+        var result = await Pipeline().ProcessUtteranceAsync("సోనా బియ్యం రెండు కేజీలు");
+        Assert.Equal(MatchKind.AutoAdd, Assert.Single(result.Value!).Kind);
+
+        var after = Assert.Single((await ReloadAsync(rice.Id)).LearnedAliases);
+        Assert.True(after.LastUsedMs > learnedAt, "AutoAdd must stamp the deciding alias as used");
     }
 
     [Fact]
@@ -81,9 +102,14 @@ public class AliasLearnerAndAuditTests : IDisposable
     [Fact]
     public void Audit5_QuantityOnlyUtterance_NeverMatchesAnItem()
     {
+        // SPEC-5 (VOICE-8): the old body looped over Parse(...) results — if Parse returned
+        // nothing, the loop never ran and the test passed vacuously. Pin both layers instead:
+        // a quantity-only utterance parses to NOTHING, and a nameless line matches NOTHING.
+        Assert.Empty(new TeluguParser().Parse("రెండు కేజీలు"));
+        Assert.Empty(new TeluguParser().Parse("ఐదు"));
         var items = new[] { new Item { TeluguName = "బియ్యం", EnglishName = "Rice" } };
-        foreach (var line in new TeluguParser().Parse("రెండు కేజీలు"))
-            Assert.Equal(MatchKind.NoMatch, ItemMatcher.Match(line, items, new VoiceOptions()).Kind);
+        var line = new ParsedLine("", new Qty(2000), Unit.Kilogram, null, "రెండు కేజీలు");
+        Assert.Equal(MatchKind.NoMatch, ItemMatcher.Match(line, items, new VoiceOptions()).Kind);
     }
 
     [Fact]

@@ -23,6 +23,29 @@ public class DataLayerTests : IDisposable
     };
 
     [Fact]
+    public async Task SaveItem_StaleCopy_DoesNotClobberLearnedAliases()
+    {
+        var rice = Rice();
+        await _t.Items.SaveAsync(rice);
+
+        var stale = await _t.Items.GetAsync(rice.Id);   // a flow loads the item and holds it…
+        var fresh = await _t.Items.GetAsync(rice.Id);   // …while the alias learner loads its own copy
+        fresh!.LearnedAliases.Add(new LearnedAlias("biyam", 3, 1000));
+        _t.Clock.Advance(TimeSpan.FromMinutes(1));
+        await _t.Items.SaveAsync(fresh);                // learner writes (fresh copy: writes through)
+
+        stale!.Price = new Paise(6500);                 // the first flow edits the price…
+        _t.Clock.Advance(TimeSpan.FromMinutes(1));
+        await _t.Items.SaveAsync(stale);                // …and saves its stale copy
+
+        var after = await _t.Items.GetAsync(rice.Id);
+        Assert.Equal(6500, after!.Price.Value);                       // its own edit lands
+        var learned = Assert.Single(after.LearnedAliases);            // the learned alias survives
+        Assert.Equal("biyam", learned.Text);
+        Assert.Equal(3, learned.Confidence);
+    }
+
+    [Fact]
     public async Task FR03_Item_RoundTrips_WithAliasesAndBarcode()
     {
         var rice = Rice();

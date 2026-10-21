@@ -26,8 +26,10 @@ public sealed class ItemMatcher(IItemRepository items, IOptions<VoiceOptions> op
         return Match(line, active, _o, text.Language);
     }
 
-    internal static MatchResult Match(ParsedLine line, IReadOnlyList<Item> active, VoiceOptions o, UiLanguage language = UiLanguage.Telugu)
+    internal static MatchResult Match(ParsedLine line, IReadOnlyList<Item> active, VoiceOptions o, UiLanguage language = UiLanguage.Telugu,
+        IReadOnlySet<string>? genericKeys = null)
     {
+        genericKeys ??= VoiceRules.Default.GenericAliases;
         var query = TeluguText.MatchKey(line.Name);
         if (query.Length == 0) return new MatchResult(line, MatchKind.NoMatch, []);
         // M1-CORRECTION: "650 పారాసెటమాల్" — a dosage spoken first; also try it rotated to the end of the name.
@@ -35,12 +37,18 @@ public sealed class ItemMatcher(IItemRepository items, IOptions<VoiceOptions> op
 
         // PERF: scores every active item per phrase — fine to ~2k items; add a first-letter prefilter beyond that.
         var ranked = active
-            .Select(item => (item, score: Math.Max(ScoreItem(query, item), rotated is null ? 0 : ScoreItem(rotated, item))))
+            .Select(item =>
+            {
+                var a = ScoreItemDetailed(query, item, genericKeys);
+                if (rotated is null) return (item, score: a.Score, learned: a.Learned);
+                var b = ScoreItemDetailed(rotated, item, genericKeys);
+                return b.Score > a.Score ? (item, score: b.Score, learned: b.Learned) : (item, score: a.Score, learned: a.Learned);
+            })
             .Where(x => x.score >= MinCandidateScore)
             .OrderByDescending(x => x.score)
             .ThenBy(x => x.item.TeluguName, StringComparer.Ordinal)
             .Take(Math.Max(1, o.MaxCandidates))
-            .Select(x => new MatchCandidate(x.item.Id, ItemNames.Pick(language, x.item.TeluguName, x.item.EnglishName), Math.Round(x.score, 4)))
+            .Select(x => new MatchCandidate(x.item.Id, ItemNames.Pick(language, x.item.TeluguName, x.item.EnglishName), Math.Round(x.score, 4), x.learned))
             .ToList();
 
         if (ranked.Count == 0) return new MatchResult(line, MatchKind.NoMatch, []);
@@ -61,24 +69,46 @@ public sealed class ItemMatcher(IItemRepository items, IOptions<VoiceOptions> op
     /// <summary>Learned aliases below auto-confidence top out just under the auto threshold: they ask (M2).</summary>
     internal const double UnconfirmedLearnedCap = 0.89;
 
-    internal static double ScoreItem(string query, Item item)
+    /// <summary>A generic category word (నూనె, పప్పు…) tops out just under the auto threshold: it always asks (VOICE-6).</summary>
+    internal const double GenericAliasCap = 0.89;
+
+    internal static double ScoreItem(string query, Item item, IReadOnlySet<string>? genericKeys = null) =>
+        ScoreItemDetailed(query, item, genericKeys).Score;
+
+    /// <summary>
+    /// Score plus the learned alias that produced it (VOICE-7): the pipeline stamps that alias's
+    /// LastUsedMs when it decides an AutoAdd, so the learner's LRU cap evicts by use, not by age.
+    /// A curated name/alias win — or a tie it reached first — reports null.
+    /// </summary>
+    internal static (double Score, LearnedAlias? Learned) ScoreItemDetailed(string query, Item item, IReadOnlySet<string>? genericKeys = null)
     {
+        genericKeys ??= VoiceRules.Default.GenericAliases;
         var best = 0.0;
+        LearnedAlias? decisive = null;
         foreach (var name in Names(item))
         {
             var key = TeluguText.MatchKey(name);
             if (key.Length == 0) continue;
-            best = Math.Max(best, Score(query, key));
-            if (best >= 1.0) return best;
+            var score = Score(query, key);
+            // FIX(VOICE-6, 2026-10-20, FIX-1): Flaw: "generic word asks" was an accident of big
+            // catalogs — with ONE oil whose curated alias is exactly "నూనె", the alias scored 1.0
+            // and auto-added silently. Fix: an item whose own name/alias IS a generic category
+            // word is capped at ask-only, like an unconfirmed learned alias.
+            // Why: "నూనె" names a shelf, not a product; the app must ask which oil, every time.
+            // Logged in docs/AGENT_FIX_LOG.md.
+            if (genericKeys.Contains(key)) score = Math.Min(score, GenericAliasCap);
+            if (score > best) { best = score; decisive = null; }
+            if (best >= 1.0) return (best, decisive);
         }
         foreach (var learned in item.LearnedAliases)
         {
             var key = TeluguText.MatchKey(learned.Text);
             if (key.Length == 0) continue;
             var score = Score(query, key);
-            best = Math.Max(best, learned.CanAutoAdd ? score : Math.Min(score, UnconfirmedLearnedCap));
+            score = learned.CanAutoAdd ? score : Math.Min(score, UnconfirmedLearnedCap);
+            if (score > best) { best = score; decisive = learned; }
         }
-        return best;
+        return (best, decisive);
     }
 
     internal static double Score(string query, string key)

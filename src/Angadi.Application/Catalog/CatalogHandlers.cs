@@ -85,13 +85,17 @@ internal sealed class SaveItemHandler(IItemRepository items, IStockLedger ledger
                 return Result.Failure<Guid>(Error.With(ErrorCodes.BarcodeDuplicate, other.TeluguName.Length > 0 ? other.TeluguName : other.EnglishName));
         }
 
-        var isNew = await items.GetAsync(item.Id, ct) is null;
+        var existing = await items.GetAsync(item.Id, ct);
+        var isNew = existing is null;
         await items.SaveAsync(item, ct);
 
         if (isNew && command.OpeningStock is { Milli: > 0 } opening)
             await ledger.AdjustAsync(item.Id, opening, StockMoveReason.Opening, ct: ct);
 
-        await outbox.AppendAsync("Item", new ItemChanged(item.Id, clock.Now), ct);
+        // FIX(SEC-3, 2026-10-20, FIX-4): Flaw: the ItemChanged event named no values, so a price edit left no
+        // audit trail. Fix: carry the price before/after this save (old = null on create). Why: the Outbox is
+        // inside every backup, so the trail survives a device change. Logged in docs/AGENT_FIX_LOG.md.
+        await outbox.AppendAsync("Item", new ItemChanged(item.Id, clock.Now, existing?.Price.Value, item.Price.Value), ct);
         return Result.Success(item.Id);
     }
 }
@@ -175,12 +179,25 @@ internal sealed class ExportLogsHandler(ILogExporter exporter) : IRequestHandler
 
 // ---------- Automatic data safety ----------
 
-internal sealed class DataSafetyHandlers(IDataSafety safety) :
+internal sealed class DataSafetyHandlers(IDataSafety safety, IOutbox outbox, IClock clock) :
     IRequestHandler<TakeSafetySnapshotCommand, Result>,
-    IRequestHandler<GetDataRecoveryQuery, DataRecoveryReport?>
+    IRequestHandler<GetDataRecoveryQuery, DataRecoveryReport?>,
+    IRequestHandler<PruneOutboxCommand, Result>
 {
     public Task<Result> Handle(TakeSafetySnapshotCommand command, CancellationToken ct) => safety.SnapshotAsync(ct);
     public Task<DataRecoveryReport?> Handle(GetDataRecoveryQuery query, CancellationToken ct) => Task.FromResult(safety.TakeRecoveryReport());
+
+    // FIX(M-11, 2026-10-20, FIX-4): Flaw: the Outbox grew forever — v1 appends a row per bill/void/payment/
+    // edit and nothing drains it. Fix: at startup, delete rows older than 90 days. Why 90 days: beyond any
+    // realistic backup horizon or offline-sync window, and the sweep is a single range DELETE, cheap enough
+    // for every cold start. Logged in docs/AGENT_FIX_LOG.md.
+    private static readonly TimeSpan OutboxRetention = TimeSpan.FromDays(90);
+
+    public async Task<Result> Handle(PruneOutboxCommand command, CancellationToken ct)
+    {
+        await outbox.PruneOlderThanAsync(clock.Now - OutboxRetention, ct);
+        return Result.Success();
+    }
 }
 
 // ---------- Shop, seed, bills, backup ----------
@@ -198,8 +215,16 @@ internal sealed class ShopHandlers(
 
     public async Task<Result> Handle(SaveShopProfileCommand command, CancellationToken ct)
     {
+        var before = await shop.GetAsync(ct);
         await shop.SaveAsync(command.Profile, ct);
-        await outbox.AppendAsync("Shop", new ShopProfileChanged(command.Profile.Id, clock.Now), ct);   // M6
+        // FIX(SEC-3, 2026-10-20, FIX-4): Flaw: the ShopProfileChanged event named no values — if someone swapped
+        // the shop's UPI ID, customer payments silently went to the wrong account and there was NO record of the
+        // change. Fix: the payload carries old→new UPI ID and GSTIN (GSTIN recorded in its stored, upper-case
+        // form). Why: the Outbox is inside every backup, so the fraud trail survives a device change.
+        // Logged in docs/AGENT_FIX_LOG.md.
+        await outbox.AppendAsync("Shop", new ShopProfileChanged(command.Profile.Id, clock.Now,
+            before?.UpiId, command.Profile.UpiId.Trim(),
+            before?.Gstin, string.IsNullOrWhiteSpace(command.Profile.Gstin) ? null : command.Profile.Gstin.Trim().ToUpperInvariant()), ct);   // M6
         text.Language = command.Profile.Language;
         return Result.Success();
     }

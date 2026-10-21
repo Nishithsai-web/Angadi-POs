@@ -70,3 +70,28 @@ public class LocalDateTests
         Assert.Equal("25 Oct", en.Short(new DateOnly(2026, 10, 25)));
     }
 }
+
+/// <summary>LOG-3g: a template shown with too few values must never leak a raw "{0}"/"{1}" to a shopkeeper.</summary>
+public class LocalizerFormatGuardTests
+{
+    [Fact]
+    public void Error_WithTooFewArgs_NeverShowsARawPlaceholder()
+    {
+        var en = new JsonLocalizer { Language = UiLanguage.English };
+        // FREE_LIMIT_REACHED's template takes {0} and {1}; raising it with one value used to return the
+        // raw template (the "{1}" literally on screen). Now it must come back placeholder-stripped.
+        var shown = en.Error(Error.With(ErrorCodes.FreeLimitReached, 50));
+        Assert.DoesNotContain("{", shown, StringComparison.Ordinal);
+        Assert.Contains("free bills", shown, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Format_WithTooFewArgs_NeverShowsARawPlaceholder()
+    {
+        var en = new JsonLocalizer { Language = UiLanguage.English };
+        // "pos.scan.unknown" is "No item has this barcode ({0})"; Format used to THROW FormatException here.
+        var shown = en.Format("pos.scan.unknown");
+        Assert.DoesNotContain("{0}", shown, StringComparison.Ordinal);
+        Assert.Contains("No item has this barcode", shown, StringComparison.Ordinal);
+    }
+}

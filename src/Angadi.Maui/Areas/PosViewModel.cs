@@ -12,6 +12,7 @@ using Angadi.Maui.Areas.Pos;
 using Angadi.Maui.Core;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Angadi.Maui.Areas;
@@ -27,6 +28,7 @@ public sealed partial class PosViewModel : ViewModelBase
     private readonly IAliasLearner _aliases;
     private readonly IBarcodeScanner _scanner;
     private readonly VoiceOptions _voiceOptions;
+    private readonly ILogger<PosViewModel> _log;
     private BillDraft _draft;
     private bool _draftChecked;
     private readonly SemaphoreSlim _draftSave = new(1, 1);
@@ -34,7 +36,8 @@ public sealed partial class PosViewModel : ViewModelBase
     private CancellationTokenSource? _searchCts;
 
     public PosViewModel(ISender sender, ILocalizer text, INavigationService nav, IDialogService dialogs,
-        ISpeechToText speech, IVoiceBillingPipeline voice, IAliasLearner aliases, IBarcodeScanner scanner, IOptions<VoiceOptions> voiceOptions)
+        ISpeechToText speech, IVoiceBillingPipeline voice, IAliasLearner aliases, IBarcodeScanner scanner, IOptions<VoiceOptions> voiceOptions,
+        ILogger<PosViewModel> log)
         : base(sender, text, nav, dialogs)
     {
         _speech = speech;
@@ -42,6 +45,7 @@ public sealed partial class PosViewModel : ViewModelBase
         _aliases = aliases;
         _scanner = scanner;
         _voiceOptions = voiceOptions.Value;
+        _log = log;
         UseDraft(new BillDraft(shopHasGstin: false));
     }
 
@@ -151,6 +155,15 @@ public sealed partial class PosViewModel : ViewModelBase
             foreach (var i in results) SearchResults.Add(Tile(i));
         }
         catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            // FIX(UI-3, 2026-10-20, FIX-3): Flaw: SearchAsync is fire-and-forget from OnSearchTextChanged and
+            // caught only cancellation — a sender failure faulted an unobserved task and search silently
+            // returned nothing. Fix: report it (tagged "search") so support logs show it; no toast, because
+            // typing must never nag the shopkeeper. Why: silent-but-logged beats invisible. Logged in
+            // docs/AGENT_FIX_LOG.md.
+            GlobalExceptions.Report(ex, "search");
+        }
     }
 
     public void Add(ItemTile tile, LineSource source = LineSource.Manual)
@@ -158,6 +171,12 @@ public sealed partial class PosViewModel : ViewModelBase
         _draft.Add(tile.Item, source: source);
         SearchText = "";
     }
+
+    /// <summary>
+    /// Raised when voice falls back to typed search (the "manual" failure): the page focuses the
+    /// search box (VOICE-9, FIX-1 2026-10-20).
+    /// </summary>
+    public event EventHandler? SearchFocusRequested;
 
     [RelayCommand]
     private Task Mic() => SafeAsync(MicCore);
@@ -172,7 +191,13 @@ public sealed partial class PosViewModel : ViewModelBase
             var heard = await _speech.ListenAsync(_voiceOptions.Culture, new Progress<string>(p => VoiceText = p));
             if (heard.IsFailure)
             {
-                if (heard.Error.Detail == "manual") { await Dialogs.ToastAsync(Text["pos.voice.offline"]); return; }
+                // FIX(VOICE-9, 2026-10-20, FIX-1): Flaw: the "manual" fallback only toasted — the
+                // shopkeeper was told to type, but the search box was never focused, despite the
+                // fallback chain's contract promising typed search opens. Fix: raise
+                // SearchFocusRequested; PosPage focuses the search entry.
+                // Why: a fallback that needs a hunt for the box is a dead mic at a busy counter.
+                // Logged in docs/AGENT_FIX_LOG.md.
+                if (heard.Error.Detail == "manual") { await Dialogs.ToastAsync(Text["pos.voice.offline"]); SearchFocusRequested?.Invoke(this, EventArgs.Empty); return; }
                 if (heard.Error.Detail != "cancelled") await ShowIfFailedAsync(heard);
                 return;
             }
@@ -270,8 +295,12 @@ public sealed partial class PosViewModel : ViewModelBase
         if (line is not null) _draft.SetQty(row.Id, line.Qty - Qty.Whole(1));
     }
 
+    // FIX(UI-2, 2026-10-20, FIX-3): Flaw: EditLine was the only POS command not routed through SafeAsync —
+    // a prompt/parse exception faulted the command task instead of showing the friendly toast. Fix: route
+    // through SafeAsync like its 9 siblings. Why: one unwrapped command is all it takes to reintroduce the
+    // "tap does nothing" failure at the counter. Logged in docs/AGENT_FIX_LOG.md.
     [RelayCommand]
-    private Task EditLine(LineRow row) => EditLineAsync(row.Id);
+    private Task EditLine(LineRow row) => SafeAsync(() => EditLineAsync(row.Id));
 
     private async Task EditLineAsync(Guid lineId)
     {
@@ -398,10 +427,43 @@ public sealed partial class PosViewModel : ViewModelBase
         await RunBusyAsync(async () =>
         {
             // Watchdog: if anything ever stalls, the counter gets a message instead of a dead screen.
+            var bill = _draft.Bill;
+            // FIX(L-7, 2026-10-20, FIX-3): Flaw: a bill whose lines total ₹0 (100% discount, or a free item)
+            // finalized silently — burning a bill number and a quota slot and decrementing stock with no
+            // warning. Fix: a ₹0 bill WITH lines needs an explicit "give it free?" confirmation in the app
+            // language; cancelling returns before anything is sent, so there is no quota/stock effect. The
+            // answer rides on the command's FreeBillConfirmed flag (FIX-2's validator enforces the same rule
+            // on the handler side). Why: a free bill is legitimate (a goodwill packet) but must be a decision,
+            // never an accident. Logged in docs/AGENT_FIX_LOG.md.
+            var freeConfirmed = false;
+            if (bill.Lines.Count > 0 && bill.GrandTotal.Value == 0)
+            {
+                if (!await Dialogs.ConfirmAsync(Text["pos.freebill.title"], Text["pos.freebill.confirm"], Text["common.yes"], Text["common.no"])) return;
+                freeConfirmed = true;
+            }
+            var send = Sender.Send(new FinalizeBillCommand(bill) { FreeBillConfirmed = freeConfirmed });
             Result<FinalizedBill> result;
-            try { result = await Sender.Send(new FinalizeBillCommand(_draft.Bill)).WaitAsync(FinalizeTimeout); }
+            try { result = await send.WaitAsync(FinalizeTimeout); }
             catch (TimeoutException)
             {
+                // FIX(LOG-1, 2026-10-20, FIX-3): Flaw: the watchdog showed the BILL_SAVE_SLOW toast but logged
+                // NOTHING — the VM had no ILogger and the pipeline logs only on completion, so a true hang (the
+                // counter-freeze scenario this watchdog exists for) left zero evidence in the exported logs.
+                // Fix: report + log Error with the bill id and correlation id, and watch the still-running save:
+                // its late completion is logged at Information, a late fault is reported too. Why: a hang that
+                // leaves no trace can never be diagnosed from a shopkeeper's log export. Logged in
+                // docs/AGENT_FIX_LOG.md.
+                var correlation = GlobalExceptions.Report(
+                    new TimeoutException($"Finalize exceeded {FinalizeTimeout.TotalSeconds:0} s"), "finalize-watchdog");
+                _log.LogError("Finalize watchdog fired for bill {BillId} (correlation {CorrelationId}); the save continues in the background",
+                    bill.Id, correlation);
+                _ = send.ContinueWith(t =>
+                {
+                    if (t.IsCompletedSuccessfully)
+                        _log.LogInformation("Finalize for bill {BillId} completed after the watchdog fired (correlation {CorrelationId})", bill.Id, correlation);
+                    else if (t.IsFaulted)
+                        GlobalExceptions.Report(t.Exception!.GetBaseException(), "finalize-late");
+                }, TaskScheduler.Default);
                 // Still saving in the background. Paying again is safe: finalize returns the same bill if it saved.
                 await Dialogs.ToastAsync(Text.Error(new Error(ErrorCodes.BillSaveSlow)));
                 return;

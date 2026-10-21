@@ -54,7 +54,17 @@ Play Console → **Setup → API access** → create a service account with "Rel
 3. **Upload.** Play Console → the testing track → **Create release** → upload the `.aab` (or it is already there, if step A4 is set up) → release notes from `CHANGELOG.md` → **Start rollout**.
 4. **Promote.** After the closed test passes (and 14 days for a new account): **Promote release → Production**, staged rollout 20% → 50% → 100% while watching **Android vitals** and the **pre-launch report**. Production needs the owner's explicit go-ahead.
 
-Version numbers: the tag sets what users see (`1.0.0`). The build number Play needs is `100 + the workflow run number`, so it always goes up.
+Version numbers: **`version.json` at the repo root is the single source of truth** — `versionName` (what users see, e.g. `1.0.0`) and `versionCode` (the integer Play requires to always go up). Before tagging: bump both in `version.json` (versionCode must be higher than any code already uploaded to Play), then tag `v<versionName>` — the release workflow refuses to build if the tag and `version.json` disagree. One manual sync point: `Angadi.Maui.csproj` still carries `ApplicationDisplayVersion`/`ApplicationVersion` for local builds; `release.yml` overrides both from `version.json`, so the shipped bundle is always right, but bump the csproj's display version too so a locally built app shows the same number.
+
+## C2. Owner decisions & accepted risks (2026-10-20)
+
+Decisions taken by the owner (Sai) on 2026-10-20, on the audit team's recommendations. Recorded here so they are not re-litigated or silently reversed; IDs refer to `docs/AGENT_FIX_LOG.md`.
+
+- **SEC-2 — the database stays plaintext at rest for v1.** It lives in the app's Android sandbox behind the device's own lock; SQLCipher is a v2 hardening item. Backup *exports* are a different risk — they leave the device — so those are encrypted (SEC-1).
+- **M-9 — minimum Android is API 28 (Android 9), deliberately.** The floor is a chosen v1 boundary, recorded here so it is a decision and not an accident; the supported-device claim in the listing must match it.
+- **M-3 — reinstalling the app resets the free-bill quota: accepted for v1.** Counters live in the database; a Preferences lifetime counter mitigates same-device restores, and v2's server-side purchase verification closes the hole properly.
+- **SEC-4 — a PIN gate protects sensitive actions only.** Void, dues write-off/payment, backup export/restore, and UPI-ID/GSTIN edits ask for the PIN; everyday billing stays ungated so the counter never slows down.
+- **L-7 — a ₹0 bill needs an explicit free-bill confirmation.** A 100%-discount or free-item bill still consumes a bill number, a quota slot and stock, so the shopkeeper confirms it is intentional before it finalizes.
 
 ## C. Before the very first production release
 - [ ] `PRIVACY_POLICY.md` fields filled in and hosted at a public URL

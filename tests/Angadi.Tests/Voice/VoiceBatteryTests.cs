@@ -62,6 +62,54 @@ public class VoiceBatteryTests
         { "శానిటైజర్ ఒకటి", "Hand sanitizer (100 ml)" },
     };
 
+    /// <summary>
+    /// SPEC-9 (VOICE-8): the same 40 phrases with their expected parse — quantity (milli, spoken
+    /// unit), unit and amount (paise). The item battery alone could pass with a WRONG quantity.
+    /// </summary>
+    public static TheoryData<string, long?, Unit?, long?> QuantityBattery => new()
+    {
+        { "బియ్యం రెండు కేజీలు", 2000L, Unit.Kilogram, null },
+        { "అర కేజీ కంది పప్పు", 500L, Unit.Kilogram, null },
+        { "చక్కెర ఒక కేజీ", 1000L, Unit.Kilogram, null },
+        { "పంచదార రెండు కేజీలు", 2000L, Unit.Kilogram, null },
+        { "పాలు మూడు ప్యాకెట్లు", 3000L, Unit.Pack, null },
+        { "ఉల్లిపాయలు రెండు కేజీలు", 2000L, Unit.Kilogram, null },
+        { "ఉల్లిగడ్డ ఒక కేజీ", 1000L, Unit.Kilogram, null },
+        { "టమాటా అర కేజీ", 500L, Unit.Kilogram, null },
+        { "ఆలుగడ్డలు ఒక కేజీ", 1000L, Unit.Kilogram, null },
+        { "పది రూపాయల పచ్చిమిర్చి", null, null, 1000L },
+        { "కరివేపాకు", null, null, null },
+        { "రెండొందల గ్రాముల జీలకర్ర", 200000L, Unit.Gram, null },
+        { "పసుపు వంద గ్రాములు", 100000L, Unit.Gram, null },
+        { "సన్ ఫ్లవర్ నూనె ఒక లీటరు", 1000L, Unit.Litre, null },
+        { "పల్లీ నూనె ఒక లీటరు", 1000L, Unit.Litre, null },
+        { "గుడ్లు ఒక డజను", 12000L, Unit.Piece, null },
+        { "స్నానం సబ్బు రెండు", 2000L, null, null },
+        { "సర్ఫ్ ఒక ప్యాకెట్", 1000L, Unit.Pack, null },
+        { "టూత్ పేస్ట్ ఒకటి", 1000L, null, null },
+        { "అగ్గిపెట్టె", null, null, null },
+        { "బిస్కెట్లు ఐదు", 5000L, null, null },
+        { "కూల్ డ్రింక్ రెండు", 2000L, null, null },
+        { "డోలో రెండు స్ట్రిప్పులు", 2000L, Unit.Strip, null },
+        { "dolo 650 ఒక strip", 1000L, Unit.Strip, null },
+        { "పాంటోప్రజోల్ ఒక స్ట్రిప్", 1000L, Unit.Strip, null },
+        { "ఓఆర్ఎస్ మూడు", 3000L, null, null },
+        { "దగ్గు సిరప్ ఒకటి", 1000L, null, null },
+        { "బియ్యమ్ ఐదు కేజీలు", 5000L, Unit.Kilogram, null },
+        { "మినపప్పు అర కేజీ", 500L, Unit.Kilogram, null },
+        { "గోధుమపిండి రెండు కేజీలు", 2000L, Unit.Kilogram, null },
+        { "నెయ్యి ఒకటి", 1000L, null, null },
+        { "పెరుగు రెండు ప్యాకెట్లు", 2000L, Unit.Pack, null },
+        { "బెల్లం అర కేజీ", 500L, Unit.Kilogram, null },
+        { "అల్లం వంద గ్రాములు", 100000L, Unit.Gram, null },
+        { "చింతపండు ఒక కేజీ", 1000L, Unit.Kilogram, null },
+        { "అటుకులు అర కేజీ", 500L, Unit.Kilogram, null },
+        { "కొబ్బరికాయ రెండు", 2000L, null, null },
+        { "బ్రెడ్ ఒకటి", 1000L, null, null },
+        { "సెటిరిజిన్ ఒక స్ట్రిప్", 1000L, Unit.Strip, null },
+        { "శానిటైజర్ ఒకటి", 1000L, null, null },
+    };
+
     private (MatchResult result, string? bestEnglish) Run(string phrase)
     {
         var line = Assert.Single(_parser.Parse(phrase));
@@ -77,6 +125,30 @@ public class VoiceBatteryTests
         var (result, best) = Run(phrase);
         Assert.NotEqual(MatchKind.NoMatch, result.Kind);
         Assert.Equal(expectedEnglish, best);
+    }
+
+    [Theory]
+    [MemberData(nameof(QuantityBattery))]
+    public void T2_BatteryPhrase_ParsesExpectedQuantity(string phrase, long? qtyMilli, Unit? unit, long? amountPaise)
+    {
+        // SPEC-9 (VOICE-8): pin the parse, not just the matched item — right item, wrong
+        // quantity is still a wrong bill.
+        var line = Assert.Single(_parser.Parse(phrase));
+        Assert.Equal(qtyMilli, line.Qty?.Milli);
+        Assert.Equal(unit, line.Unit);
+        Assert.Equal(amountPaise, line.Amount?.Value);
+    }
+
+    [Fact]
+    public void T2_BareDosage_AsksWithParacetamolBest()
+    {
+        // SPEC-11 (VOICE-8): "650 పారాసెటమాల్" — a bare leading dosage is not a count of 650.
+        // The parser flags it (M1 guard) and the matcher asks, with the medicine on top.
+        var line = Assert.Single(_parser.Parse("650 పారాసెటమాల్"));
+        Assert.True(line.IsAmbiguous);
+        var (result, best) = Run("650 పారాసెటమాల్");
+        Assert.Equal(MatchKind.Confirm, result.Kind);
+        Assert.Equal("Paracetamol 650 mg", best);
     }
 
     [Fact]
@@ -98,6 +170,17 @@ public class VoiceBatteryTests
         Assert.Equal(40, Battery.Count);
         Assert.True(correct >= 36, $"correct {correct}/40");
         Assert.True(auto >= 35, $"auto-added {auto}/40");
+
+        // SPEC-9 gate: the quantities must be right too, not just the items.
+        var qtyCorrect = 0;
+        foreach (var row in QuantityBattery)
+        {
+            var line = Assert.Single(_parser.Parse((string)row[0]));
+            if (line.Qty?.Milli == (long?)row[1] && line.Unit == (Unit?)row[2] && line.Amount?.Value == (long?)row[3])
+                qtyCorrect++;
+        }
+        Assert.Equal(40, QuantityBattery.Count);
+        Assert.True(qtyCorrect >= 36, $"qty-correct {qtyCorrect}/40");
     }
 
     [Fact]
@@ -116,6 +199,22 @@ public class VoiceBatteryTests
         var (result, _) = Run(phrase);
         Assert.Equal(MatchKind.Confirm, result.Kind);
         Assert.True(result.Candidates.Count >= 2);
+    }
+
+    [Fact]
+    public void T2_GenericAlias_SingleOilCatalog_StillAsks()
+    {
+        // VOICE-6 regression: with ONE oil in the shop whose curated alias is exactly the generic
+        // word "నూనె", the alias used to score 1.0 and auto-add — in the full catalog only the
+        // multi-item tie made generic words ask. The generic-alias cap must hold at any size.
+        var singleOil = new[]
+        {
+            new Item { TeluguName = "పల్లి నూనె", EnglishName = "Groundnut oil", Aliases = ["నూనె"], Unit = Unit.Litre },
+        };
+        var line = Assert.Single(_parser.Parse("నూనె ఒక లీటరు"));
+        var result = ItemMatcher.Match(line, singleOil, Options);
+        Assert.Equal(MatchKind.Confirm, result.Kind);
+        Assert.Equal(singleOil[0].Id, result.Best?.ItemId);
     }
 
     [Theory]

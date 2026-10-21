@@ -89,6 +89,7 @@ public static class DependencyInjection
         services.AddTransient<DataSafetyHandlers>();
         services.AddTransient<IRequestHandler<TakeSafetySnapshotCommand, Result>>(sp => sp.GetRequiredService<DataSafetyHandlers>());
         services.AddTransient<IRequestHandler<GetDataRecoveryQuery, DataRecoveryReport?>>(sp => sp.GetRequiredService<DataSafetyHandlers>());
+        services.AddTransient<IRequestHandler<PruneOutboxCommand, Result>>(sp => sp.GetRequiredService<DataSafetyHandlers>());   // M-11 (FIX-4)
         services.AddTransient<IRequestHandler<SetItemBarcodeCommand, Result>, SetItemBarcodeHandler>();
 
         // Notes & feedback
@@ -107,6 +108,8 @@ public static class DependencyInjection
         services.AddTransient<IRequestHandler<GetCustomerReportQuery, CustomerReport?>>(sp => sp.GetRequiredService<CustomerAccountHandlers>());
         services.AddTransient<IRequestHandler<SetPromisedPayDateCommand, Result>>(sp => sp.GetRequiredService<CustomerAccountHandlers>());
         services.AddTransient<IRequestHandler<GetDueRemindersQuery, IReadOnlyList<DueReminder>>>(sp => sp.GetRequiredService<CustomerAccountHandlers>());
+        services.AddSingleton<IValidator<RecordDuesWriteOffCommand>, RecordDuesWriteOffValidator>();   // SEC-5 (FIX-4)
+        services.AddTransient<IRequestHandler<RecordDuesWriteOffCommand, Result>, RecordDuesWriteOffHandler>();   // SEC-5 (FIX-4)
 
         // Inventory
         services.AddTransient<InventoryHandlers>();

@@ -57,6 +57,77 @@ public class TeluguParserTests
         Assert.Equal(new[] { "బియ్యం", "చక్కెర" }, lines.Select(l => l.Name));
     }
 
+    [Theory]
+    [InlineData("1/2 కేజీ బియ్యం", "బియ్యం", 500L)]
+    [InlineData("3/4 కేజీ చక్కెర", "చక్కెర", 750L)]
+    public void T2_Fraction_SlashQuantity_Parses(string phrase, string name, long qtyMilli)
+    {
+        // VOICE-1 regression: Explode used to split "1/2" into "1" + "/2", billing 1 kg and
+        // polluting the item name, so TryNumber's fraction branch could never fire.
+        var line = Assert.Single(_parser.Parse(phrase));
+        Assert.Equal(name, line.Name);
+        Assert.Equal(qtyMilli, line.Qty?.Milli);
+        Assert.Equal(Unit.Kilogram, line.Unit);
+    }
+
+    [Fact]
+    public void T2_DescendingBarePair_IsAmbiguous_KeepsFirst()
+    {
+        // VOICE-5 regression: "మూడు రెండు" used to add silently into 5000 milli (5 kg).
+        // Two bare quantities are not a compound number — keep the first and ask.
+        var line = Assert.Single(_parser.Parse("మూడు రెండు కేజీల బియ్యం"));
+        Assert.Equal("బియ్యం", line.Name);
+        Assert.True(line.IsAmbiguous);
+        Assert.Equal(3000L, line.Qty?.Milli);
+    }
+
+    [Fact]
+    public void T2_NumberPlusFractionTail_IsNotAmbiguous()
+    {
+        // VOICE-5 guard-rail: "రెండు అర" is 2.5 — a fraction tail (< 1000 milli) is not a bare pair.
+        var line = Assert.Single(_parser.Parse("రెండు అర కేజీల బియ్యం"));
+        Assert.False(line.IsAmbiguous);
+        Assert.Equal(2500L, line.Qty?.Milli);
+    }
+
+    [Theory]
+    [InlineData("2,500 రూపాయల బియ్యం", 250_000L)]      // ₹2,500
+    [InlineData("1,00,000 రూపాయల బియ్యం", 10_000_000L)] // ₹1,00,000 (Indian grouping)
+    public void T2_ThousandsComma_ParsesAsAmount(string phrase, long amountPaise)
+    {
+        // VOICE-2 regression: "2,500" was kept whole by the separator rule, then split by
+        // Explode into "2" + ",500" — quantity 2 and ",500" in the item name.
+        var line = Assert.Single(_parser.Parse(phrase));
+        Assert.Equal("బియ్యం", line.Name);
+        Assert.Equal(amountPaise, line.Amount?.Value);
+    }
+
+    [Fact]
+    public void T2_NumberPlusVeyyi_IsCompoundNotRange()
+    {
+        // VOICE-3 regression: "ఐదు వెయ్యి" used to trip the range rule — the amount came out
+        // as ₹5 (500 paise) and flagged ambiguous. The candidate was wrong by 1000x.
+        var line = Assert.Single(_parser.Parse("ఐదు వెయ్యి రూపాయల బియ్యం"));
+        Assert.Equal("బియ్యం", line.Name);
+        Assert.Equal(500_000L, line.Amount?.Value);   // ₹5,000
+        Assert.False(line.IsAmbiguous);
+    }
+
+    [Theory]
+    [InlineData("ఐదు వేల రూపాయల బియ్యం", 500_000L)]        // oblique వేల, same compound
+    [InlineData("ఒక లక్ష రూపాయల బియ్యం", 10_000_000L)]      // ₹1,00,000
+    [InlineData("రెండు లక్షల రూపాయల బియ్యం", 20_000_000L)]  // ₹2,00,000
+    [InlineData("లక్ష రూపాయల బియ్యం", 10_000_000L)]         // standalone లక్ష = 100000
+    [InlineData("ఒక కోటి రూపాయల బియ్యం", 1_000_000_000L)]  // ₹1,00,00,000
+    public void T2_LakhAndCrore_AreMultipliers(string phrase, long amountPaise)
+    {
+        // VOICE-4: లక్ష/కోటి were not number words at all — they fell into the item name (NoMatch).
+        var line = Assert.Single(_parser.Parse(phrase));
+        Assert.Equal("బియ్యం", line.Name);
+        Assert.Equal(amountPaise, line.Amount?.Value);
+        Assert.False(line.IsAmbiguous);
+    }
+
     [Fact]
     public void V1_Thousand_IsANumber_NotAFiller()
     {

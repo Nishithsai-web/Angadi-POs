@@ -15,6 +15,7 @@ public sealed class ShopSetupPage : ContentPage
     private readonly IDialogService _dialogs;
     private readonly ILocalizer _text;
     private readonly IAppRestart _restart;
+    private readonly IPinService _pin;
     private readonly Entry _name, _address, _phone, _upi, _gstin, _prefix;
     private readonly Picker _language = new();
     private readonly CheckBox _kirana = new() { IsChecked = true, Color = Theme.Primary };
@@ -25,12 +26,13 @@ public sealed class ShopSetupPage : ContentPage
     private string? _qrPayload;
     private byte[]? _qrImage;
 
-    public ShopSetupPage(ISender sender, IDialogService dialogs, ILocalizer text, IAppRestart restart, IBarcodeScanner scanner)
+    public ShopSetupPage(ISender sender, IDialogService dialogs, ILocalizer text, IAppRestart restart, IBarcodeScanner scanner, IPinService pin)
     {
         _sender = sender;
         _dialogs = dialogs;
         _text = text;
         _restart = restart;
+        _pin = pin;
         Title = text["settings.shop"];
         _name = Ui.Entry(text["settings.shop.name"]);
         _address = Ui.Entry(text["settings.shop.address"]);
@@ -92,20 +94,26 @@ public sealed class ShopSetupPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-        _existing = await _sender.Send(new GetShopProfileQuery());
-        _seedBox.IsVisible = _existing is null;
-        if (_existing is null) return;
-        _name.Text = _existing.Name;
-        _address.Text = _existing.Address;
-        _phone.Text = _existing.Phone;
-        _upi.Text = _existing.UpiId;
-        _gstin.Text = _existing.Gstin;
-        _prefix.Text = _existing.BillPrefix;
-        _language.SelectedIndex = _existing.Language == UiLanguage.English ? 1 : 0;
-        _qrPayload = _existing.UpiQrPayload;
-        _qrImage = _existing.UpiQrImage;
-        if (UpiQr.Parse(_qrPayload) is { } qr) _qrStatus.Text = _text.Format("setup.upi.found", qr.PayeeAddress);
-        else if (_qrImage is not null) _qrStatus.Text = _text["setup.upi.photo.saved"];
+        // FIX(UI-1, 2026-10-20, FIX-3): Flaw: unwrapped async void OnAppearing on a ContentPage — a failed load
+        // escaped SafeUi (no toast, half-loaded page). Fix: run the load through SafeUi.Run like the other 7
+        // secondary pages. Why: "never-fail UI" must hold on every page. Logged in docs/AGENT_FIX_LOG.md.
+        await SafeUi.Run(async () =>
+        {
+            _existing = await _sender.Send(new GetShopProfileQuery());
+            _seedBox.IsVisible = _existing is null;
+            if (_existing is null) return;
+            _name.Text = _existing.Name;
+            _address.Text = _existing.Address;
+            _phone.Text = _existing.Phone;
+            _upi.Text = _existing.UpiId;
+            _gstin.Text = _existing.Gstin;
+            _prefix.Text = _existing.BillPrefix;
+            _language.SelectedIndex = _existing.Language == UiLanguage.English ? 1 : 0;
+            _qrPayload = _existing.UpiQrPayload;
+            _qrImage = _existing.UpiQrImage;
+            if (UpiQr.Parse(_qrPayload) is { } qr) _qrStatus.Text = _text.Format("setup.upi.found", qr.PayeeAddress);
+            else if (_qrImage is not null) _qrStatus.Text = _text["setup.upi.photo.saved"];
+        });
     }
 
     private async Task UploadQrAsync()
@@ -126,6 +134,16 @@ public sealed class ShopSetupPage : ContentPage
     private async Task SaveAsync()
     {
         var firstRun = _existing is null;
+        // FIX(SEC-4, 2026-10-20, FIX-3): changing the shop's UPI ID or GSTIN on an EXISTING profile is a
+        // sensitive action — gated by the owner PIN when one is set. Why: the UPI-swap fraud (payments
+        // silently redirected to another account) starts exactly here. First run is not gated (no PIN
+        // can exist yet, and setup must stay friction-free). Logged in docs/AGENT_FIX_LOG.md.
+        if (!firstRun)
+        {
+            var upiChanged = !string.Equals((_upi.Text ?? "").Trim(), _existing!.UpiId ?? "", StringComparison.OrdinalIgnoreCase);
+            var gstinChanged = !string.Equals(string.IsNullOrWhiteSpace(_gstin.Text) ? "" : _gstin.Text.Trim().ToUpperInvariant(), _existing.Gstin ?? "", StringComparison.Ordinal);
+            if ((upiChanged || gstinChanged) && !await PinGate.CheckAsync(_pin, _dialogs, _text)) return;
+        }
         var profile = _existing ?? new ShopProfile();
         var oldLanguage = profile.Language;
         profile.Name = _name.Text ?? "";
@@ -144,6 +162,14 @@ public sealed class ShopSetupPage : ContentPage
 
         if (firstRun && (_kirana.IsChecked || _pharmacy.IsChecked))
             await _sender.Send(new SeedItemsCommand(_kirana.IsChecked, _pharmacy.IsChecked));
+
+        // FIX(SEC-4, 2026-10-20, FIX-3): first run for a PHARMACY profile offers PIN creation right here
+        // (skippable — Settings can set it later; kirana profiles are not prompted). Why: pharmacy books
+        // are the sensitive ones, and a prompt at setup is the one moment the owner is guaranteed to see
+        // it. Logged in docs/AGENT_FIX_LOG.md.
+        if (firstRun && _pharmacy.IsChecked && !await _pin.HasPinAsync()
+            && await _dialogs.ConfirmAsync(_text["pin.set.title"], _text["pin.pharmacy.prompt"], _text["common.yes"], _text["common.no"]))
+            await PinGate.SetPinAsync(_pin, _dialogs, _text);
 
         _existing = profile;
         if (firstRun || oldLanguage != profile.Language) _restart.Restart();
@@ -181,8 +207,14 @@ public sealed class SubscriptionPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-        var q = await _sender.Send(new GetBillQuotaQuery());
-        _status.Text = q.IsPro ? _text["sub.pro"] : _text.Format("sub.free", q.UsedThisMonth, q.FreeLimit);
+        // FIX(UI-1, 2026-10-20, FIX-3): Flaw: unwrapped async void OnAppearing on a ContentPage — a failed load
+        // escaped SafeUi (no toast, half-loaded page). Fix: run the load through SafeUi.Run like the other 7
+        // secondary pages. Why: "never-fail UI" must hold on every page. Logged in docs/AGENT_FIX_LOG.md.
+        await SafeUi.Run(async () =>
+        {
+            var q = await _sender.Send(new GetBillQuotaQuery());
+            _status.Text = q.IsPro ? _text["sub.pro"] : _text.Format("sub.free", q.UsedThisMonth, q.FreeLimit);
+        });
     }
 
     private async Task BuyAsync(SubscriptionPlan plan) => await ShowAsync(await _subscription.PurchaseAsync(plan));
@@ -202,14 +234,19 @@ public sealed class SettingsPage : ContentPage
     private readonly IDialogService _dialogs;
     private readonly ILocalizer _text;
     private readonly IAppRestart _restart;
+    private readonly IBackupInspector _inspector;
+    private readonly IPinService _pinService;
+    private readonly Label _pinNudge = Ui.Caption();
 
-    public SettingsPage(ISender sender, IReceiptShare share, IDialogService dialogs, ILocalizer text, IAppRestart restart)
+    public SettingsPage(ISender sender, IReceiptShare share, IDialogService dialogs, ILocalizer text, IAppRestart restart, IBackupInspector inspector, IPinService pinService)
     {
         _sender = sender;
         _share = share;
         _dialogs = dialogs;
         _text = text;
         _restart = restart;
+        _inspector = inspector;
+        _pinService = pinService;
         Title = text["nav.settings"];
 
         Button Item(string key, Func<Task> action, bool danger = false)
@@ -219,6 +256,8 @@ public sealed class SettingsPage : ContentPage
             return b;
         }
 
+        _pinNudge.Text = text["settings.pin.nudge"];
+        _pinNudge.IsVisible = false;
         Content = Ui.Scroll(
             Ui.Title(text["nav.settings"]),
             Item("settings.shop", () => Shell.Current.GoToAsync(Routes.ShopSetup)),
@@ -226,13 +265,26 @@ public sealed class SettingsPage : ContentPage
             Item("settings.notes", () => Shell.Current.GoToAsync(Routes.Notes)),
             Item("settings.backup", BackupAsync),
             Item("settings.restore", RestoreAsync, danger: true),
+            Item("settings.pin", async () => await PinGate.SetPinAsync(_pinService, _dialogs, _text)),
+            _pinNudge,
             Item("settings.logs", ExportLogsAsync),
             Ui.Caption(text["settings.backup.tip"]),
             Ui.Caption("v" + AppInfo.Current.VersionString));
     }
 
+    protected override async void OnAppearing()
+    {
+        base.OnAppearing();
+        // SEC-4 nudge state, refreshed each visit; routed through SafeUi.Run like every page load (UI-1).
+        await SafeUi.Run(async () => { _pinNudge.IsVisible = !await _pinService.HasPinAsync(); });
+    }
+
     private async Task BackupAsync()
     {
+        // FIX(SEC-4, 2026-10-20, FIX-3): exporting the whole shop book is a sensitive action — PIN-gated
+        // when a PIN is set. Why: the export file IS the business (every customer, phone and due).
+        // Logged in docs/AGENT_FIX_LOG.md.
+        if (!await PinGate.CheckAsync(_pinService, _dialogs, _text)) return;
         var r = await _sender.Send(new ExportBackupCommand());
         if (r.IsFailure) { await _dialogs.ToastAsync(_text.Error(r.Error)); return; }
         await _share.ShareFileAsync(r.Value, _text["settings.backup"]);
@@ -240,15 +292,29 @@ public sealed class SettingsPage : ContentPage
 
     private async Task RestoreAsync()
     {
+        // FIX(SEC-4, 2026-10-20, FIX-3): restoring a backup replaces the shop's books — PIN-gated when a
+        // PIN is set, before the file is even picked. Logged in docs/AGENT_FIX_LOG.md.
+        if (!await PinGate.CheckAsync(_pinService, _dialogs, _text)) return;
         var picked = await FilePicker.Default.PickAsync();
         if (picked is null) return;
-        if (!await _dialogs.ConfirmAsync(_text["settings.restore"], _text["settings.restore.warn"], _text["common.yes"], _text["common.no"])) return;
 
         // H3: stage the picked (content-URI) file locally first, then restore from the staged copy.
         var staged = Path.Combine(FileSystem.CacheDirectory, "restore-staged.db");
         await using (var source = await picked.OpenReadAsync())
         await using (var target = File.Create(staged))
             await source.CopyToAsync(target);
+
+        // FIX(SEC-6, 2026-10-20, FIX-3): Flaw: the only confirmation was a generic warning — restoring a
+        // months-old backup silently rolled the books back, because nothing showed HOW OLD the file was.
+        // Fix: inspect the staged copy and put the facts in the confirmation — bill/customer/item counts
+        // and the newest bill's date (the app language's own month names). A file that isn't an Angadi
+        // backup is rejected here, before any swap is attempted. Why: restore should be an informed
+        // decision, not a leap. Logged in docs/AGENT_FIX_LOG.md.
+        var info = _inspector.Inspect(staged);
+        if (info is null) { await _dialogs.ToastAsync(_text.Error(new Error(ErrorCodes.RestoreInvalidFile))); return; }
+        var newest = info.NewestBillAt is { } at ? _text.Short(at) : "—";
+        var facts = _text.Format("settings.restore.meta", info.BillCount, newest, info.CustomerCount, info.ItemCount);
+        if (!await _dialogs.ConfirmAsync(_text["settings.restore"], facts, _text["common.yes"], _text["common.no"])) return;
 
         var r = await _sender.Send(new RestoreBackupCommand(staged));
         if (r.IsFailure) { await _dialogs.ToastAsync(_text.Error(r.Error)); return; }
@@ -260,6 +326,11 @@ public sealed class SettingsPage : ContentPage
         // H11: through the dispatcher — logged, Result-shaped, and a full disk shows a Telugu message instead of crashing.
         var zip = await _sender.Send(new ExportLogsCommand());
         if (zip.IsFailure) { await _dialogs.ToastAsync(_text.Error(zip.Error)); return; }
-        await _share.ShareFileAsync(zip.Value, _text["settings.logs"]);
+        // FIX(LOG-3d, 2026-10-20, FIX-3): Flaw: the share Result was discarded — when the share itself failed,
+        // the shopkeeper got no feedback and believed the logs had been sent. Fix: a failed share shows its
+        // error toast. Why: "send us your logs" is the support path; a silent failure there strands the shop.
+        // Logged in docs/AGENT_FIX_LOG.md.
+        var shared = await _share.ShareFileAsync(zip.Value, _text["settings.logs"]);
+        if (shared.IsFailure) await _dialogs.ToastAsync(_text.Error(shared.Error));
     }
 }

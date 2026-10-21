@@ -60,6 +60,55 @@ public interface IBackupService
 {
     Task<Result<string>> ExportAsync(CancellationToken ct = default);   // returns file path to share
     Task<Result> RestoreAsync(string filePath, CancellationToken ct = default);
+    /// <summary>SEC-6: what the pre-restore confirmation shows BEFORE any swap — when the backup was
+    /// made, how much data it holds, and whether its integrity HMAC checks out on THIS device.
+    /// Null when the file is missing or not a readable Angadi backup.</summary>
+    Task<BackupMetadata?> ReadMetadataAsync(string filePath, CancellationToken ct = default);
+    /// <summary>SEC-1: like ExportAsync, but the file is an AES-256-GCM envelope keyed by the owner's
+    /// passphrase (PBKDF2). Losing the passphrase makes the backup unrecoverable — the UI must say so
+    /// (Telugu warning) before calling this.</summary>
+    Task<Result<string>> ExportEncryptedAsync(string passphrase, CancellationToken ct = default);
+    /// <summary>SEC-1: restore for envelope files from ExportEncryptedAsync. RestoreAsync on an
+    /// envelope fails closed with a "passphrase required" detail so the UI knows to prompt.</summary>
+    Task<Result> RestoreEncryptedAsync(string filePath, string passphrase, CancellationToken ct = default);
+}
+
+/// <summary>SEC-6. <see cref="HmacValid"/> is only meaningful when <see cref="HasHmac"/> is true;
+/// a backup from another phone legitimately fails it (different device key) — the confirmation
+/// dialog informs, the shopkeeper decides; restore itself never rejects on HMAC alone.</summary>
+public sealed record BackupMetadata(DateTimeOffset? CreatedAt, int BillCount, int CustomerCount, int ItemCount, bool HasHmac, bool HmacValid);
+
+/// <summary>What a backup file holds, read WITHOUT opening it as the live database (SEC-6).</summary>
+public sealed record BackupInfo(DateTimeOffset? NewestBillAt, int BillCount, int CustomerCount, int ItemCount);
+
+/// <summary>
+/// SEC-6: reads a candidate backup's shape (counts + newest bill) so the restore screen can show the
+/// shopkeeper WHAT they are about to roll back to before anything is swapped. Null = not an Angadi
+/// backup this build understands.
+/// </summary>
+public interface IBackupInspector
+{
+    BackupInfo? Inspect(string filePath);
+}
+
+public enum PinCheck { Ok = 0, Wrong = 1, Locked = 2, NoPin = 3 }
+
+/// <param name="Result">How the verification ended.</param>
+/// <param name="LockedSecondsRemaining">When Result is Locked: seconds until another try is allowed.</param>
+public sealed record PinVerification(PinCheck Result, int LockedSecondsRemaining = 0);
+
+/// <summary>
+/// SEC-4 (owner-approved design, 2026-10-20): an optional owner PIN gates ONLY the sensitive actions
+/// (void, dues payment/write-off, backup export/restore, UPI-ID/GSTIN edits) — counter billing stays
+/// friction-free, and with no PIN set the actions proceed (Settings nudges the owner to set one).
+/// The PIN itself is never stored: only a salted PBKDF2 hash in the DB Meta table (never Preferences).
+/// Five wrong attempts lock verification for 60 s (persisted, so restarting the app is not a bypass).
+/// </summary>
+public interface IPinService
+{
+    Task<bool> HasPinAsync(CancellationToken ct = default);
+    Task SetPinAsync(string pin, CancellationToken ct = default);
+    Task<PinVerification> VerifyAsync(string pin, CancellationToken ct = default);
 }
 
 /// <summary>

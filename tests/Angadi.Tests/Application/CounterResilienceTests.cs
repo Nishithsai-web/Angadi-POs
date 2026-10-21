@@ -203,6 +203,58 @@ public class CounterResilienceTests : IDisposable
         }
     }
 
+    // ---------- MONEY-2 / LOG-3a: the subscription service can hang or throw; billing must not ----------
+
+    [Fact]
+    public async Task Subscription_Hanging_TimesOutToFreeTier_AndTheSaleStillWorks()
+    {
+        using var h = new AppHost(configure: s => s.AddSingleton<ISubscriptionService, HangingSubscription>());
+        await h.SeedShopAsync();
+        var item = await h.AddItemAsync("అగ్గిపెట్టె", 200, GstSlab.Five, stockMilli: 100_000, unit: Unit.Piece);
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var r = await h.Sender.Send(new FinalizeBillCommand(AppHost.Draft(TenderType.Cash, (item, 1000))));
+
+        Assert.True(r.IsSuccess, r.Error.Code);   // free tier (0 of 50 used): never UNEXPECTED, never a hang
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(20), $"finalize took {sw.Elapsed}");
+        Assert.Equal(1, (await h.Sender.Send(new GetBillQuotaQuery())).UsedThisMonth);
+    }
+
+    [Fact]
+    public async Task Subscription_Throwing_FallsBackToFreeTier_AndTheSaleStillWorks()
+    {
+        using var h = new AppHost(configure: s => s.AddSingleton<ISubscriptionService, ThrowingSubscription>());
+        await h.SeedShopAsync();
+        var item = await h.AddItemAsync("అగ్గిపెట్టె", 200, GstSlab.Five, stockMilli: 100_000, unit: Unit.Piece);
+
+        var r = await h.Sender.Send(new FinalizeBillCommand(AppHost.Draft(TenderType.Cash, (item, 1000))));
+
+        Assert.True(r.IsSuccess, r.Error.Code);   // before MONEY-2 this surfaced as UNEXPECTED on every sale
+        Assert.Equal(1, (await h.Sender.Send(new GetBillQuotaQuery())).UsedThisMonth);
+    }
+
+    /// <summary>Play services missing/wedged: the status call never answers at all.</summary>
+    private sealed class HangingSubscription : ISubscriptionService
+    {
+        public Task<SubscriptionStatus> GetStatusAsync(CancellationToken ct = default) =>
+            new TaskCompletionSource<SubscriptionStatus>().Task;   // never completes; the guard's 2 s bound must fire
+        public Task<Result<SubscriptionStatus>> PurchaseAsync(SubscriptionPlan plan, CancellationToken ct = default) =>
+            Task.FromResult(Result.Failure<SubscriptionStatus>(ErrorCodes.PurchaseFailed));
+        public Task<Result<SubscriptionStatus>> RestoreAsync(CancellationToken ct = default) =>
+            Task.FromResult(Result.Failure<SubscriptionStatus>(ErrorCodes.PurchaseFailed));
+    }
+
+    /// <summary>A future/other implementation that throws instead of answering (MONEY-2's scenario).</summary>
+    private sealed class ThrowingSubscription : ISubscriptionService
+    {
+        public Task<SubscriptionStatus> GetStatusAsync(CancellationToken ct = default) =>
+            Task.FromException<SubscriptionStatus>(new InvalidOperationException("play store gone"));
+        public Task<Result<SubscriptionStatus>> PurchaseAsync(SubscriptionPlan plan, CancellationToken ct = default) =>
+            Task.FromResult(Result.Failure<SubscriptionStatus>(ErrorCodes.PurchaseFailed));
+        public Task<Result<SubscriptionStatus>> RestoreAsync(CancellationToken ct = default) =>
+            Task.FromResult(Result.Failure<SubscriptionStatus>(ErrorCodes.PurchaseFailed));
+    }
+
     private sealed class FullDiskDraftStore : IBillDraftStore
     {
         public Task<string?> LoadAsync(CancellationToken ct = default) => Task.FromResult<string?>(null);

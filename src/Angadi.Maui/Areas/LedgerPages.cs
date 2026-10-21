@@ -70,8 +70,14 @@ public sealed class BillsPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-        if (_day.Date == DateTime.MinValue || _rows.Count == 0) _day.Date = _clock.Today.ToDateTime(TimeOnly.MinValue);
-        await LoadAsync();
+        // FIX(UI-1, 2026-10-20, FIX-3): Flaw: unwrapped async void OnAppearing on a ContentPage — a failed load
+        // escaped SafeUi (no toast, half-loaded page). Fix: run the load through SafeUi.Run like the other 7
+        // secondary pages. Why: "never-fail UI" must hold on every page. Logged in docs/AGENT_FIX_LOG.md.
+        await SafeUi.Run(async () =>
+        {
+            if (_day.Date == DateTime.MinValue || _rows.Count == 0) _day.Date = _clock.Today.ToDateTime(TimeOnly.MinValue);
+            await LoadAsync();
+        });
     }
 
     private async Task LoadAsync()
@@ -92,14 +98,16 @@ public sealed class BillDetailPage : ContentPage, IQueryAttributable
     private readonly ISender _sender;
     private readonly IDialogService _dialogs;
     private readonly ILocalizer _text;
+    private readonly IPinService _pin;
     private readonly VerticalStackLayout _body = new() { Spacing = 6, Padding = 16 };
     private Guid _billId;
 
-    public BillDetailPage(ISender sender, IDialogService dialogs, ILocalizer text)
+    public BillDetailPage(ISender sender, IDialogService dialogs, ILocalizer text, IPinService pin)
     {
         _sender = sender;
         _dialogs = dialogs;
         _text = text;
+        _pin = pin;
         Title = text["nav.bills"];
         Content = new ScrollView { Content = _body };
     }
@@ -153,6 +161,11 @@ public sealed class BillDetailPage : ContentPage, IQueryAttributable
 
     private async Task VoidAsync()
     {
+        // FIX(SEC-4, 2026-10-20, FIX-3): voiding a bill is a sensitive action — when the owner has set a
+        // PIN, it must be entered first (no PIN set = proceeds, per the approved design). Why: a void
+        // quietly reverses a sale and its stock; it is the classic counter fraud. Logged in
+        // docs/AGENT_FIX_LOG.md.
+        if (!await PinGate.CheckAsync(_pin, _dialogs, _text)) return;
         var reason = await _dialogs.PromptAsync(_text["bill.void"], _text["bill.void.reason"], _text["common.ok"], _text["common.cancel"]);
         if (string.IsNullOrWhiteSpace(reason)) return;
         var r = await _sender.Send(new VoidBillCommand(_billId, reason));
@@ -186,8 +199,14 @@ public sealed class ReportsPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-        if (_day.Date == DateTime.MinValue || _body.Children.Count == 0) _day.Date = _clock.Today.ToDateTime(TimeOnly.MinValue);
-        await LoadAsync();
+        // FIX(UI-1, 2026-10-20, FIX-3): Flaw: unwrapped async void OnAppearing on a ContentPage — a failed load
+        // escaped SafeUi (no toast, half-loaded page). Fix: run the load through SafeUi.Run like the other 7
+        // secondary pages. Why: "never-fail UI" must hold on every page. Logged in docs/AGENT_FIX_LOG.md.
+        await SafeUi.Run(async () =>
+        {
+            if (_day.Date == DateTime.MinValue || _body.Children.Count == 0) _day.Date = _clock.Today.ToDateTime(TimeOnly.MinValue);
+            await LoadAsync();
+        });
     }
 
     private async Task LoadAsync()

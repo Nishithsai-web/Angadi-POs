@@ -13,6 +13,12 @@
     <!-- Compiled bindings everywhere: every page and template declares x:DataType. -->
     <MauiEnableXamlCBindingWithSourceCompilation>true</MauiEnableXamlCBindingWithSourceCompilation>
     <AndroidPackageFormat Condition="'$(Configuration)' == 'Release'">aab</AndroidPackageFormat>
+    <!-- FIX(RELEASE-1, 2026-10-20, FIX-5): pin trimming explicitly for Release. The TrimmerRootAssembly
+         group below only means something with trimming on; before this pin the SDK default decided what
+         ships on low-RAM shop tablets. RunAOTCompilation is deliberately NOT pinned (stays off): the app
+         is reflection-heavy (sqlite-net, JSON) and AOT is untested — revisit with device perf data.
+         Logged in docs/AGENT_FIX_LOG.md. -->
+    <PublishTrimmed Condition="'$(Configuration)' == 'Release'">true</PublishTrimmed>
     <!-- The MAUI head pins its own versions: Microsoft.Maui.Controls must follow the installed workload ($(MauiVersion)),
          which central package management can't express. Core projects stay on Directory.Packages.props. -->
     <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
