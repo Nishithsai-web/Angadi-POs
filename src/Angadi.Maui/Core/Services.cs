@@ -59,10 +59,10 @@ internal sealed class DialogService : IDialogService
     });
 
     public Task<bool> ConfirmAsync(string title, string message, string accept, string cancel) =>
-        MainThread.InvokeOnMainThreadAsync(() => Top?.DisplayAlert(title, message, accept, cancel) ?? Task.FromResult(false));
+        MainThread.InvokeOnMainThreadAsync(() => Top?.DisplayAlertAsync(title, message, accept, cancel) ?? Task.FromResult(false));
 
     public Task AlertAsync(string title, string message, string ok) =>
-        MainThread.InvokeOnMainThreadAsync(() => Top?.DisplayAlert(title, message, ok) ?? Task.CompletedTask);
+        MainThread.InvokeOnMainThreadAsync(() => Top?.DisplayAlertAsync(title, message, ok) ?? Task.CompletedTask);
 
     public Task<string?> PromptAsync(string title, string message, string accept, string cancel, string? initial = null, Keyboard? keyboard = null) =>
         MainThread.InvokeOnMainThreadAsync(async () =>
@@ -76,7 +76,7 @@ internal sealed class DialogService : IDialogService
         MainThread.InvokeOnMainThreadAsync(async () =>
         {
             if (Top is not { } page) return null;
-            var choice = await page.DisplayActionSheet(title, cancel, null, options);
+            var choice = await page.DisplayActionSheetAsync(title, cancel, null, options);
             return choice == cancel ? null : choice;
         });
 }

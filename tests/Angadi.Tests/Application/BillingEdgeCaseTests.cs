@@ -693,6 +693,8 @@ public sealed class FailSwitch
 /// <summary>Real outbox that can be made to fail the last write of a finalize, to prove the whole bill rolls back.</summary>
 internal sealed class FlakyOutbox(IOutbox inner, FailSwitch fail) : IOutbox
 {
+    public Task<int> PruneOlderThanAsync(DateTimeOffset cutoff, CancellationToken ct = default) => inner.PruneOlderThanAsync(cutoff, ct);
+
     public Task AppendAsync(string aggregateType, IDomainEvent @event, CancellationToken ct = default)
     {
         if (@event is BillFinalized && fail.FailuresLeft > 0)
