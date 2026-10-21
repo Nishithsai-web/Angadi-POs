@@ -179,16 +179,122 @@ def type_in_dialog(value):
     time.sleep(0.5)
 
 
+def keyboard_signals():
+    """Two independent readings of 'is the on-screen keyboard up?': the input-method service's own flag, and (API 30+)
+    the window manager's IME insets source. The emulator's keyboard covers the bottom ~40% of the screen WITHOUT
+    moving the app's views (adjustPan), so the UI dump still lists fields under it and a tap there types a key."""
+    service = "mInputShown=true" in adb("shell", "dumpsys", "input_method", check=False)
+    ime = adb("shell", "dumpsys window | grep -E 'type=ime|type=IME'", check=False)
+    insets = any("visible=true" in line and "frame=[0,0][0,0]" not in line for line in ime.splitlines())
+    return service, insets
+
+
+def keyboard_shown():
+    return any(keyboard_signals())
+
+
 def hide_keyboard():
-    shown = "mInputShown=true" in adb("shell", "dumpsys", "input_method", check=False)
-    if shown:
-        adb("shell", "input", "keyevent", "111")   # ESCAPE closes the IME without navigating back
+    """Close the keyboard. ESC first (harmless when there is none; the emulator's keyboard may ignore it), then Back
+    if the input-method service still says the keyboard is up — the keyboard consumes that Back itself, so it never
+    navigates the app. (Back only on the service's flag: a stale insets reading must never navigate.)"""
+    service, insets = keyboard_signals()
+    if not (service or insets):
+        return
+    adb("shell", "input", "keyevent", "111")   # ESCAPE
+    time.sleep(0.8)
+    service, insets = keyboard_signals()
+    if service:
+        adb("shell", "input", "keyevent", "4")
         time.sleep(0.8)
+        service, insets = keyboard_signals()
+    if service or insets:
+        print(f"    keyboard may still be up (service={service}, insets={insets})", flush=True)
 
 
 def swipe_up():
     adb("shell", "input", "swipe", "540", "1500", "540", "600", "300")
     time.sleep(0.8)
+
+
+EDIT_TEXT = "android.widget.EditText"
+SAFE_TOP, SAFE_BOTTOM = 330, 1300   # pixel_6 (1080x2400): below the toolbar, above where the keyboard starts (~1630)
+
+
+def swipe(x1, y1, x2, y2, ms=500):
+    adb("shell", "input", "swipe", str(x1), str(y1), str(x2), str(y2), str(ms))
+    time.sleep(0.8)
+
+
+def field_after(caption):
+    """The text field under a caption label (forms are 'Caption, Entry' pairs). An empty field reports its hint as
+    its text — often the same words as the caption — so only a non-EditText node counts as the caption."""
+    seen = False
+    for n in nodes():
+        if not seen:
+            seen = n.get("class") != EDIT_TEXT and (n.get("text") or "").strip() == caption
+        elif n.get("class") == EDIT_TEXT:
+            return n
+    return None
+
+
+def scroll_into_band(get, what, bottom=SAFE_BOTTOM):
+    """Scroll (with swipes in the upper screen, never on the keyboard) until get() returns a node whose centre is
+    between SAFE_TOP and `bottom`. If the page cannot scroll further, the keyboard is closed and the node is used
+    where it is."""
+    n = get()
+    if n is None:
+        for _ in range(3):                                # maybe above: towards the top first
+            swipe(540, 650, 540, 1250)
+            n = get()
+            if n is not None:
+                break
+    last = None
+    for _ in range(10):
+        if n is None:
+            swipe(540, 1250, 540, 650)                     # then downwards
+        else:
+            y = center(n)[1]
+            if SAFE_TOP <= y <= bottom:
+                return n
+            if y == last:                                 # end of the page: it will not move further
+                hide_keyboard()
+                return get() or n
+            last = y
+            if y > bottom:
+                swipe(540, 1250, 540, 650)
+            else:
+                swipe(540, 650, 540, 1250)
+        n = get()
+    raise AssertionError(f"{what} could not be brought on screen; on screen: {screen_texts()}")
+
+
+def type_field(caption, value, clear=True):
+    """Type into the field under `caption`, then read it back: a value that went into the wrong field fails HERE,
+    with the field's actual text, instead of three steps later on the wrong screen."""
+    hide_keyboard()
+    n = scroll_into_band(lambda: field_after(caption), f"the '{caption}' field")
+    x, y = center(n)
+    adb("shell", "input", "tap", str(x), str(y))
+    time.sleep(0.6)
+    if clear:
+        adb("shell", "input", "keyevent", "KEYCODE_MOVE_END", *(["KEYCODE_DEL"] * 24))
+        time.sleep(0.3)
+    adb("shell", "input", "text", value.replace(" ", "%s"))
+    time.sleep(0.6)
+    hide_keyboard()
+    got = scroll_into_band(lambda: field_after(caption), f"the '{caption}' field").get("text")
+    if got != value:
+        raise AssertionError(f"typed {value!r} into '{caption}' but the field shows {got!r}")
+
+
+def tap_in_view(pattern, exact=True, cls=None):
+    """Tap a button that may be below the fold or under the keyboard: keyboard closed, scrolled into view first."""
+    hide_keyboard()
+    n = scroll_into_band(lambda: find(pattern, exact=exact, cls=cls), f"'{pattern}'", bottom=2150)
+    x, y = center(n)
+    adb("shell", "input", "tap", str(x), str(y))
+    time.sleep(1.2)
+    return n
 
 
 def alive():
@@ -225,10 +331,12 @@ def relaunch_if_backgrounded():
 
 
 def recover():
-    """Back out of dialogs and pushed pages to the tab bar, so one failure doesn't fail every later step.
-    Never presses Back on a tab root (that would leave the app)."""
-    for _ in range(4):
-        if on_tab_bar():
+    """Back out of the keyboard, dialogs and pushed pages to a tab root, so one failure doesn't fail every later step.
+    Shell keeps the tab bar visible on pushed pages (e.g. Items > New item), so 'tab bar visible' alone is not 'home':
+    a pushed page has a 'Navigate up' arrow. Never presses Back on a tab root (that would leave the app)."""
+    hide_keyboard()
+    for _ in range(5):
+        if on_tab_bar() and find("Navigate up", exact=True) is None:
             return
         adb("shell", "input", "keyevent", "4")
         time.sleep(1.2)
