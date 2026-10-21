@@ -374,6 +374,27 @@ Development no longer runs through one implementer. Muse's own dev/fix agents no
 - **Evidence:** backup_rules include db + wal (correct scoping), but Android's transport copies the two files at different moments and the app declares no BackupAgent/onBackup checkpoint hook. A torn pair can silently restore an older/mixed state on a new phone. The app's daily snapshots are checkpointed copies — but are excluded from Auto Backup.
 - **Fix direction:** checkpoint the WAL on app pause, or include the snapshots folder in the rules; device behaviour pinned by spec T3-10. Pairs with SEC-1/H-D (backup trust) and v2 W4.
 
+### A1/A2 platform batch (S2, 2026-10-21) — F2's audit items landed on the merged base (branch `claude/agent-s2-platform`)
+- **Status:** FIXED-AWAITING-VERIFY (all items below) · **Fixed by:** S2 (F2's original work from `claude/agent-fix-platform`, merged onto the Muse wave and de-duplicated) · **Tests:** `tests/Angadi.Tests/Application/PlatformFixTests.cs` (named per item) + E2E `tools/e2e_steps_platform.py`, `tools/e2e_steps_zz_firstrun.py`.
+- **A1-02 (HIGH)** restore swap: a reopen failure kept the DB gate → DATABASE_BUSY on every screen. Already covered by the base's F6 try/finally (`AngadiDb.ReplaceWithAsync`); kept ONE mechanism (F6's verified reopen + recovery). Test `A1_02_ReopenFailureAfterSwap_ReleasesTheDatabaseLock` (now accepts F6's recover-instead-of-throw).
+- **A1-03 (MEDIUM)** fire-and-forget page loads (`_ = LoadAsync()` in ApplyQueryAttributes, tap-to-navigate commands, PosPage list selection) escaped SafeUi. Fix: `SafeUi.Run` / `SafeUi.Fire` / `SafeUi.On<T>` at each site. OnAppearing wrapping uses the base's UI-1 shape (`async void` + `await SafeUi.Run`) — F2's duplicate `_ = SafeUi.Run` variant was dropped. Search keeps the base's UI-3 catch (no toast while typing).
+- **A1-04 (MEDIUM)** `PageBase.OnAppearing` only logged a failed view-model load; `PosViewModel` showed the one-time recovery report last (lost if a later query failed) and set `_draftChecked` before the restore ran. Fix: PageBase uses UI-1's `await SafeUi.Run`; the recovery notice is shown the moment it is taken; the draft is marked checked only after a successful restore.
+- **A1-05 (HIGH)** database work ran inline on the UI thread (uncontended gate completes synchronously) → ANR risk. Fix: `AngadiDb` forces a yield to the pool before every query/transaction; `MauiProgram.ApplySavedLanguage` blocks via `Task.Run`. S2 also fixed F2's version, which still resumed on the UI context (the awaited helper lacked ConfigureAwait(false); this was the failing core test). Test `A1_05_DatabaseWork_RunsOffTheCallingThread`.
+- **A1-07 (LOW)** `ViewModelBase.RunBusyAsync` set an ErrorMessage nothing binds. Fix: also toast it.
+- **A1-09 (MEDIUM)** ignored Results: language-switch profile save, clear-promise, first-run seeding, backup share. Fix: toast the error (logs share was already fixed as LOG-3d).
+- **A1-10 (MEDIUM)** a 16+ digit spoken token threw OverflowException out of voice billing. Fix: `TeluguParser.TryNumber` caps at `MaxSpokenNumber`; S2 added the same cap to the VOICE-3/4 scale-word multiply (`…కోటి` after a huge number). Tests `A1_10_*`.
+- **A1-11 (LOW)** the counter called `IAliasLearner` directly (no correlation id, no transaction). Fix: `LearnAliasCommand` through the pipeline. Test `A1_11_LearnAliasCommand_LearnsThroughTheDispatcher`.
+- **A1-12 (MEDIUM)** overlapping OnStart/OnSleep snapshots shared one `.tmp` path. Fix: one snapshot at a time (`DataSafety` gate). Test `A1_12_OverlappingSnapshots_AllSucceed`.
+- **A1-13 (MEDIUM)** the restore staging copy (all customer data) stayed in the cache; a full disk showed "unexpected". Fix: always deleted in `finally`; STORAGE_FULL toast. Kept inside the base's SEC-4 PIN gate + SEC-6 inspector flow.
+- **A1-14 (LOW)** a speech recognizer that failed to start kept its service binding. Fix: destroy it and report VOICE_NOTHING_HEARD.
+- **A2-03 (HIGH)** no manual-backup reminder; Auto Backup silently stops past 25 MB. Fix: `BackupStatus`/`BackupStatusStore` (Meta rows), counter banner, Settings status line. Tests `A2_03_*`.
+- **A2-04 (MEDIUM)** privacy policy: merged with PRIVACY-1's rewrite — one ML Kit line, one Auto Backup line (25 MB / Wi-Fi limit added), SMS reminders added.
+- **A2-06 (HIGH)** UPI fraud: warning + payee on the UPI screen; leaving for the UPI app no longer cancels the payment (`OnNavigatedFrom` instead of `OnDisappearing`). E2E `upi-warning-and-background`.
+- **A2-08 (MEDIUM)** E2E on API 36 (target SDK); scanner Back and first-run Back steps. S2: `scanner-back` now returns to the counter via "New bill" first (the receipt page from the previous step stays pushed when the Bill tab is tapped — a test-ordering issue, not an app bug).
+- **A2-11 (HIGH)** offline Pro fell back to free after 7 days → a paying shop was blocked. Fix: `SubscriptionCachePolicy` — stays Pro, `NeedsReconfirm` asks to connect. Tests `A2_11_*`.
+- **A2-12 (MEDIUM)** a pending Play payment read as "purchase failed". Fix: `PURCHASE_PENDING`. Test `A2_12_PendingPurchase_HasItsOwnMessage`.
+- **A2-18 (MEDIUM)** permanently denied mic/camera: no way back. Fix: "Open settings" dialog.
+
 <!-- New entries go ABOVE this line, newest first within their section order: GOV, CRITICAL, HIGH, MEDIUM, LOW, MINOR, VERIFY. Keep the Flaw → Fix → Why shape. -->
 
 ### TEST-BUILD-1 (HIGH, build-blocking for tests) — `Angadi.Tests` does not compile at final HEAD `e4d7fea`: a test file is missing one `using`

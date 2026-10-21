@@ -126,6 +126,11 @@ public sealed partial class TeluguParser(VoiceRules rules) : ITeluguParser
                 // (ఐదు వెయ్యి = 5000, రెండు లక్షలు = 200000); standalone, the word still reads as a
                 // plain number from the map. Why: "ఐదు వెయ్యి రూపాయలు" is how a ₹5,000 order is spoken.
                 // Logged in docs/AGENT_FIX_LOG.md.
+                // FIX(A1-10, 2026-10-21, S2): Flaw: a huge spoken number followed by a scale word ("…కోటి")
+                // overflowed long silently into a garbage quantity. Fix: past MaxSpokenNumber the line is ambiguous
+                // and the scale word is ignored. Why: the pipeline asks instead of billing a wrapped number.
+                // Logged in docs/AGENT_FIX_LOG.md.
+                if ((number == 0 ? 1000 : number) > MaxSpokenNumber * 1000 / factor) { ambiguous = true; continue; }
                 number = (number == 0 ? 1000 : number) * factor;
                 lastPlace = factor * 1000;
                 continue;
@@ -274,19 +279,29 @@ public sealed partial class TeluguParser(VoiceRules rules) : ITeluguParser
         rules.ScaleMultipliers.TryGetValue(token, out var f) ? f
         : rules.HundredMultipliers.Contains(token) ? 100L
         : null;
+    /// <summary>Largest number a spoken line can carry (keeps milli-units far inside long).</summary>
+    internal const long MaxSpokenNumber = 1_000_000_000_000;
 
     internal bool TryNumber(string token, out long milli)
     {
+        // A1-10: a 16+ digit token (a barcode read aloud, a phone number) used to throw OverflowException out of the
+        // voice pipeline. Out-of-range numbers are simply "not a number" now.
         if (Decimal().IsMatch(token))
         {
-            milli = (long)Math.Round(decimal.Parse(token, CultureInfo.InvariantCulture) * 1000m, MidpointRounding.AwayFromZero);
-            return true;
+            if (decimal.TryParse(token, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var value) && value <= MaxSpokenNumber)
+            {
+                milli = (long)Math.Round(value * 1000m, MidpointRounding.AwayFromZero);
+                return true;
+            }
+            milli = 0;
+            return false;
         }
 
         var f = Fraction().Match(token);
-        if (f.Success && long.TryParse(f.Groups[2].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var den) && den > 0)
+        if (f.Success && long.TryParse(f.Groups[2].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var den) && den > 0
+            && long.TryParse(f.Groups[1].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var num) && num <= MaxSpokenNumber)
         {
-            milli = (long)Math.Round(long.Parse(f.Groups[1].Value, CultureInfo.InvariantCulture) * 1000m / den, MidpointRounding.AwayFromZero);
+            milli = (long)Math.Round(num * 1000m / den, MidpointRounding.AwayFromZero);
             return true;
         }
 

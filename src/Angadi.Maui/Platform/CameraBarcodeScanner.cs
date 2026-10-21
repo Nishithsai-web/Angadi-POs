@@ -7,11 +7,12 @@ using Microsoft.Extensions.Logging;
 namespace Angadi.Maui.Platform;
 
 /// <summary>
-/// FR-08 camera scanner (in locked scope; restored after the v1 cut). On-device ML Kit, no network.
+/// FR-08 camera scanner (in locked scope; restored after the v1 cut). Codes are decoded on the device by Google ML Kit
+/// (no image leaves the phone); ML Kit itself sends usage diagnostics to Google — disclosed in docs/PRIVACY_POLICY.md (A2-04).
 /// Never a dead end: no camera, permission denied, or the shopkeeper taps "type it" → the manual box
 /// (which a USB/Bluetooth barcode gun also types into).
 /// </summary>
-internal sealed class CameraBarcodeScanner(ManualBarcodeScanner manual, ILocalizer text, ILogger<CameraBarcodeScanner> log) : IBarcodeScanner
+internal sealed class CameraBarcodeScanner(ManualBarcodeScanner manual, IDialogService dialogs, ILocalizer text, ILogger<CameraBarcodeScanner> log) : IBarcodeScanner
 {
     public async Task<Result<string>> ScanAsync(CancellationToken ct = default)
     {
@@ -19,10 +20,20 @@ internal sealed class CameraBarcodeScanner(ManualBarcodeScanner manual, ILocaliz
         {
             if (!MediaPicker.Default.IsCaptureSupported) return await manual.ScanAsync(ct);
 
-            var status = await MainThread.InvokeOnMainThreadAsync(Permissions.RequestAsync<Permissions.Camera>);
+            var (status, permanent) = await MainThread.InvokeOnMainThreadAsync(async () =>
+            {
+                var s = await Permissions.RequestAsync<Permissions.Camera>();
+                return (s, s != PermissionStatus.Granted && !Permissions.ShouldShowRationale<Permissions.Camera>());
+            });
             if (status != PermissionStatus.Granted)
             {
-                log.LogInformation("Camera permission not granted; manual entry");
+                log.LogInformation("Camera permission not granted (permanent: {Permanent}); manual entry", permanent);
+                // A2-18: Android will not ask again — say where to turn it on, with a one-tap way there.
+                if (permanent && await dialogs.ConfirmAsync(text["perm.title"], text["perm.camera.off"], text["perm.open.settings"], text["scan.manual"]))
+                {
+                    AppInfo.Current.ShowSettingsUI();
+                    return Result.Failure<string>(ErrorCodes.ValidationFailed, "cancelled");
+                }
                 return await manual.ScanAsync(ct);
             }
 

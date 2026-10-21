@@ -40,6 +40,7 @@ public static class DependencyInjection
         services.AddSingleton<ISeedService, SeedService>();
         services.AddSingleton<IQuotaStore, QuotaStore>();
         services.AddSingleton<INoteRepository, NoteRepository>();
+        services.AddSingleton<Angadi.Application.Catalog.IBackupStatusStore, BackupStatusStore>();
 
         services.AddSingleton<IBackupService>(sp => new BackupService(
             sp.GetRequiredService<AngadiDb>(), sp.GetRequiredService<IClock>(),

@@ -6,7 +6,7 @@
 > Owner action before publishing: fill in the two `[…]` fields, then host this page at a public URL (Play Console requires one).
 
 ## The short version
-Angadi keeps your shop's data **on your phone or tablet only**. There is no Angadi server, no account and no analytics. We (the developers) cannot see your bills, customers or stock.
+Angadi keeps your shop's data **on your phone or tablet only**. There is no Angadi server, no account and no analytics of our own. We (the developers) cannot see your bills, customers or stock. (The barcode scanner's Google library sends Google its own diagnostics — see below.)
 
 ## What the app stores, and where
 | Data | Where | Why |
@@ -14,7 +14,7 @@ Angadi keeps your shop's data **on your phone or tablet only**. There is no Anga
 | Shop profile (name, address, GSTIN, UPI ID) | On the device (SQLite) | Printed on receipts and the UPI QR |
 | Items, prices, stock | On the device | Billing and low-stock alerts |
 | Bills and payments (cash / UPI reference / udhaar) | On the device | Receipts, reports, GST summary |
-| Customers (name, phone, address, notes, promised-pay date) and their dues | On the device | Udhaar ledger and WhatsApp reminders |
+| Customers (name, phone, address, notes, promised-pay date) and their dues | On the device | Udhaar ledger and WhatsApp/SMS reminders |
 | App logs | On the device, 7 days, max 5 MB per file | Fixing problems. **Customer phone numbers and learned voice words are never written to logs.** |
 | Automatic safety copies of the database (daily snapshots, a copy taken before each app update and before each restore, and a damaged file moved aside if one is found) | On the device only | So a shop's records survive a crash, a failed update or a damaged file. Never uploaded anywhere. |
 
@@ -23,7 +23,7 @@ Angadi keeps your shop's data **on your phone or tablet only**. There is no Anga
 - **Receipts and reminders:** when you tap *Share* or *WhatsApp*, the receipt PDF or message goes to the app you pick (WhatsApp, etc.). Angadi does not send anything by itself.
 - **Backups and log export:** only when you tap *Backup* or *Export logs*, and only to the place you choose.
 - **Feedback:** if you use Settings → Notes & feedback and choose to attach logs, your message and the log file are sent through the app you pick (for example WhatsApp). Logs contain no customer phone numbers and no learned voice words.
-- **Android's own phone backup:** if backup is turned on in your phone's settings, Android copies Angadi's data (the shop database and app settings, nothing else) to **your own** Google account, encrypted, and puts it back when you install Angadi on a new phone with the same account. Angadi's makers cannot see these backups. Turn it off in Android Settings → Google → Backup.
+- **Android's own phone backup:** if backup is turned on in your phone's settings, Android copies Angadi's data (the shop database and app settings, nothing else) to **your own** Google account, encrypted, and puts it back when you install Angadi on a new phone with the same account. Angadi's makers cannot see these backups. Turn it off in Android Settings → Google → Backup. Android stops this backup once the app's data passes 25 MB (several thousand bills) and only runs on Wi-Fi, so also use *Back up data* regularly — the app shows when the last one was taken.
 - **Barcode scanner:** the camera scanner uses Google ML Kit, which reads barcodes on the phone and sends Google anonymous diagnostics about the scanner itself (device and app version, performance, error codes) — never images, barcodes or shop data. See [ML Kit data disclosure](https://developers.google.com/ml-kit/android-data-disclosure).
 - **Subscription (when enabled):** payments are handled by Google Play. Angadi never sees card or UPI details. The app also re-checks your subscription status with Google Play automatically in the background, so a renewal or cancellation is picked up without you opening the app; this check sends no shop data — no bills, customers or stock.
 

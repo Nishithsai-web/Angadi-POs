@@ -97,7 +97,7 @@ public sealed class CustomersPage : ContentPage
             var info = new VerticalStackLayout { Children = { Ui.Body(d.Name + " · " + IndianFormat.Rupees(d.Balance)), Ui.Caption(why) } };
             info.GestureRecognizers.Add(new TapGestureRecognizer
             {
-                Command = new Command(async () => await Shell.Current.GoToAsync(Routes.CustomerDetail, new Dictionary<string, object> { ["customerId"] = d.CustomerId.ToString("D") })),
+                Command = new Command(SafeUi.Fire(() => Shell.Current.GoToAsync(Routes.CustomerDetail, new Dictionary<string, object> { ["customerId"] = d.CustomerId.ToString("D") }))),   // A1-03
             });
             var wa = Ui.Button("WhatsApp", Theme.Success);
             wa.Clicked += SafeUi.On(async () => await RemindAsync(d, ReminderChannel.WhatsApp));
@@ -192,7 +192,8 @@ public sealed class CustomerDetailPage : ContentPage, IQueryAttributable
         clearPromise.Clicked += SafeUi.On(async () =>
         {
             if (_customer is null) return;
-            await _sender.Send(new SetPromisedPayDateCommand(_customer.Id, null));
+            var cleared = await _sender.Send(new SetPromisedPayDateCommand(_customer.Id, null));
+            if (cleared.IsFailure) await _dialogs.ToastAsync(_text.Error(cleared.Error));   // A1-09
             await LoadAsync();
         });
         var promiseRow = new Grid { ColumnDefinitions = { new(GridLength.Star), new(GridLength.Auto), new(GridLength.Auto) }, ColumnSpacing = 6 };
@@ -232,7 +233,7 @@ public sealed class CustomerDetailPage : ContentPage, IQueryAttributable
         if (query.TryGetValue("customerId", out var id) && Guid.TryParse(id?.ToString(), out var cid))
         {
             _customer = new Customer { Id = cid };
-            _ = LoadAsync();
+            _ = SafeUi.Run(LoadAsync);   // A1-03
         }
     }
 
@@ -302,7 +303,7 @@ public sealed class CustomerDetailPage : ContentPage, IQueryAttributable
             var billId = b.BillId.ToString("D");
             row.GestureRecognizers.Add(new TapGestureRecognizer
             {
-                Command = new Command(async () => await Shell.Current.GoToAsync(Routes.BillDetail, new Dictionary<string, object> { ["billId"] = billId })),
+                Command = new Command(SafeUi.Fire(() => Shell.Current.GoToAsync(Routes.BillDetail, new Dictionary<string, object> { ["billId"] = billId }))),   // A1-03
             });
         }
 

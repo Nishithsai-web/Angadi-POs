@@ -75,7 +75,12 @@ public sealed class AppShell : Shell
             if (await sender.Send(new GetShopProfileQuery()) is { } profile && profile.Language != language)
             {
                 profile.Language = language;
-                await sender.Send(new SaveShopProfileCommand(profile));
+                // FIX(A1-09, 2026-10-21, S2): Flaw: a failed profile save was ignored — the language switched now and
+                // silently reverted on the next restart. Fix: toast the save error (the switch still applies now).
+                // Why: the shopkeeper learns the choice may not stick. Logged in docs/AGENT_FIX_LOG.md.
+                var saved = await sender.Send(new SaveShopProfileCommand(profile));
+                if (saved.IsFailure)
+                    await _services.GetRequiredService<IDialogService>().ToastAsync(_text.Error(saved.Error));
             }
             _services.GetRequiredService<IAppRestart>().Restart();   // pages read their text when built
         }

@@ -1,6 +1,7 @@
 using Angadi.Application.Billing;
 using Angadi.Application.Catalog;
 using Angadi.Application.Common;
+using Angadi.Application.Persistence;
 using Angadi.Application.Platform;
 using Angadi.Domain.Shop;
 using Angadi.Maui.Core;
@@ -161,7 +162,13 @@ public sealed class ShopSetupPage : ContentPage
         if (saved.IsFailure) { await _dialogs.ToastAsync(_text.Error(saved.Error) + (saved.Error.Detail is { } d ? " (" + d + ")" : "")); return; }
 
         if (firstRun && (_kirana.IsChecked || _pharmacy.IsChecked))
-            await _sender.Send(new SeedItemsCommand(_kirana.IsChecked, _pharmacy.IsChecked));
+        {
+            // FIX(A1-09, 2026-10-21, S2): Flaw: a failed sample-item load was swallowed — the new shop opened with
+            // an empty catalogue and no word why. Fix: the shop is saved either way; the seed failure is toasted.
+            // Why: the owner knows to add items by hand. Logged in docs/AGENT_FIX_LOG.md.
+            var seeded = await _sender.Send(new SeedItemsCommand(_kirana.IsChecked, _pharmacy.IsChecked));
+            if (seeded.IsFailure) await _dialogs.ToastAsync(_text.Error(seeded.Error));
+        }
 
         // FIX(SEC-4, 2026-10-20, FIX-3): first run for a PHARMACY profile offers PIN creation right here
         // (skippable — Settings can set it later; kirana profiles are not prompted). Why: pharmacy books
@@ -210,11 +217,16 @@ public sealed class SubscriptionPage : ContentPage
         // FIX(UI-1, 2026-10-20, FIX-3): Flaw: unwrapped async void OnAppearing on a ContentPage — a failed load
         // escaped SafeUi (no toast, half-loaded page). Fix: run the load through SafeUi.Run like the other 7
         // secondary pages. Why: "never-fail UI" must hold on every page. Logged in docs/AGENT_FIX_LOG.md.
-        await SafeUi.Run(async () =>
-        {
-            var q = await _sender.Send(new GetBillQuotaQuery());
-            _status.Text = q.IsPro ? _text["sub.pro"] : _text.Format("sub.free", q.UsedThisMonth, q.FreeLimit);
-        });
+        await SafeUi.Run(RefreshAsync);
+    }
+
+    private async Task RefreshAsync()
+    {
+        var q = await _sender.Send(new GetBillQuotaQuery());
+        // A2-11: Pro stays Pro offline; past 7 days unconfirmed it only asks to connect.
+        _status.Text = !q.IsPro ? _text.Format("sub.free", q.UsedThisMonth, q.FreeLimit)
+            : q.NeedsReconfirm ? _text["sub.pro"] + "\n" + _text["sub.reconfirm"]
+            : _text["sub.pro"];
     }
 
     private async Task BuyAsync(SubscriptionPlan plan) => await ShowAsync(await _subscription.PurchaseAsync(plan));
@@ -222,7 +234,7 @@ public sealed class SubscriptionPage : ContentPage
     private async Task ShowAsync(Result<SubscriptionStatus> r)
     {
         if (r.IsFailure) { await _dialogs.ToastAsync(_text.Error(r.Error)); return; }
-        OnAppearing();
+        await RefreshAsync();
     }
 }
 
@@ -237,6 +249,7 @@ public sealed class SettingsPage : ContentPage
     private readonly IBackupInspector _inspector;
     private readonly IPinService _pinService;
     private readonly Label _pinNudge = Ui.Caption();
+    private readonly Label _backupStatus = Ui.Caption();
 
     public SettingsPage(ISender sender, IReceiptShare share, IDialogService dialogs, ILocalizer text, IAppRestart restart, IBackupInspector inspector, IPinService pinService)
     {
@@ -264,6 +277,7 @@ public sealed class SettingsPage : ContentPage
             Item("settings.subscription", () => Shell.Current.GoToAsync(Routes.Subscription)),
             Item("settings.notes", () => Shell.Current.GoToAsync(Routes.Notes)),
             Item("settings.backup", BackupAsync),
+            _backupStatus,
             Item("settings.restore", RestoreAsync, danger: true),
             Item("settings.pin", async () => await PinGate.SetPinAsync(_pinService, _dialogs, _text)),
             _pinNudge,
@@ -276,7 +290,20 @@ public sealed class SettingsPage : ContentPage
     {
         base.OnAppearing();
         // SEC-4 nudge state, refreshed each visit; routed through SafeUi.Run like every page load (UI-1).
-        await SafeUi.Run(async () => { _pinNudge.IsVisible = !await _pinService.HasPinAsync(); });
+        await SafeUi.Run(async () =>
+        {
+            _pinNudge.IsVisible = !await _pinService.HasPinAsync();
+            await RefreshBackupStatusAsync();
+        });
+    }
+
+    /// <summary>A2-03: "Data size: 3.4 MB · Last backup: 12 Oct" — Android's own backup stops past 25 MB.</summary>
+    private async Task RefreshBackupStatusAsync()
+    {
+        var s = await _sender.Send(new GetBackupStatusQuery());
+        var mb = (s.DatabaseBytes / 1024d / 1024d).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " MB";
+        _backupStatus.Text = _text.Format("backup.status", mb, s.LastManualBackup is { } at ? _text.Short(at) : _text["backup.never"]);
+        _backupStatus.TextColor = s.IsLarge ? Theme.Warning : Theme.TextSecondary;
     }
 
     private async Task BackupAsync()
@@ -287,7 +314,9 @@ public sealed class SettingsPage : ContentPage
         if (!await PinGate.CheckAsync(_pinService, _dialogs, _text)) return;
         var r = await _sender.Send(new ExportBackupCommand());
         if (r.IsFailure) { await _dialogs.ToastAsync(_text.Error(r.Error)); return; }
-        await _share.ShareFileAsync(r.Value, _text["settings.backup"]);
+        await RefreshBackupStatusAsync();
+        var shared = await _share.ShareFileAsync(r.Value, _text["settings.backup"]);
+        if (shared.IsFailure) await _dialogs.ToastAsync(_text.Error(shared.Error));   // A1-09: a failed share is said
     }
 
     private async Task RestoreAsync()
@@ -299,25 +328,45 @@ public sealed class SettingsPage : ContentPage
         if (picked is null) return;
 
         // H3: stage the picked (content-URI) file locally first, then restore from the staged copy.
+        // FIX(A1-13, 2026-10-21, S2): Flaw: the staged copy (every customer, phone and due) stayed in the cache after
+        // every restore, and a full phone during the copy showed "unexpected error". Fix: the staged file is always
+        // deleted; a full disk says STORAGE_FULL. Why: customer data must not linger, and the owner needs the real
+        // reason. Logged in docs/AGENT_FIX_LOG.md.
         var staged = Path.Combine(FileSystem.CacheDirectory, "restore-staged.db");
-        await using (var source = await picked.OpenReadAsync())
-        await using (var target = File.Create(staged))
-            await source.CopyToAsync(target);
+        try
+        {
+            try
+            {
+                await using var source = await picked.OpenReadAsync();
+                await using var target = File.Create(staged);
+                await source.CopyToAsync(target);
+            }
+            catch (IOException ex) when (StorageFailures.IsDiskFull(ex))
+            {
+                await _dialogs.ToastAsync(_text.Error(new Error(ErrorCodes.StorageFull)));
+                return;
+            }
 
-        // FIX(SEC-6, 2026-10-20, FIX-3): Flaw: the only confirmation was a generic warning — restoring a
-        // months-old backup silently rolled the books back, because nothing showed HOW OLD the file was.
-        // Fix: inspect the staged copy and put the facts in the confirmation — bill/customer/item counts
-        // and the newest bill's date (the app language's own month names). A file that isn't an Angadi
-        // backup is rejected here, before any swap is attempted. Why: restore should be an informed
-        // decision, not a leap. Logged in docs/AGENT_FIX_LOG.md.
-        var info = _inspector.Inspect(staged);
-        if (info is null) { await _dialogs.ToastAsync(_text.Error(new Error(ErrorCodes.RestoreInvalidFile))); return; }
-        var newest = info.NewestBillAt is { } at ? _text.Short(at) : "—";
-        var facts = _text.Format("settings.restore.meta", info.BillCount, newest, info.CustomerCount, info.ItemCount);
-        if (!await _dialogs.ConfirmAsync(_text["settings.restore"], facts, _text["common.yes"], _text["common.no"])) return;
+            // FIX(SEC-6, 2026-10-20, FIX-3): Flaw: the only confirmation was a generic warning — restoring a
+            // months-old backup silently rolled the books back, because nothing showed HOW OLD the file was.
+            // Fix: inspect the staged copy and put the facts in the confirmation — bill/customer/item counts
+            // and the newest bill's date (the app language's own month names). A file that isn't an Angadi
+            // backup is rejected here, before any swap is attempted. Why: restore should be an informed
+            // decision, not a leap. Logged in docs/AGENT_FIX_LOG.md.
+            var info = _inspector.Inspect(staged);
+            if (info is null) { await _dialogs.ToastAsync(_text.Error(new Error(ErrorCodes.RestoreInvalidFile))); return; }
+            var newest = info.NewestBillAt is { } at ? _text.Short(at) : "—";
+            var facts = _text.Format("settings.restore.meta", info.BillCount, newest, info.CustomerCount, info.ItemCount);
+            if (!await _dialogs.ConfirmAsync(_text["settings.restore"], facts, _text["common.yes"], _text["common.no"])) return;
 
-        var r = await _sender.Send(new RestoreBackupCommand(staged));
-        if (r.IsFailure) { await _dialogs.ToastAsync(_text.Error(r.Error)); return; }
+            var r = await _sender.Send(new RestoreBackupCommand(staged));
+            if (r.IsFailure) { await _dialogs.ToastAsync(_text.Error(r.Error)); return; }
+        }
+        finally
+        {
+            try { if (File.Exists(staged)) File.Delete(staged); }
+            catch (IOException ex) { GlobalExceptions.Report(ex, "restore-staged-delete"); }
+        }
         _restart.Restart();
     }
 

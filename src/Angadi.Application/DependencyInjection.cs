@@ -37,6 +37,7 @@ public static class DependencyInjection
         services.AddSingleton<IItemMatcher, ItemMatcher>();
         services.AddSingleton<IAliasLearner, AliasLearner>();
         services.AddSingleton<IVoiceBillingPipeline, VoiceBillingPipeline>();
+        services.AddTransient<IRequestHandler<LearnAliasCommand, Result>, LearnAliasHandler>();   // A1-11
 
         services.AddSingleton<IInsightsService, InsightsService>();
 
@@ -83,7 +84,11 @@ public static class DependencyInjection
         services.AddTransient<IRequestHandler<SaveShopProfileCommand, Result>>(sp => sp.GetRequiredService<ShopHandlers>());
         services.AddTransient<IRequestHandler<SeedItemsCommand, Result<int>>>(sp => sp.GetRequiredService<ShopHandlers>());
         services.AddTransient<IRequestHandler<GetBillQuery, Bill?>>(sp => sp.GetRequiredService<ShopHandlers>());
-        services.AddTransient<IRequestHandler<ExportBackupCommand, Result<string>>>(sp => sp.GetRequiredService<ShopHandlers>());
+        // A2-03: export records the manual-backup time; the counter and Settings read it back.
+        services.AddTransient<BackupHandlers>();
+        services.AddTransient<IRequestHandler<ExportBackupCommand, Result<string>>>(sp => sp.GetRequiredService<BackupHandlers>());
+        services.AddTransient<IRequestHandler<GetBackupStatusQuery, BackupStatus>>(sp => sp.GetRequiredService<BackupHandlers>());
+        services.AddTransient<IRequestHandler<DismissBackupReminderCommand, Result>>(sp => sp.GetRequiredService<BackupHandlers>());
         services.AddTransient<IRequestHandler<RestoreBackupCommand, Result>>(sp => sp.GetRequiredService<ShopHandlers>());
         services.AddTransient<IRequestHandler<ExportLogsCommand, Result<string>>, ExportLogsHandler>();
         services.AddTransient<DataSafetyHandlers>();

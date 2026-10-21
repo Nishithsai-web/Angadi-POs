@@ -1,0 +1,14 @@
+{
+  "backup.status": "Data size: {0} · Last backup: {1}",
+  "backup.never": "never",
+  "backup.reminder": "💾 No backup for 7 days — tap to back up now",
+  "backup.reminder.large": "💾 Your data has grown past the phone's automatic backup — tap to back up now and keep it on WhatsApp/Drive",
+  "backup.reminder.hide": "Hide for today",
+  "upi.check.own": "Check the money arrived in YOUR UPI app or soundbox — not on the customer's phone",
+  "upi.paying.to": "Paying to: {0}",
+  "sub.reconfirm": "Connect to the internet to confirm your Pro subscription",
+  "perm.title": "Permission needed",
+  "perm.mic.off": "Microphone permission is off for Angadi. Open Settings → Permissions → Microphone → Allow.",
+  "perm.camera.off": "Camera permission is off for Angadi. Open Settings → Permissions → Camera → Allow — or type the code.",
+  "perm.open.settings": "Open settings"
+}

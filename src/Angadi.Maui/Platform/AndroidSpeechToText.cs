@@ -31,6 +31,9 @@ public sealed class AndroidSpeechToText(ILogger<AndroidSpeechToText> log) : ISpe
     /// <summary>Safety net if the recognizer never calls back (seen on some OEM builds).</summary>
     private static readonly TimeSpan HardTimeout = TimeSpan.FromSeconds(20);
 
+    /// <summary>Error detail when the microphone is blocked until the owner changes it in Settings (A2-18).</summary>
+    public const string PermissionDeniedPermanently = "permanent";
+
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly object _sync = new();
     private CancellationTokenSource? _current;
@@ -50,13 +53,16 @@ public sealed class AndroidSpeechToText(ILogger<AndroidSpeechToText> log) : ISpe
         if (!onDevice && Connectivity.Current.NetworkAccess != NetworkAccess.Internet)
             return Result.Failure<string>(ErrorCodes.VoiceNoInternet, "offline");
 
-        var permission = await MainThread.InvokeOnMainThreadAsync(async () =>
+        var (permission, permanent) = await MainThread.InvokeOnMainThreadAsync(async () =>
         {
             var status = await Permissions.CheckStatusAsync<Permissions.Microphone>();
-            return status == PermissionStatus.Granted ? status : await Permissions.RequestAsync<Permissions.Microphone>();
+            if (status == PermissionStatus.Granted) return (status, false);
+            status = await Permissions.RequestAsync<Permissions.Microphone>();
+            // A2-18: denied and Android won't ask again ("Don't allow" twice) — only Settings can turn it back on.
+            return (status, status != PermissionStatus.Granted && !Permissions.ShouldShowRationale<Permissions.Microphone>());
         });
         if (permission != PermissionStatus.Granted)
-            return Result.Failure<string>(ErrorCodes.VoicePermissionDenied, permission.ToString());
+            return Result.Failure<string>(ErrorCodes.VoicePermissionDenied, permanent ? PermissionDeniedPermanently : permission.ToString());
 
         // One listen at a time: abort whoever holds the mic, then take it.
         lock (_sync) { _current?.Cancel(); }
@@ -107,8 +113,19 @@ public sealed class AndroidSpeechToText(ILogger<AndroidSpeechToText> log) : ISpe
                 return;
             }
 
-            recognizer.SetRecognitionListener(new Listener(tcs, partials));
-            recognizer.StartListening(BuildIntent(culture));
+            try
+            {
+                recognizer.SetRecognitionListener(new Listener(tcs, partials));
+                recognizer.StartListening(BuildIntent(culture));
+            }
+            catch (Exception ex)
+            {
+                // A1-14: a recognizer that failed to start still holds the speech service binding — destroy it now.
+                log.LogError(ex, "Speech recognizer failed to start");
+                try { recognizer.Destroy(); } catch (Exception) { /* already gone */ }
+                recognizer = null;
+                tcs.TrySetResult(Result.Failure<string>(ErrorCodes.VoiceNothingHeard, "start_failed"));
+            }
         });
 
         using var registration = token.Register(() =>
