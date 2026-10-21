@@ -108,7 +108,7 @@ public sealed class AppShell : Shell
             // First run: language first, in both scripts, before any other screen is built.
             if (!Preferences.Default.ContainsKey(LanguageKey))
             {
-                var pick = await DisplayActionSheet(_text["lang.choose"], null, null, _text["lang.telugu"], _text["lang.english"]);
+                var pick = await DisplayActionSheetAsync(_text["lang.choose"], null, null, _text["lang.telugu"], _text["lang.english"]);
                 var language = pick == _text["lang.english"] ? UiLanguage.English : UiLanguage.Telugu;
                 Preferences.Default.Set(LanguageKey, language.ToString());
                 if (language != _text.Language)

@@ -119,7 +119,7 @@ public sealed class ShopSetupPage : ContentPage
 
     private async Task UploadQrAsync()
     {
-        var photo = await MediaPicker.Default.PickPhotoAsync();
+        var photo = (await MediaPicker.Default.PickPhotosAsync())?.FirstOrDefault();   // PickPhotoAsync is obsolete in MAUI 10
         if (photo is null) return;
         await using var stream = await photo.OpenReadAsync();
         using var copy = new MemoryStream();

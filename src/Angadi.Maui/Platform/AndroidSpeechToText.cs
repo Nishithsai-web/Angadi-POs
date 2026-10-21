@@ -104,7 +104,10 @@ public sealed class AndroidSpeechToText(ILogger<AndroidSpeechToText> log) : ISpe
             }
 
             // VOICE-9: on-device recogniser when the probe found one (null = it vanished; use the service one).
-            recognizer = preferOnDevice
+            // FIX(BUILD-2, 2026-10-21, Claude Code): Flaw: CreateOnDeviceSpeechRecognizer is API 31+ but this runs on 28+
+            // (CA1416; a NoSuchMethodError on Android 9-11 if the probe ever said yes). Fix: explicit version guard.
+            // Why: the app's floor is Android 9. Logged in docs/AGENT_FIX_LOG.md.
+            recognizer = preferOnDevice && OperatingSystem.IsAndroidVersionAtLeast(31)
                 ? SpeechRecognizer.CreateOnDeviceSpeechRecognizer(context) ?? SpeechRecognizer.CreateSpeechRecognizer(context)
                 : SpeechRecognizer.CreateSpeechRecognizer(context);
             if (recognizer is null)
