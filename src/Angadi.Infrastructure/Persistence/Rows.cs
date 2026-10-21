@@ -62,7 +62,7 @@ internal sealed class BillLineRow
     [PrimaryKey] public Guid Id { get; set; }
     [Indexed] public Guid BillId { get; set; }
     public int Position { get; set; }
-    [Indexed] public Guid ItemId { get; set; }
+    public Guid ItemId { get; set; }   // S4-3: not indexed — no query filters lines by item (index dropped in AngadiDb.Migrate)
     public string TeluguName { get; set; } = "";
     public string EnglishName { get; set; } = "";
     public int Unit { get; set; }
@@ -108,11 +108,23 @@ internal sealed class DuesEntryRow
 [Table("StockMove")]
 internal sealed class StockMoveRow
 {
+    internal const string StockMoveItemDeltaIndex = "IX_StockMove_ItemId_Day_Reason_DeltaMilli";
+    internal const string StockMoveItemDeltaIndexSql =
+        "CREATE INDEX IF NOT EXISTS \"" + StockMoveItemDeltaIndex + "\" ON \"StockMove\"(\"ItemId\", \"Day\", \"Reason\", \"DeltaMilli\")";
+
     [PrimaryKey] public Guid Id { get; set; }
-    [Indexed] public Guid ItemId { get; set; }
+    // FIX(S4-1, 2026-10-21, S4): Flaw: the ledger totals (inventory report, backup ledger check) and dead stock read
+    // every StockMove row through the plain ItemId index plus the table (355 ms on CI for a busy year; dead stock 270 ms,
+    // sorting ~200k (item, day) groups in a temp b-tree). Fix: one index (ItemId, Day, Reason, DeltaMilli) replaces the
+    // ItemId index: it covers SUM(DeltaMilli) GROUP BY ItemId and the per-(item, day) sales aggregate in index order, and
+    // still serves "history of one item" by its ItemId prefix. BillId is not indexed (no query filters moves by bill).
+    // The index is created in AngadiDb.Migrate (StockMoveItemDeltaIndexSql): Day also keeps its own index, and
+    // sqlite-net allows one [Indexed] per property.
+    // Why: phones are 5-10x slower than CI; these are screens the shopkeeper waits on. Logged in docs/AGENT_FIX_LOG.md.
+    public Guid ItemId { get; set; }
     public long DeltaMilli { get; set; }
     public int Reason { get; set; }
-    [Indexed] public Guid? BillId { get; set; }
+    public Guid? BillId { get; set; }
     public string? Note { get; set; }
     [Indexed] public int Day { get; set; }
     public long CreatedAtMs { get; set; }

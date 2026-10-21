@@ -1,6 +1,12 @@
 # CHANGELOG.md — Angadi POS v1
 Every meaningful change: date, what, the issue it addresses, and the one-line why. Newest first.
 
+## 2026-10-21 (agent S4) — a busy shop's year: scale & speed
+- **Inventory report, dead stock and the backup ledger check no longer read every stock move from the table:** one covering index (ItemId, Day, Reason, DeltaMilli) replaces the plain ItemId index, and dead stock's "last sold" day is aggregated in SQL instead of loading a year of daily sales. Why: at 55k bills these were the screens a shopkeeper waited seconds on (S4-1, S4-2).
+- **The counter's dues banner is one pass, not one query per owing customer**, with payments summed in SQL. Same ages. Why: it runs every time the counter opens (S4-4).
+- **Two never-used indexes dropped** (bill line by item, stock move by bill). Why: ~11 MB each per busy year and a write per line on every bill; no query got slower (S4-3).
+- **Year-of-data timing test** prints a before/after table on every CI run; CI no longer reports skipped BUG tests as failures (S4-5, S4-6).
+
 ## 2026-10-20 (afternoon, Claude Code) — production audit, round 1
 - **The shipped build is now tested:** CI builds the Release APK (trimmed, as users get it) and runs the full emulator test on it next to the debug build. Why: every earlier E2E ran the debug build only; trimming bugs would have reached users first.
 - **Google Play policy gate:** targetSdk pinned to 36 (required from 31 Aug 2026) and checked on every build, with debuggable releases and sensitive library permissions failing CI. Why: a rejected upload costs days.

@@ -134,6 +134,8 @@ public sealed class AngadiDb : IUnitOfWork, IDisposable
         c.CreateTable<ShopProfileRow>();
         c.CreateTable<MetaRow>();
         c.CreateTable<NoteRow>();
+        DropUnusedIndexes(c);
+        c.Execute(StockMoveRow.StockMoveItemDeltaIndexSql);   // S4-1: see StockMoveRow
 
         c.InsertOrReplace(new MetaRow { Key = "app", Value = AppMarker });
         var current = c.Find<MetaRow>("schema_version");
@@ -148,6 +150,20 @@ public sealed class AngadiDb : IUnitOfWork, IDisposable
             throw new DamagedDatabaseException($"schema_version '{current.Value}' is not a number");
         if (current is null || storedVersion < SchemaVersion)
             c.InsertOrReplace(new MetaRow { Key = "schema_version", Value = SchemaVersion.ToString(CultureInfo.InvariantCulture) });
+    }
+
+    // FIX(S4-3, 2026-10-21, S4): Flaw: BillLine.ItemId and StockMove.BillId were indexed but no query filters by them;
+    // each index cost ~11 MB per busy-shop year (55k bills) and one more b-tree write per line on every bill.
+    // StockMove.ItemId's plain index is superseded by the S4-1 covering index. Fix: drop all three, idempotently, on
+    // every open (sqlite-net only ever adds indexes, so databases from older builds keep them otherwise). No schema
+    // version bump: the tables are unchanged and an older build simply re-creates them. Why: the database size decides
+    // when Android Auto Backup (25 MB cap) stops, and every bill pays the write. YearOfDataTests shows no app query got
+    // slower (same queries timed with and without these indexes). Logged in docs/AGENT_FIX_LOG.md.
+    internal static readonly string[] RetiredIndexes = ["BillLine_ItemId", "StockMove_BillId", "StockMove_ItemId"];
+
+    private static void DropUnusedIndexes(SQLiteConnection c)
+    {
+        foreach (var name in RetiredIndexes) c.Execute($"DROP INDEX IF EXISTS \"{name}\"");
     }
 
     /// <summary>Runs a read or write; joins the open transaction when called inside ExecuteAsync.</summary>

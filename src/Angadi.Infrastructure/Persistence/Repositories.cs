@@ -184,6 +184,41 @@ internal sealed class CustomerRepository(AngadiDb db, IClock clock) : ICustomerR
                 "SELECT * FROM DuesEntry WHERE CustomerId = ? ORDER BY CreatedAtMs DESC", customerId)
             .Select(ToDomain).ToList(), ct);
 
+    // FIX(S4-4, 2026-10-21, S4): Flaw: the counter's dues banner read the full udhaar ledger of every owing customer,
+    // one query each (N+1) — ~26k rows for a busy year, most of them payments (87-120 ms on CI, every time the counter
+    // opens, holding the database gate a scan would wait on). Fix: ONE pass: charges and reversals as recorded (aging
+    // needs their dates and bills), payments and write-offs summed per customer in SQL and handed over as one Payment
+    // entry — DuesAging only ever adds them into the settlement pool, so the age is identical. Why: the banner is the
+    // last load before the counter is usable again. Logged in docs/AGENT_FIX_LOG.md.
+    public Task<IReadOnlyDictionary<Guid, IReadOnlyList<DuesEntry>>> GetOwingAgingLedgersAsync(CancellationToken ct = default)
+        => db.RunAsync<IReadOnlyDictionary<Guid, IReadOnlyList<DuesEntry>>>(c =>
+        {
+            const string Owing = "CustomerId IN (SELECT Id FROM Customer WHERE DuesBalancePaise > 0)";
+            var ledgers = c.Query<DuesEntryRow>(
+                    $"SELECT * FROM DuesEntry WHERE Kind IN (?, ?) AND {Owing} ORDER BY CreatedAtMs DESC",
+                    (int)DuesEntryKind.Charge, (int)DuesEntryKind.Reversal)
+                .GroupBy(r => r.CustomerId)
+                .ToDictionary(g => g.Key, g => g.Select(ToDomain).ToList());
+            foreach (var paid in c.Query<SettledRow>(
+                         $"SELECT CustomerId, SUM(AmountPaise) AS AmountPaise FROM DuesEntry WHERE Kind IN (?, ?) AND {Owing} GROUP BY CustomerId",
+                         (int)DuesEntryKind.Payment, (int)DuesEntryKind.WriteOff))
+            {
+                if (!ledgers.TryGetValue(paid.CustomerId, out var ledger)) ledgers[paid.CustomerId] = ledger = [];
+                ledger.Add(new DuesEntry
+                {
+                    Id = Guid.Empty, CustomerId = paid.CustomerId, Kind = DuesEntryKind.Payment, Amount = new Paise(paid.AmountPaise),
+                    CreatedAt = DateTimeOffset.UnixEpoch, UpdatedAt = DateTimeOffset.UnixEpoch,
+                });
+            }
+            return ledgers.ToDictionary(kv => kv.Key, kv => (IReadOnlyList<DuesEntry>)kv.Value);
+        }, ct);
+
+    private sealed class SettledRow
+    {
+        public Guid CustomerId { get; set; }
+        public long AmountPaise { get; set; }
+    }
+
     public Task SaveAsync(Customer customer, CancellationToken ct = default)
     {
         var now = clock.Now;
@@ -246,6 +281,20 @@ internal sealed class StockLedger(AngadiDb db, IClock clock) : IStockLedger
                 "SELECT ItemId, Day, -SUM(DeltaMilli) AS SoldMilli FROM StockMove WHERE Reason IN (?, ?) AND Day >= ? AND Day <= ? GROUP BY ItemId, Day",
                 (int)StockMoveReason.Sale, (int)StockMoveReason.VoidRestore, Day(from), Day(to))
             .Select(r => new DailySales(r.ItemId, FromDay(r.Day), new Qty(r.SoldMilli))).ToList(), ct);
+
+    // FIX(S4-2, 2026-10-21, S4): Flaw: dead stock loaded a year of daily sales (~200k rows for a busy shop) into C# to
+    // find one "last sold" day per item (270 ms on CI). Fix: aggregated in SQL; "+Day" keeps the planner off the Day
+    // index (the range is the whole year), so it walks the S4-1 covering index (ItemId, Day, Reason, DeltaMilli) in
+    // (item, day) order with no table reads and no temp sort of the inner groups. Same rule as before: a day counts
+    // when its Sale + VoidRestore moves net to a sale (a bill voided the same day does not). Why: the Reports screen
+    // runs this on every open. Logged in docs/AGENT_FIX_LOG.md.
+    public Task<IReadOnlyDictionary<Guid, DateOnly>> LastSoldDaysAsync(DateOnly from, DateOnly to, CancellationToken ct = default)
+        => db.RunAsync<IReadOnlyDictionary<Guid, DateOnly>>(c => c.Query<DailySalesRow>(
+                "SELECT ItemId, MAX(Day) AS Day, 0 AS SoldMilli FROM (" +
+                "SELECT ItemId, Day FROM StockMove WHERE Reason IN (?, ?) AND +Day >= ? AND +Day <= ? GROUP BY ItemId, Day HAVING SUM(DeltaMilli) < 0" +
+                ") GROUP BY ItemId",
+                (int)StockMoveReason.Sale, (int)StockMoveReason.VoidRestore, Day(from), Day(to))
+            .ToDictionary(r => r.ItemId, r => FromDay(r.Day)), ct);
 
     public Task<IReadOnlyList<StockMove>> ListMovesAsync(DateOnly from, DateOnly to, CancellationToken ct = default)
         => db.RunAsync<IReadOnlyList<StockMove>>(c => c.Query<StockMoveRow>(

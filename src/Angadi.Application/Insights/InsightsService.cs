@@ -46,8 +46,7 @@ internal sealed class InsightsService(
     {
         var today = clock.Today;
         var cutoff = today.AddDays(-days);
-        var sales = await ledger.GetDailySalesAsync(today.AddDays(-LastSoldLookbackDays), today, ct);
-        var lastSold = sales.Where(s => s.Sold.Milli > 0).GroupBy(s => s.ItemId).ToDictionary(g => g.Key, g => g.Max(s => s.Day));
+        var lastSold = await ledger.LastSoldDaysAsync(today.AddDays(-LastSoldLookbackDays), today, ct);   // S4-2: aggregated in SQL
 
         var result = new List<DeadStockItem>();
         foreach (var item in await items.GetActiveAsync(ct))
