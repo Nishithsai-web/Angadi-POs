@@ -12,7 +12,13 @@
     <PackageReference Include="SQLitePCLRaw.bundle_green" />
     <!-- DEPS-1: direct pin — overrides the bundle's transitive lib.e_sqlite3 2.1.11 (GHSA-2m69-gcr7-jv3q,
          NU1903 warning-as-error) with the patched native build 2.1.12. See Directory.Packages.props. -->
-    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" />
+    <!-- FIX(BUILD-3, 2026-10-22, Claude Code): Flaw: this pin flowed into the Android app, whose RID fallback took the
+         desktop linux-x64 libe_sqlite3.so (needs glibc libc.so.6) instead of the Android one: DllNotFoundException
+         e_sqlite3 at startup, the app could not open its database on any phone. Fix: PrivateAssets=all keeps the
+         patched desktop lib for this project's own restore (tests also reference it); the app pins
+         SQLitePCLRaw.lib.e_sqlite3.android 2.1.12 itself. CI now fails if the APK's libe_sqlite3.so needs glibc.
+         Why: the database is the app. Logged in docs/AGENT_FIX_LOG.md. -->
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" PrivateAssets="all" />
     <PackageReference Include="Serilog" />
     <PackageReference Include="Serilog.Extensions.Logging" />
     <PackageReference Include="Serilog.Sinks.File" />
