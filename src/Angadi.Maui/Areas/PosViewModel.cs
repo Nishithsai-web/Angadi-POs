@@ -100,7 +100,7 @@ public sealed partial class PosViewModel : ViewModelBase
     public override async Task OnAppearingAsync()
     {
         _shop = await Sender.Send(new GetShopProfileQuery());
-        var gst = !string.IsNullOrWhiteSpace(_shop?.Gstin);
+        var gst = _shop?.ChargesGst ?? false;
         var restored = false;
         Angadi.Application.Platform.DataRecoveryReport? recovery = null;
         if (!_draftChecked)
@@ -217,9 +217,12 @@ public sealed partial class PosViewModel : ViewModelBase
         else if (m.Kind == MatchKind.Confirm && m.Candidates.Count > 0)
         {
             var none = Text["pos.confirm.none"];
+            // A1-06: two items can share a display name; pick by position, never by label text.
+            var labels = ChoiceLabels.Numbered(m.Candidates.Select(c => c.DisplayName));
             var pick = await Dialogs.ChooseAsync($"{Text["pos.confirm.title"]} ({m.Line.Raw})", Text["common.cancel"],
-                [.. m.Candidates.Select(c => c.DisplayName), none]);
-            var candidate = m.Candidates.FirstOrDefault(c => c.DisplayName == pick);
+                [.. labels, none]);
+            var at = pick is null ? -1 : labels.IndexOf(pick);
+            var candidate = at >= 0 ? m.Candidates[at] : null;
             if (candidate is not null)
             {
                 chosen = candidate.ItemId;
@@ -270,7 +273,7 @@ public sealed partial class PosViewModel : ViewModelBase
         if (string.IsNullOrWhiteSpace(search)) return;
         var found = await Sender.Send(new SearchItemsQuery(search, 15));
         if (found.Count == 0) { await Dialogs.ToastAsync(Text.Error(new Error(ErrorCodes.VoiceNoMatch))); return; }
-        var labels = found.Select(i => $"{Text.Name(i)} · {IndianFormat.Rupees(i.Price)}").ToList();
+        var labels = ChoiceLabels.Numbered(found.Select(i => $"{Text.Name(i)} · {IndianFormat.Rupees(i.Price)}/{Text.UnitLabel(i.Unit)}"));   // A1-06
         var pick = await Dialogs.ChooseAsync(Text["pos.scan.attach"], Text["common.cancel"], [.. labels]);
         var index = pick is null ? -1 : labels.IndexOf(pick);
         if (index < 0) return;
@@ -308,7 +311,10 @@ public sealed partial class PosViewModel : ViewModelBase
         if (line is null) return;
         var value = await Dialogs.PromptAsync(Text.Name(line), Text["bill.qty"] + " (" + Text.UnitLabel(line.Unit) + ")",
             Text["common.ok"], Text["common.cancel"], IndianFormat.Quantity(line.Qty), Keyboard.Numeric);
-        if (value is not null && PosInput.TryParseQty(value, out var qty)) _draft.SetQty(lineId, qty);
+        if (value is null) return;
+        // A1-08: a quantity past what one line may hold says so, instead of "must be more than zero".
+        if (PosInput.TryParseQty(value, out var qty) ? !_draft.SetQty(lineId, qty) : PosInput.IsQtyTooLarge(value))
+            await Dialogs.ToastAsync(Text.Error(new Error(ErrorCodes.BillQtyTooLarge)));
     }
 
     [RelayCommand]
@@ -411,10 +417,13 @@ public sealed partial class PosViewModel : ViewModelBase
         if (search is null) return null;
         var found = await Sender.Send(new SearchCustomersQuery(search));
         var newOne = Text["customers.add"];
-        var labels = found.Select(c => $"{c.Name} · {IndianFormat.Rupees(c.DuesBalance)}").ToList();
+        // A1-06: two "Ramesh · ₹0.00" must never collapse into the first one (udhaar to the wrong person):
+        // number every row and show the phone's last 4 digits.
+        var labels = ChoiceLabels.Numbered(found.Select(c => $"{c.Name} · {IndianFormat.Rupees(c.DuesBalance)}"
+            + (ChoiceLabels.PhoneTail(c.Phone) is { Length: > 0 } tail ? " · " + tail : "")));
         var pick = await Dialogs.ChooseAsync(Text["nav.customers"], Text["common.cancel"], [.. labels, newOne]);
         if (pick is null) return null;
-        if (pick != newOne) return found[labels.IndexOf(pick)];
+        if (pick != newOne) return labels.IndexOf(pick) is var at and >= 0 ? found[at] : null;
 
         var phone = await Dialogs.PromptAsync(newOne, Text["customers.phone"], Text["common.ok"], Text["common.cancel"], keyboard: Keyboard.Telephone);
         var customer = new Customer { Name = string.IsNullOrWhiteSpace(search) ? newOne : search.Trim(), Phone = phone };
@@ -475,7 +484,7 @@ public sealed partial class PosViewModel : ViewModelBase
                 return;
             }
             var done = result.Value;
-            UseDraft(new BillDraft(shopHasGstin: !string.IsNullOrWhiteSpace(_shop?.Gstin)));
+            UseDraft(new BillDraft(shopHasGstin: _shop?.ChargesGst ?? false));
             SetCustomer(null);
             Refresh();
             await Nav.GoToAsync(Routes.Receipt, new Dictionary<string, object>

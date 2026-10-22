@@ -19,7 +19,7 @@ namespace Angadi.Application.Billing;
 
 internal sealed class FinalizeBillValidator : IValidator<FinalizeBillCommand>
 {
-    internal const long MaxLineQtyMilli = 100_000_000;   // 1,00,000 whole units
+    internal const long MaxLineQtyMilli = BillDraft.MaxLineQtyMilli;   // 1,00,000 whole units
 
     private static bool IsOver100Percent(Discount d) => d.Kind == DiscountKind.PercentBasisPoints && d.Amount > 10_000;
 
@@ -28,7 +28,8 @@ internal sealed class FinalizeBillValidator : IValidator<FinalizeBillCommand>
         var bill = c.Draft;
         if (bill.Lines.Count == 0) return new Error(ErrorCodes.BillEmpty);
         // M7: 1,00,000 units per line is far past any counter sale; beyond it is a typo, and it bounds the maths.
-        if (bill.Lines.Any(l => l.Qty.Milli <= 0 || l.Qty.Milli > MaxLineQtyMilli)) return new Error(ErrorCodes.BillQtyInvalid);
+        if (bill.Lines.Any(l => l.Qty.Milli <= 0)) return new Error(ErrorCodes.BillQtyInvalid);
+        if (bill.Lines.Any(l => l.Qty.Milli > MaxLineQtyMilli)) return new Error(ErrorCodes.BillQtyTooLarge);   // A1-08
         if (bill.Lines.Any(l => l.UnitPrice.Value < 0)) return new Error(ErrorCodes.ValidationFailed, "negative price");
         if (bill.Tender is null || !Enum.IsDefined(bill.Tender.Value)) return new Error(ErrorCodes.BillTenderMissing);   // LOW: no cast-in tenders
         if (bill.Tender == TenderType.Udhaar && bill.CustomerId is null) return new Error(ErrorCodes.BillUdhaarNeedsCustomer);
@@ -142,12 +143,28 @@ internal sealed class FinalizeBillHandler(
             return Result.Success(new FinalizedBill(saved.Id, saved.Number, saved.GrandTotal,
                 saved.Tender == TenderType.Cash ? BillCalculator.ChangeDue(saved) : Paise.Zero));
         }
-        if (bill.Status != BillStatus.Draft) return Result.Failure<FinalizedBill>(ErrorCodes.ValidationFailed, "bill already finalized");
+        if (bill.Status != BillStatus.Draft)
+        {
+            // A1-01: no saved row, yet the in-memory bill says Finalized. That is an attempt whose COMMIT failed after
+            // this handler returned (e.g. storage full at commit): the transaction rolled back, the catch below never
+            // ran. Put the draft back exactly as the catch would, or every retry is stuck on "already finalized".
+            bill.Number = "";
+            bill.Status = BillStatus.Draft;
+            bill.FinalizedAt = null;
+            // The auto-filled "exact cash" (CashReceived == total) reads the same as nothing typed: exact cash.
+            if (bill.Tender == TenderType.Cash && bill.CashReceived == bill.GrandTotal) bill.CashReceived = Paise.Zero;
+        }
 
         // FR-34 free-tier quota. Defence in depth: a status that doesn't answer at once counts as free (fail closed),
         // so billing can never hang on the subscription service while this transaction holds the database.
         var status = await SubscriptionGuard.StatusAsync(subscription, ct, log);
-        if (!status.IsPro && await quota.UsedThisMonthAsync(now, ct) >= options.Value.FreeBillsPerMonth)
+        // FIX(S1-01, 2026-10-21, S1): Flaw: for a Pro shop the quota check was short-circuited, so a month's counter
+        // was first seeded at IncrementAsync — AFTER this bill was saved — and the seed (COUNT of the month's bills)
+        // already included it: the first bill of every month counted twice (a Pro shop that lapses mid-month loses a
+        // free bill). Fix: always read the month's usage here, before the save, which seeds the counter from the
+        // bills that existed before this one. Why: the free-bill count is money. Logged in docs/AGENT_FIX_LOG.md.
+        var usedThisMonth = await quota.UsedThisMonthAsync(now, ct);
+        if (!status.IsPro && usedThisMonth >= options.Value.FreeBillsPerMonth)
             return Result.Failure<FinalizedBill>(Error.With(ErrorCodes.FreeLimitReached,
                 options.Value.FreeBillsPerMonth, options.Value.MonthlyPriceRupees));
 
@@ -158,7 +175,7 @@ internal sealed class FinalizeBillHandler(
             if (await items.GetAsync(itemId, ct) is null)
                 return Result.Failure<FinalizedBill>(ErrorCodes.ItemNotFound, itemId.ToString("D", System.Globalization.CultureInfo.InvariantCulture));
 
-        try { BillCalculator.Compute(bill, shopHasGstin: !string.IsNullOrWhiteSpace(profile.Gstin)); }
+        try { BillCalculator.Compute(bill, shopHasGstin: profile.ChargesGst); }   // A2-01: a composition shop issues a Bill of Supply
         catch (OverflowException) { return Result.Failure<FinalizedBill>(ErrorCodes.BillAmountTooLarge); }   // M7: checked maths
 
         var cashTyped = bill.CashReceived;
@@ -226,6 +243,16 @@ internal sealed class VoidBillHandler(
         if (bill.Status == BillStatus.Void) return Result.Failure(ErrorCodes.BillAlreadyVoid);
         if (bill.Status != BillStatus.Finalized) return Result.Failure(ErrorCodes.ValidationFailed, "only finalized bills can be voided");
 
+        // A2-14: voiding a bill from an earlier calendar month changes that month's GST summary, which may already be
+        // filed. Only with the shopkeeper's explicit confirmation.
+        if (!command.ConfirmPastMonth && bill.FinalizedAt is { } made)
+        {
+            var today = clock.Now;
+            var local = made.ToOffset(today.Offset);
+            if (local.Year != today.Year || local.Month != today.Month)
+                return Result.Failure(ErrorCodes.BillVoidPastMonth);
+        }
+
         // H1 (approved as specified): if any part of an udhaar bill has been paid, a full reversal would push dues
         // negative and lock the account. Fail closed before mutating anything; real refunds are v2.
         if (bill.Tender == TenderType.Udhaar && bill.CustomerId is { } owingId && bill.GrandTotal.Value > 0)
@@ -259,7 +286,7 @@ internal sealed class VoidBillHandler(
 
 /// <summary>FR-17/19/20. No transaction: the share sheet waits on the user.</summary>
 internal sealed class ShareReceiptHandler(
-    IBillRepository bills, IShopProfileRepository shop,
+    IBillRepository bills, IShopProfileRepository shop, ICustomerRepository customers,
     IReceiptRenderer renderer, IReceiptShare share, ILocalizer text)
     : IRequestHandler<ShareReceiptCommand, Result>
 {
@@ -270,7 +297,8 @@ internal sealed class ShareReceiptHandler(
         var profile = await shop.GetAsync(ct);
         if (profile is null) return Result.Failure(ErrorCodes.ValidationFailed, "shop profile missing");
 
-        var pdf = await renderer.RenderAsync(bill, profile, ct);
+        var customer = bill.CustomerId is { } customerId ? await customers.GetAsync(customerId, ct) : null;   // A2-15
+        var pdf = await renderer.RenderAsync(bill, profile, customer, ct);
         if (pdf.IsFailure) return Result.Failure(pdf.Error);
 
         var title = text.Format("receipt.share.text", profile.Name, bill.Number, IndianFormat.Rupees(bill.GrandTotal));
@@ -306,8 +334,15 @@ internal sealed class SendBillToCustomerHandler(
             TenderType.Upi => text["tender.upi"],
             _ => text["tender.udhaar"],
         };
-        var items = string.Join("\n", bill.Lines.Take(15).Select(l =>
+        // FIX(T3-3, 2026-10-21, S1): Flaw: a bill of more than 15 lines was cut to 15 items with no sign of the cut, so
+        // the items the customer reads don't add up to the total. Fix: say how many more items there are. Why: a
+        // customer checking the message must never think items were billed that aren't listed. Logged in
+        // docs/AGENT_FIX_LOG.md.
+        const int MaxMessageLines = 15;
+        var items = string.Join("\n", bill.Lines.Take(MaxMessageLines).Select(l =>
             $"• {text.Name(l)} {IndianFormat.Quantity(l.Qty)} {text.UnitLabel(l.Unit)} — {IndianFormat.Rupees(l.LineTotal)}"));
+        if (bill.Lines.Count > MaxMessageLines)
+            items += "\n" + text.Format("receipt.customer.more", bill.Lines.Count - MaxMessageLines);
         var message = text.Format("receipt.customer.message", customer.Name, profile?.Name ?? "", bill.Number,
             IndianFormat.Rupees(bill.GrandTotal), tender) + "\n" + items;
         if (customer.DuesBalance.Value > 0)

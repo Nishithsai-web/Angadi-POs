@@ -36,13 +36,27 @@ public static class PosInput
                && value >= 0 && value <= MaxValue;
     }
 
-    /// <summary>"1.5" → 1500 milli. Zero is allowed (the draft removes the line).</summary>
+    /// <summary>
+    /// "1.5" → 1500 milli. Zero is allowed (the draft removes the line). A1-08: capped at the most one bill line may
+    /// hold (1,00,000 units, <see cref="Angadi.Application.Billing.BillDraft.MaxLineQtyMilli"/>), the same limit finalize applies.
+    /// </summary>
     public static bool TryParseQty(string? text, out Qty qty)
     {
         qty = Qty.Zero;
         if (!TryParseDecimal(text, out var v)) return false;
-        qty = new Qty((long)Math.Round(v * 1000m, MidpointRounding.AwayFromZero));
+        var milli = (long)Math.Round(v * 1000m, MidpointRounding.AwayFromZero);
+        if (milli > Angadi.Application.Billing.BillDraft.MaxLineQtyMilli) return false;
+        qty = new Qty(milli);
         return true;
+    }
+
+    /// <summary>A1-08: a number, but more than one bill line may hold — show "quantity too large", not "invalid".</summary>
+    public static bool IsQtyTooLarge(string? text)
+    {
+        var s = Normalise(text);
+        return s.Length > 0
+               && decimal.TryParse(s, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var v)
+               && v * 1000m > Angadi.Application.Billing.BillDraft.MaxLineQtyMilli;
     }
 
     /// <summary>"60.5" → 6050 paise.</summary>

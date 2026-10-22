@@ -90,7 +90,8 @@ public class MediumsTests : IDisposable
         await _h.SeedShopAsync();
         var rice = await _h.AddItemAsync("బియ్యం", 6000);
         var r = await _h.Sender.Send(new FinalizeBillCommand(AppHost.Draft(TenderType.Cash, (rice, 100_000_001))));
-        Assert.Equal(ErrorCodes.BillQtyInvalid, r.Error.Code);
+        // A1-08: the cap now has its own message ("quantity too large"), not "must be more than zero".
+        Assert.Equal(ErrorCodes.BillQtyTooLarge, r.Error.Code);
     }
 
     // ---------- M6 outbox ----------

@@ -1,0 +1,10 @@
+{
+  "receipt.composition": "Composition taxable person, not eligible to collect tax on supplies",
+  "receipt.cgst": "CGST",
+  "receipt.sgst": "SGST",
+  "receipt.customer": "Customer",
+  "setup.composition": "Composition scheme",
+  "setup.composition.note": "Tick this if your GSTIN is under the composition scheme: you cannot collect GST, so bills print as a 'Bill of Supply' with your GSTIN and the composition line",
+  "setup.prefix.returning": "Used Angadi before on another phone or install? Choose a new prefix (e.g. B) so bill numbers never repeat",
+  "bill.void.pastmonth": "This bill is from an earlier month. Cancelling it changes that month's GST summary, which you may already have filed. Cancel it anyway?"
+}

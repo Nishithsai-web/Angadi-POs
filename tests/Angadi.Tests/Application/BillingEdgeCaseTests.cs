@@ -439,7 +439,7 @@ public class BillingEdgeCaseTests : IDisposable
     /// For Pro, finalize skips the quota read (short-circuit), so the month's counter is first seeded inside
     /// IncrementAsync — after the bill row is saved — and the first bill of the month is counted twice.
     /// </summary>
-    [Fact(Skip = "BUG T1-03: a Pro shop's first bill of each month is counted twice by the quota (seed runs after the bill is saved)")]
+    [Fact]
     public async Task Pro_BillsAreCountedExactlyOnce()
     {
         var (rice, _, _) = await SetupAsync();
@@ -532,7 +532,7 @@ public class BillingEdgeCaseTests : IDisposable
         Assert.Equal(ErrorCodes.CustomerNotFound, (await FinalizeAsync(stranger)).Error.Code);
         Assert.Equal(ErrorCodes.ItemNotFound, (await FinalizeAsync(ghostItem)).Error.Code);
         Assert.Equal(ErrorCodes.BillAmountTooLarge, (await FinalizeAsync(huge)).Error.Code);
-        Assert.Equal(ErrorCodes.BillQtyInvalid, (await FinalizeAsync(tooMany)).Error.Code);
+        Assert.Equal(ErrorCodes.BillQtyTooLarge, (await FinalizeAsync(tooMany)).Error.Code);
         Assert.Equal(ErrorCodes.BillEmpty, (await FinalizeAsync(empty)).Error.Code);
         _fail.FailuresLeft = 1;
         Assert.True((await FinalizeAsync(AppHost.Draft(TenderType.Cash, (rice, 1_000)))).IsFailure);   // thrown + rolled back

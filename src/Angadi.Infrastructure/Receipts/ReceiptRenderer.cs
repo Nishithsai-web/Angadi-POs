@@ -3,6 +3,7 @@ using System.Text;
 using Angadi.Application.Common;
 using Angadi.Application.Platform;
 using Angadi.Domain.Billing;
+using Angadi.Domain.Customers;
 using Angadi.Domain.Shop;
 using Microsoft.Extensions.Logging;
 using QRCoder;
@@ -57,7 +58,10 @@ public sealed class ReceiptRenderer : IReceiptRenderer, IDisposable
         _log = log;
     }
 
-    public async Task<Result<string>> RenderAsync(Bill bill, ShopProfile shop, CancellationToken ct = default)
+    public Task<Result<string>> RenderAsync(Bill bill, ShopProfile shop, CancellationToken ct = default)
+        => RenderAsync(bill, shop, null, ct);
+
+    public async Task<Result<string>> RenderAsync(Bill bill, ShopProfile shop, Customer? customer, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(bill);
         ArgumentNullException.ThrowIfNull(shop);
@@ -67,7 +71,7 @@ public sealed class ReceiptRenderer : IReceiptRenderer, IDisposable
         try
         {
             ct.ThrowIfCancellationRequested();
-            return await Task.Run(() => RenderCore(bill, shop), ct).ConfigureAwait(false);
+            return await Task.Run(() => RenderCore(bill, shop, customer), ct).ConfigureAwait(false);
         }
         finally
         {
@@ -75,12 +79,12 @@ public sealed class ReceiptRenderer : IReceiptRenderer, IDisposable
         }
     }
 
-    private Result<string> RenderCore(Bill bill, ShopProfile shop)
+    private Result<string> RenderCore(Bill bill, ShopProfile shop, Customer? customer)
     {
         try
         {
             EnsureFaces();
-            var rows = ReceiptLayout.Build(bill, shop, _text);
+            var rows = ReceiptLayout.Build(bill, shop, _text, customer);
 
             // Pass 1: measure. Pass 2: draw with the same code.
             var measure = new Pass(null);

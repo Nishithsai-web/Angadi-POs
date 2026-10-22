@@ -25,6 +25,10 @@ public interface IReceiptRenderer
 {
     /// <summary>Returns the path of a PDF in app cache.</summary>
     Task<Result<string>> RenderAsync(Bill bill, ShopProfile shop, CancellationToken ct = default);
+
+    /// <summary>A2-15: as above, with the attached customer's name and address printed (Rule 46(e)/(f)).</summary>
+    Task<Result<string>> RenderAsync(Bill bill, ShopProfile shop, Angadi.Domain.Customers.Customer? customer, CancellationToken ct = default)
+        => RenderAsync(bill, shop, ct);
 }
 
 /// <summary>OS share sheet + wa.me links. Never the paid WhatsApp Business API (ADR-4).</summary>

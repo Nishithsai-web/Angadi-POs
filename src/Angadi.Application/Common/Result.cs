@@ -75,6 +75,12 @@ public static class ErrorCodes
     public const string BillVoidBlockedByPayments = "BILL_VOID_BLOCKED_BY_PAYMENTS";
     public const string BillLegacySlab = "BILL_LEGACY_SLAB";
     public const string BillDiscountTooLarge = "BILL_DISCOUNT_TOO_LARGE";
+    /// <summary>A1-08: a line quantity above 1,00,000 units (a typo, and it bounds the money maths).</summary>
+    public const string BillQtyTooLarge = "BILL_QTY_TOO_LARGE";
+    /// <summary>A2-14: voiding a bill from an earlier month needs explicit confirmation (it changes a filed month).</summary>
+    public const string BillVoidPastMonth = "BILL_VOID_PAST_MONTH";
+    /// <summary>A2-16: bill prefix must be 1–8 of A–Z, 0–9, '/', '-' (Rule 46(b): the number stays ≤ 16 characters).</summary>
+    public const string BillPrefixInvalid = "BILL_PREFIX_INVALID";
     public const string FreeLimitReached = "FREE_LIMIT_REACHED";
     public const string PurchaseFailed = "PURCHASE_FAILED";
     public const string ShareFailed = "SHARE_FAILED";

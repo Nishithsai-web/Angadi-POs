@@ -148,6 +148,7 @@ internal sealed class ShopProfileRow
     public long UpdatedAtMs { get; set; }
     public string? UpiQrPayload { get; set; }
     public byte[]? UpiQrImage { get; set; }   // in the database, so it travels in backups
+    public bool IsComposition { get; set; }   // A2-01; additive column, NULL on old rows reads as false
 }
 
 [Table("Meta")]

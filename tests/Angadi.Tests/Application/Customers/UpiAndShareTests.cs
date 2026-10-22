@@ -332,7 +332,7 @@ public class SendBillTests : IDisposable
         Assert.DoesNotContain(Text["receipt.customer.balance"].Split('{')[0], message, StringComparison.Ordinal);
     }
 
-    [Fact(Skip = "BUG T3-3: a bill with more than 15 lines is cut to 15 items with no '…', so the items don't add up to the total")]
+    [Fact]
     public async Task LongBill_SaysThereAreMoreItems()
     {
         await _h.SeedShopAsync();

@@ -56,7 +56,19 @@ public sealed class BillLine
     public LineSource Source { get; set; }   // analytics + voice accuracy tracking
 }
 
-public sealed record TaxSplit(GstSlab Slab, Paise Taxable, Paise Tax);
+/// <summary>
+/// One GST slab of a bill. A2-02: an intra-state Tax Invoice shows CGST and SGST separately (CGST Rule 46(i)/(j)),
+/// each at half the slab rate. CGST = Tax / 2 rounded half up; SGST = Tax − CGST, so the two always add up to
+/// exactly <see cref="Tax"/> and no total changes. The GST summary applies the same rule to each slab's total tax.
+/// Intra-state only: v1 has no IGST.
+/// </summary>
+public sealed record TaxSplit(GstSlab Slab, Paise Taxable, Paise Tax)
+{
+    public Paise Cgst => new((Tax.Value + 1) / 2);
+    public Paise Sgst => Tax - Cgst;
+    /// <summary>The CGST (= SGST) rate in basis points: half the slab.</summary>
+    public int HalfRateBasisPoints => (int)Slab / 2;
+}
 
 public enum BillStatus { Draft = 0, Finalized = 1, Void = 2 }
 public enum TenderType { Cash = 0, Upi = 1, Udhaar = 2 }
