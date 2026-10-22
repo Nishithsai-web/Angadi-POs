@@ -37,7 +37,10 @@ public partial class LocalizerCompletenessTests
         var te = StringFiles("te");
         var en = StringFiles("en");
         Assert.NotEmpty(te);
-        Assert.Equal(te.Select(n => n[..^".te.json".Length]), en.Select(n => n[..^".en.json".Length]));
+        // Stems compared as sorted sets: "strings.gst.te.json" vs "strings.te.json" sort differently once the
+        // language suffix is stripped, so the raw file order is not the stem order.
+        Assert.Equal(te.Select(n => n[..^".te.json".Length]).Order(StringComparer.Ordinal),
+            en.Select(n => n[..^".en.json".Length]).Order(StringComparer.Ordinal));
         foreach (var teFile in te)
         {
             var enFile = teFile[..^".te.json".Length] + ".en.json";

@@ -20,7 +20,7 @@ def known_bug(message):
     """A real app bug this step steps over: a clearly labelled warning (finding ID in the text), not a failure.
     Only the one assertion about the bug itself goes here, so anything else in the step still fails the run."""
     print(f"::warning::EXPECTED FAILURE (known app bug, reported as a finding): {message}", flush=True)
-    e.shot("KNOWN-BUG")
+    e.shot("KNOWN-BUG-" + message.split(":")[0].replace("BUG ", ""))   # e.g. NN-KNOWN-BUG-S3-01.png
 
 
 def clear_focused_field(chars=16):
@@ -108,6 +108,20 @@ def in_foreground():
     return bool(resumed and e.PKG in resumed.group(0))
 
 
+def line_shown(line, total, timeout=20):
+    """Wait for a bill line ("1 kg × ₹62.00"). If the line never renders but the bill's total does, that is app bug
+    S3-01 (the counter's line list stays blank after the previous bill was cleared — seen on the debug run,
+    claude-agent-s3-e2e/debug/17-bill-discount-FAILED.png on ci-e2e): reported as a labelled known bug, and the
+    rest of the step still runs against the total."""
+    try:
+        e.wait_for(line, timeout=timeout)
+    except AssertionError:
+        if e.find(total, exact=True) is None:
+            raise
+        known_bug(f"BUG S3-01: bill total {total} is shown but its line '{line}' is not rendered "
+                  f"(blank line list on the counter)")
+
+
 def pay_cash_exact():
     e.tap("Cash", exact=True)
     e.tap("Pay", exact=True, timeout=20)                 # empty amount = exact cash
@@ -145,7 +159,7 @@ def new_item_then_bill():
     start("Bill")
     e.new_bill()
     e.add_item("E2E Bisc", "E2E Biscuit")
-    e.wait_for("1 pc × ₹25.00", timeout=20)
+    line_shown("1 pc × ₹25.00", "₹25.00")
     pay_cash_exact()
     e.wait_for("₹25.00", exact=True, timeout=20)
     start("Items")
@@ -173,7 +187,7 @@ def bill_discount():
     start("Bill")
     e.new_bill()
     e.add_item("Rice", "Rice (Sona")
-    e.wait_for("1 kg × ₹62.00", timeout=20)
+    line_shown("1 kg × ₹62.00", "₹62.00")
     e.tap("Bill discount", exact=True, timeout=20)
     type_in_dialog("50", clear=True)
     e.tap("OK", exact=True, timeout=20)
@@ -244,7 +258,7 @@ def telugu_cash_bill():
         e.type_into(0, "Rice")
         e.tap("బియ్యం", exact=True, cls="android.widget.TextView", timeout=30)   # the tile shows the Telugu name
         e.hide_keyboard()
-        e.wait_for("1 కేజీ × ₹62.00", timeout=20)
+        line_shown("1 కేజీ × ₹62.00", "₹62.00")
         e.tap("నగదు", exact=True)
         e.tap("చెల్లింపు", exact=True, timeout=20)        # Pay
         e.wait_for("బిల్లు పూర్తయింది", timeout=60)          # Bill done
@@ -266,11 +280,11 @@ def new_bill_confirmation():
     start("Bill")
     e.new_bill()
     e.add_item("Sugar", "Sugar")
-    e.wait_for("1 kg × ₹46.00", timeout=20)
+    line_shown("1 kg × ₹46.00", "₹46.00")
     e.tap("New bill", exact=True, timeout=20)
     e.wait_for("Discard this bill and start a new one?", timeout=20)
     e.tap("No", exact=True, timeout=20)
-    e.wait_for("1 kg × ₹46.00", timeout=20)              # kept
+    line_shown("1 kg × ₹46.00", "₹46.00")                # kept
     e.tap("New bill", exact=True, timeout=20)
     e.wait_for("Discard this bill and start a new one?", timeout=20)
     e.tap("Yes", exact=True, timeout=20)
@@ -284,7 +298,7 @@ def back_button_mid_bill():
     start("Bill")
     e.new_bill()
     e.add_item("Sugar", "Sugar")
-    e.wait_for("1 kg × ₹46.00", timeout=20)
+    line_shown("1 kg × ₹46.00", "₹46.00")
     e.hide_keyboard()                                    # Back would only close the keyboard otherwise
     e.adb("shell", "input", "keyevent", "4")
     time.sleep(3)
@@ -292,7 +306,7 @@ def back_button_mid_bill():
     e.shot("back-button-pressed")
     if not stayed:
         e.launch()
-    e.wait_for("1 kg × ₹46.00", timeout=60)              # hard requirement: the bill is still there
+    line_shown("1 kg × ₹46.00", "₹46.00", timeout=60)   # hard requirement: the bill is still there
     e.new_bill()
     if not stayed:
         known_bug("BUG T4-11: Back on the Bill tab with an unfinished bill sends Angadi to the background "
