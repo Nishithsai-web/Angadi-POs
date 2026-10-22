@@ -137,7 +137,10 @@ internal sealed class ScanPage : ContentPage
     public void Finish(string? value)
     {
         if (!_done.TrySetResult(value)) return;
-        MainThread.BeginInvokeOnMainThread(() => _camera.CameraEnabled = false);
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            if (_camera.Handler is not null) _camera.CameraEnabled = false;   // A2-08: never on a torn-down view
+        });
     }
 
     protected override bool OnBackButtonPressed()
@@ -146,9 +149,14 @@ internal sealed class ScanPage : ContentPage
         return true;
     }
 
+    // FIX(A2-08b, 2026-10-22, S2): Flaw: on Android 16 predictive Back the modal is popped natively, and the
+    // OnDisappearing → Finish → CameraEnabled=false that followed made BarcodeScanning post a runnable that touched
+    // the already-disposed LifecycleCameraController — an unhandled ObjectDisposedException (E2E scanner-back,
+    // app-log-clean). Fix: leaving the page only completes the result; the camera is stopped by its handler's own
+    // teardown. Why: a crash-class error on every Back from the scanner. Logged in docs/AGENT_FIX_LOG.md.
     protected override void OnDisappearing()
     {
         base.OnDisappearing();
-        Finish(null);
+        _done.TrySetResult(null);
     }
 }

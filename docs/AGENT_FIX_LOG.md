@@ -394,6 +394,7 @@ Development no longer runs through one implementer. Muse's own dev/fix agents no
 - **A2-11 (HIGH)** offline Pro fell back to free after 7 days → a paying shop was blocked. Fix: `SubscriptionCachePolicy` — stays Pro, `NeedsReconfirm` asks to connect. Tests `A2_11_*`.
 - **A2-12 (MEDIUM)** a pending Play payment read as "purchase failed". Fix: `PURCHASE_PENDING`. Test `A2_12_PendingPurchase_HasItsOwnMessage`.
 - **A2-18 (MEDIUM)** permanently denied mic/camera: no way back. Fix: "Open settings" dialog.
+- **A2-08b (HIGH)** Back from the camera scanner (Android 16 predictive back) logged an unhandled ObjectDisposedException from BarcodeScanning's CameraManager: OnDisappearing disabled the camera after the native pop disposed its controller. Fix: `ScanPage.OnDisappearing` only completes the result; `Finish` never touches a view without a handler. Evidence: E2E `app-log-clean` after `scanner-back` (run 39814559461).
 - **VOICE-8b (LOW)** bare "650 పారాసెటమాల్": the dosage became the count, the name had no digits, and Paracetamol 500 mg won the tie. Fix: `ItemMatcher` also scores the name with the raw leading number appended when the parser flagged the line ambiguous. Test `VoiceBatteryTests.T2_BareDosage_AsksWithParacetamolBest` (was failing on the base).
 
 <!-- New entries go ABOVE this line, newest first within their section order: GOV, CRITICAL, HIGH, MEDIUM, LOW, MINOR, VERIFY. Keep the Flaw → Fix → Why shape. -->
