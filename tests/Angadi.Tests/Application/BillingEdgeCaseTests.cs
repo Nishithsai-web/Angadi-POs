@@ -48,7 +48,10 @@ public class BillingEdgeCaseTests : IDisposable
         return (rice, soap, ravi);
     }
 
-    private Task<Result<FinalizedBill>> FinalizeAsync(Bill draft) => _h.Sender.Send(new FinalizeBillCommand(draft));
+    // L-7 (Muse): a ₹0 bill needs the shopkeeper's "give it free?" confirmation; these money tests sell fully discounted
+    // bills on purpose, so they confirm like the counter would. The confirmation rule itself is tested in HandlerTests.
+    private Task<Result<FinalizedBill>> FinalizeAsync(Bill draft) =>
+        _h.Sender.Send(new FinalizeBillCommand(draft) { FreeBillConfirmed = true });
 
     private async Task<FinalizedBill> SellAsync(Bill draft)
     {
