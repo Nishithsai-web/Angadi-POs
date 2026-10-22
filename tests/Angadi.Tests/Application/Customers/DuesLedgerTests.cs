@@ -162,7 +162,8 @@ public class DuesLedgerTests : IDisposable
                 if (m.Bills.Count == 0) continue;
                 var i = rng.Next(m.Bills.Count);
                 var b = m.Bills[i];
-                var r = await _h.Sender.Send(new VoidBillCommand(b.Id, "తప్పు బిల్లు"));
+                // A2-14: the sequence crosses months; the shopkeeper confirms voiding a filed month's bill.
+                var r = await _h.Sender.Send(new VoidBillCommand(b.Id, "తప్పు బిల్లు", ConfirmPastMonth: true));
                 if (b.Void) Assert.Equal(ErrorCodes.BillAlreadyVoid, r.Error.Code);
                 else if (b.Tender == TenderType.Udhaar && m.Balance < b.Total)
                     Assert.Equal(ErrorCodes.BillVoidBlockedByPayments, r.Error.Code);
