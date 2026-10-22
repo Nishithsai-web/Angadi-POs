@@ -33,7 +33,9 @@ internal sealed class InsightsService(
         foreach (var item in await items.GetActiveAsync(ct))
         {
             if (!soldByItem.TryGetValue(item.Id, out var sold) || sold <= 0) continue;
-            var avgPerDay = sold / (double)window;
+            // T2-02: an item the shop has had for only N < window days averages over those N days, not the window.
+            var known = today.DayNumber - LocalDay(item.CreatedAt).DayNumber + 1;
+            var avgPerDay = sold / (double)Math.Clamp(known, 1, window);
             var daysLeft = item.Stock.Milli <= 0 ? 0 : (int)Math.Floor(item.Stock.Milli / avgPerDay);
             if (daysLeft > withinDays) continue;
             result.Add(new ReorderForecast(item.Id, text.Name(item), item.Unit, item.Stock,
@@ -54,7 +56,7 @@ internal sealed class InsightsService(
         {
             if (item.Stock.Milli <= 0) continue;
             DateOnly? last = lastSold.TryGetValue(item.Id, out var d) ? d : null;
-            var addedOn = DateOnly.FromDateTime(item.CreatedAt.DateTime);
+            var addedOn = LocalDay(item.CreatedAt);   // T2-03: the shop's day, not UTC's
             var dead = last is null ? addedOn <= cutoff : last.Value <= cutoff;
             if (!dead) continue;
 
@@ -63,6 +65,9 @@ internal sealed class InsightsService(
         }
         return result.OrderByDescending(r => r.StockValue.Value).ToList();
     }
+
+    /// <summary>The shop-local calendar day of a stored instant (stored instants may come back in UTC).</summary>
+    private DateOnly LocalDay(DateTimeOffset at) => DateOnly.FromDateTime(at.ToOffset(clock.Now.Offset).DateTime);
 
     public async Task<MorningSummary> GetMorningSummaryAsync(CancellationToken ct = default)
     {

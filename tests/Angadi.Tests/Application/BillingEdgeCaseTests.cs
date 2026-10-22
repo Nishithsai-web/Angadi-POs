@@ -48,7 +48,10 @@ public class BillingEdgeCaseTests : IDisposable
         return (rice, soap, ravi);
     }
 
-    private Task<Result<FinalizedBill>> FinalizeAsync(Bill draft) => _h.Sender.Send(new FinalizeBillCommand(draft));
+    // L-7 (Muse): a ₹0 bill needs the shopkeeper's "give it free?" confirmation; these money tests sell fully discounted
+    // bills on purpose, so they confirm like the counter would. The confirmation rule itself is tested in HandlerTests.
+    private Task<Result<FinalizedBill>> FinalizeAsync(Bill draft) =>
+        _h.Sender.Send(new FinalizeBillCommand(draft) { FreeBillConfirmed = true });
 
     private async Task<FinalizedBill> SellAsync(Bill draft)
     {
@@ -436,7 +439,7 @@ public class BillingEdgeCaseTests : IDisposable
     /// For Pro, finalize skips the quota read (short-circuit), so the month's counter is first seeded inside
     /// IncrementAsync — after the bill row is saved — and the first bill of the month is counted twice.
     /// </summary>
-    [Fact(Skip = "BUG T1-03: a Pro shop's first bill of each month is counted twice by the quota (seed runs after the bill is saved)")]
+    [Fact]
     public async Task Pro_BillsAreCountedExactlyOnce()
     {
         var (rice, _, _) = await SetupAsync();
@@ -529,7 +532,7 @@ public class BillingEdgeCaseTests : IDisposable
         Assert.Equal(ErrorCodes.CustomerNotFound, (await FinalizeAsync(stranger)).Error.Code);
         Assert.Equal(ErrorCodes.ItemNotFound, (await FinalizeAsync(ghostItem)).Error.Code);
         Assert.Equal(ErrorCodes.BillAmountTooLarge, (await FinalizeAsync(huge)).Error.Code);
-        Assert.Equal(ErrorCodes.BillQtyInvalid, (await FinalizeAsync(tooMany)).Error.Code);
+        Assert.Equal(ErrorCodes.BillQtyTooLarge, (await FinalizeAsync(tooMany)).Error.Code);
         Assert.Equal(ErrorCodes.BillEmpty, (await FinalizeAsync(empty)).Error.Code);
         _fail.FailuresLeft = 1;
         Assert.True((await FinalizeAsync(AppHost.Draft(TenderType.Cash, (rice, 1_000)))).IsFailure);   // thrown + rolled back
@@ -693,6 +696,8 @@ public sealed class FailSwitch
 /// <summary>Real outbox that can be made to fail the last write of a finalize, to prove the whole bill rolls back.</summary>
 internal sealed class FlakyOutbox(IOutbox inner, FailSwitch fail) : IOutbox
 {
+    public Task<int> PruneOlderThanAsync(DateTimeOffset cutoff, CancellationToken ct = default) => inner.PruneOlderThanAsync(cutoff, ct);
+
     public Task AppendAsync(string aggregateType, IDomainEvent @event, CancellationToken ct = default)
     {
         if (@event is BillFinalized && fail.FailuresLeft > 0)

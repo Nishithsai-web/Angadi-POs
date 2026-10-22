@@ -60,7 +60,15 @@ internal sealed class ItemRepository(AngadiDb db, IClock clock) : IItemRepositor
         return db.RunAsync(c =>
         {
             var existing = c.Find<ItemRow>(row.Id);
-            if (existing is null) { c.Insert(row); return; }
+            if (existing is null)
+            {
+                // T2-04: a new item starts at zero; opening stock is a StockMove (SaveItemCommand.OpeningStock).
+                // A preset Stock (a copied or re-saved object) would otherwise bypass the ledger.
+                row.StockMilli = 0;
+                c.Insert(row);
+                item.Stock = Qty.Zero;
+                return;
+            }
             row.StockMilli = existing.StockMilli;
             // FIX(DATA-3, 2026-10-20, FIX-2): Flaw: only stock was protected — a flow holding an Item
             // across an AliasLearner write (the learner loads fresh, appends, saves) saved its stale copy
@@ -131,6 +139,13 @@ internal sealed class BillRepository(AngadiDb db, IClock clock) : IBillRepositor
         return rows.Select(r => ToDomain(r, lines.TryGetValue(r.Id, out var l) ? l : [])).ToList();
     }
 
+    public Task<int> CountVoidedAsync(DateTimeOffset from, DateTimeOffset to, CancellationToken ct = default)
+    {
+        var a = Ms(from);
+        var b = Ms(to);
+        return db.RunAsync(c => c.ExecuteScalar<int>("SELECT COUNT(*) FROM Bill WHERE Status = 2 AND VoidedAtMs >= ? AND VoidedAtMs < ?", a, b), ct);
+    }
+
     public Task<int> CountFinalizedInMonthAsync(int year, int month, CancellationToken ct = default)
     {
         var from = year * 10000 + month * 100 + 1;
@@ -169,8 +184,21 @@ internal sealed class CustomerRepository(AngadiDb db, IClock clock) : ICustomerR
     public Task<IReadOnlyList<Customer>> SearchAsync(string text, CancellationToken ct = default)
     {
         var like = "%" + text.Trim().Replace("%", "", StringComparison.Ordinal).Replace("_", "", StringComparison.Ordinal) + "%";
+        // FIX(T3-2, 2026-10-21, S1): Flaw: phones are stored normalized ("919876543210") but the typed text was matched
+        // raw, so "98765 43210", "+91 98765 43210", "98765-43210" or "09876543210" found nobody. Fix: when the text
+        // is phone-shaped (digits with spaces, +, -, brackets), match its digits as a substring, and also the full
+        // normalized number (covers the leading 0). Names still match the raw text. Why: the shopkeeper types the
+        // number the way it is written on the customer's phone. Logged in docs/AGENT_FIX_LOG.md.
+        var phoneLike = like;
+        string? phoneExact = null;
+        if (text.Any(char.IsAsciiDigit) && text.All(ch => char.IsAsciiDigit(ch) || ch is ' ' or '+' or '-' or '(' or ')'))
+        {
+            phoneLike = "%" + new string(text.Where(char.IsAsciiDigit).ToArray()) + "%";
+            phoneExact = Angadi.Application.Billing.PhoneNumbers.Normalize(text);
+        }
         return db.RunAsync<IReadOnlyList<Customer>>(c => c.Query<CustomerRow>(
-                "SELECT * FROM Customer WHERE Name LIKE ? OR Phone LIKE ? ORDER BY Name LIMIT ?", like, like, CustomerSearchLimit)
+                "SELECT * FROM Customer WHERE Name LIKE ? OR Phone LIKE ? OR Phone = ? ORDER BY Name LIMIT ?",
+                like, phoneLike, phoneExact, CustomerSearchLimit)
             .Select(ToDomain).ToList(), ct);
     }
 
@@ -213,6 +241,12 @@ internal sealed class CustomerRepository(AngadiDb db, IClock clock) : ICustomerR
             c.Insert(row);
             c.Execute("UPDATE Customer SET DuesBalancePaise = DuesBalancePaise + ?, UpdatedAtMs = ? WHERE Id = ?",
                 signed, row.CreatedAtMs, entry.CustomerId);
+            // FIX(T3-1, 2026-10-21, S1): Flaw: a promise to pay was kept after the dues reached zero, so the NEXT fresh
+            // udhaar was "due for reminder" at once ("you said you would pay on 21 Oct"). Fix: whenever the ledger
+            // brings the balance to zero or below (payment, void, write-off), the promise is cleared. Why: a promise
+            // belongs to the udhaar it was made for. Logged in docs/AGENT_FIX_LOG.md.
+            c.Execute("UPDATE Customer SET PromisedPayDay = NULL WHERE Id = ? AND DuesBalancePaise <= 0 AND PromisedPayDay IS NOT NULL",
+                entry.CustomerId);
         }), ct);
     }
 }

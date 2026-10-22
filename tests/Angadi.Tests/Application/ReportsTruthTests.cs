@@ -139,7 +139,7 @@ public sealed class ReportsTruthTests : IDisposable
         Assert.Equal(Paise.Zero, r.SalesTotal);
     }
 
-    [Fact(Skip = "BUG T2-01: voiding yesterday's bill rewrites yesterday's closed day-end totals, and today's report shows no void or refund")]
+    [Fact]
     public async Task DayEnd_VoidOnALaterDay_DoesNotRewriteTheClosedDay_AndShowsOnTheVoidDay()
     {
         await _h.SeedShopAsync();
@@ -210,8 +210,10 @@ public sealed class ReportsTruthTests : IDisposable
             dayEndSales += r.SalesTotal.Value;
             dayEndTax += r.Tax.Value;
         }
-        Assert.Equal(dayEndSales, mtd.Sum(s => s.Taxable.Value + s.Tax.Value) + toThe15th.Sum(b => b.RoundingAdjustment.Value));
-        Assert.Equal(dayEndTax, mtd.Sum(s => s.Tax.Value));
+        // T2-01: the bill sold on the 10th and voided on the 31st stays in the 10th's CLOSED day-end (that cash was in
+        // that day's drawer) but is not a supply for GST, so the day-ends exceed the GST summary by exactly that bill.
+        Assert.Equal(dayEndSales - voided.GrandTotal.Value, mtd.Sum(s => s.Taxable.Value + s.Tax.Value) + toThe15th.Sum(b => b.RoundingAdjustment.Value));
+        Assert.Equal(dayEndTax - voided.TaxTotal.Value, mtd.Sum(s => s.Tax.Value));
     }
 
     private static void AssertSummaryMatches(IReadOnlyList<Bill> bills, IReadOnlyList<TaxSplit> summary)

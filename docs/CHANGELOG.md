@@ -1,6 +1,14 @@
 # CHANGELOG.md — Angadi POS v1
 Every meaningful change: date, what, the issue it addresses, and the one-line why. Newest first.
 
+## 2026-10-21 (Claude Code, S1 money lane)
+- **GST receipts landed:** composition shops print a Bill of Supply, regular shops show CGST/SGST, paid UPI receipts no longer say "scan to pay", the customer's name/address print on the receipt, voiding a filed month's bill needs confirmation, bill prefixes are validated, a failed save can be retried, quantities are capped. Why: these are legal receipt requirements and money-integrity fixes (F1, A2-01/02/05/14/15/16, A1-01/06/08, T2-01..04).
+- **Fixed: a Pro shop's first bill each month was counted twice** toward the free-bill quota. Why: a lapsed subscription lost a free bill (T1-03).
+- **Fixed: paying off udhaar now clears the promise date**, so the next new udhaar is not "due" the same day (T3-1).
+- **Customer search finds a number typed with spaces, +91, a leading 0 or a dash** (T3-2).
+- **A WhatsApp bill with more than 15 items now says how many more**, so the listed items never seem to miss the total (T3-3).
+- **Voice: "650 పారాసెటమాల్" offers the 650 mg strip first** (VOICE-10).
+
 ## 2026-10-20 (afternoon, Claude Code) — production audit, round 1
 - **The shipped build is now tested:** CI builds the Release APK (trimmed, as users get it) and runs the full emulator test on it next to the debug build. Why: every earlier E2E ran the debug build only; trimming bugs would have reached users first.
 - **Google Play policy gate:** targetSdk pinned to 36 (required from 31 Aug 2026) and checked on every build, with debuggable releases and sensitive library permissions failing CI. Why: a rejected upload costs days.

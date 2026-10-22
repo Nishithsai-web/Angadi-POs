@@ -143,7 +143,7 @@ public class BillDraftEdgeTests
     /// draft must stay as it was — today the line keeps the impossible quantity, every later edit throws again, and
     /// the screen (which was not refreshed) no longer matches the bill that will be sent to finalize.
     /// </summary>
-    [Fact(Skip = "BUG T1-02: BillDraft edits that overflow leave the line mutated; the draft and the screen diverge and every later edit throws")]
+    [Fact]
     public void Edit_ThatOverflows_LeavesTheDraftExactlyAsItWas()
     {
         var d = new BillDraft(shopHasGstin: true);

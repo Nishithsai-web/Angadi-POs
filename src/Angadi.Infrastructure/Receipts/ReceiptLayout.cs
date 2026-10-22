@@ -4,6 +4,7 @@ using Angadi.Application.Common;
 using Angadi.Application.Platform;
 using Angadi.Domain.Billing;
 using Angadi.Domain.Common;
+using Angadi.Domain.Customers;
 using Angadi.Domain.Items;
 using Angadi.Domain.Shop;
 
@@ -59,17 +60,20 @@ public sealed record ReceiptRow(ReceiptRowKind Kind)
 /// <item>The line amount is <see cref="BillLine.LineTotal"/> (after the line discount, before the bill-discount
 /// share). The lines then add up to <see cref="Bill.SubTotal"/>, and the bill discount prints once as its own
 /// row. Using <see cref="BillLine.Net"/> would print the bill discount twice.</item>
-/// <item>The per-slab tax table prints only on a Tax Invoice (FR-18).</item>
+/// <item>The per-slab tax table prints only on a Tax Invoice (FR-18). A2-02 (CGST Rule 46): each slab shows its
+/// taxable value and tax, then CGST and SGST separately at half the rate each; each line shows its GST rate.</item>
+/// <item>A2-01 (Rule 49 / s.10(4)): a composition shop's Bill of Supply prints its GSTIN and the line
+/// "composition taxable person, not eligible to collect tax on supplies".</item>
+/// <item>A2-15 (Rule 46(e)/(f)): when a customer is attached, their name (and address if known) prints.</item>
 /// <item>The rounding row prints only when it is non-zero (FR-13).</item>
-/// <item>The UPI QR prints for UPI, udhaar and untendered bills, and never for cash. A cash bill is settled, so
-/// a QR would invite a second payment. For udhaar, the QR lets the customer clear the dues later. For UPI, v1
-/// cannot confirm the payment, so the QR lets a customer whose payment failed retry it against the same bill
-/// number (tn=). The QR is also left out for void bills, zero totals and shops with no UPI ID.</item>
+/// <item>The UPI QR prints only for udhaar and untendered bills. Cash and UPI bills are settled (A2-05): a "scan to
+/// pay" QR on a paid receipt invites a second payment. For udhaar, the QR lets the customer clear the dues later.
+/// The QR is also left out for void bills, zero totals and shops with no UPI ID.</item>
 /// </list>
 /// </summary>
 public static class ReceiptLayout
 {
-    public static IReadOnlyList<ReceiptRow> Build(Bill bill, ShopProfile shop, ILocalizer text)
+    public static IReadOnlyList<ReceiptRow> Build(Bill bill, ShopProfile shop, ILocalizer text, Customer? customer = null)
     {
         ArgumentNullException.ThrowIfNull(bill);
         ArgumentNullException.ThrowIfNull(shop);
@@ -86,6 +90,8 @@ public static class ReceiptLayout
             rows.Add(new(ReceiptRowKind.Text) { Text = $"{text["receipt.gstin"]}: {shop.Gstin.Trim().ToUpperInvariant()}" });
 
         rows.Add(new(ReceiptRowKind.Heading) { Text = text[bill.IsTaxInvoice ? "bill.taxinvoice" : "bill.billofsupply"] });
+        if (shop.IsComposition && !bill.IsTaxInvoice)
+            rows.Add(new(ReceiptRowKind.Text) { Text = text["receipt.composition"] });
 
         if (isVoid)
         {
@@ -98,6 +104,12 @@ public static class ReceiptLayout
         rows.Add(new(ReceiptRowKind.Field) { Text = text["receipt.bill"], Value = bill.Number });
         var when = bill.FinalizedAt ?? bill.CreatedAt;
         rows.Add(new(ReceiptRowKind.Field) { Text = text["receipt.date"], Value = FormatDate(when) });
+        if (customer is not null && !string.IsNullOrWhiteSpace(customer.Name))
+        {
+            rows.Add(new(ReceiptRowKind.Field) { Text = text["receipt.customer"], Value = customer.Name.Trim() });
+            if (!string.IsNullOrWhiteSpace(customer.Address))
+                rows.Add(new(ReceiptRowKind.ItemNote) { Text = customer.Address.Trim() });
+        }
 
         // Lines.
         rows.Add(new(ReceiptRowKind.Separator));
@@ -112,7 +124,8 @@ public static class ReceiptLayout
             {
                 Text = primary,
                 Secondary = secondary,
-                Middle = $"{IndianFormat.Quantity(line.Qty)} {text.UnitLabel(line.Unit)} × {IndianFormat.Rupees(line.UnitPrice)}",
+                Middle = $"{IndianFormat.Quantity(line.Qty)} {text.UnitLabel(line.Unit)} × {IndianFormat.Rupees(line.UnitPrice)}"
+                    + (bill.IsTaxInvoice ? $" · {text["bill.tax"]} {SlabLabel(line.GstSlab)}" : ""),
                 Value = IndianFormat.Rupees(line.LineTotal),
             });
 
@@ -139,12 +152,18 @@ public static class ReceiptLayout
         {
             rows.Add(new(ReceiptRowKind.TaxHeader) { Text = text["bill.tax"], Middle = text["receipt.taxable"], Value = text["bill.tax"] });
             foreach (var split in bill.TaxSplits)
+            {
                 rows.Add(new(ReceiptRowKind.Tax)
                 {
                     Text = SlabLabel(split.Slab),
                     Middle = IndianFormat.Rupees(split.Taxable),
                     Value = IndianFormat.Rupees(split.Tax),
                 });
+                if (split.Tax == Paise.Zero) continue;   // nil-rated: no CGST/SGST to show
+                var half = RateLabel(split.HalfRateBasisPoints);
+                rows.Add(new(ReceiptRowKind.Tax) { Text = $"  {text["receipt.cgst"]} {half}", Value = IndianFormat.Rupees(split.Cgst) });
+                rows.Add(new(ReceiptRowKind.Tax) { Text = $"  {text["receipt.sgst"]} {half}", Value = IndianFormat.Rupees(split.Sgst) });
+            }
             rows.Add(new(ReceiptRowKind.Total) { Text = text["bill.tax"], Value = IndianFormat.Rupees(bill.TaxTotal) });
         }
 
@@ -187,7 +206,7 @@ public static class ReceiptLayout
     /// <summary>The QR rule from the class summary.</summary>
     public static bool ShowsQr(Bill bill, ShopProfile shop) =>
         bill.Status != BillStatus.Void
-        && bill.Tender != TenderType.Cash
+        && bill.Tender is not (TenderType.Cash or TenderType.Upi)
         && !string.IsNullOrWhiteSpace(shop.UpiId)
         && bill.GrandTotal > Paise.Zero;
 
@@ -203,8 +222,10 @@ public static class ReceiptLayout
         _ => "tender.pay",
     };
 
-    private static string SlabLabel(GstSlab slab) =>
-        (((int)slab) / 100m).ToString("0.##", CultureInfo.InvariantCulture) + "%";
+    private static string SlabLabel(GstSlab slab) => RateLabel((int)slab);
+
+    private static string RateLabel(int basisPoints) =>
+        (basisPoints / 100m).ToString("0.##", CultureInfo.InvariantCulture) + "%";
 
     private static string DiscountLabel(ILocalizer text, Discount discount) =>
         discount.Kind == DiscountKind.PercentBasisPoints

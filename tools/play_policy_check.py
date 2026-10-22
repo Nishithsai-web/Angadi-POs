@@ -41,6 +41,23 @@ def aapt2():
     return tools[-1]
 
 
+def native_libraries_are_android(apk):
+    """Every bundled .so must be built for Android (bionic). A desktop Linux build needs glibc's libc.so.6 and fails
+    to load on every phone (BUILD-3: libe_sqlite3.so from the desktop SQLite package -> DllNotFoundException)."""
+    import tempfile
+    import zipfile
+    problems = []
+    with zipfile.ZipFile(apk) as z, tempfile.TemporaryDirectory() as tmp:
+        for name in z.namelist():
+            if not (name.startswith("lib/") and name.endswith(".so")):
+                continue
+            path = z.extract(name, tmp)
+            needed = subprocess.run(["readelf", "-d", path], capture_output=True, text=True).stdout
+            if "libc.so.6" in needed or "ld-linux" in needed:
+                problems.append(f"{name} is a desktop Linux (glibc) library and will not load on Android")
+    return problems
+
+
 def main():
     apk = sys.argv[1]
     release = "--release" in sys.argv
@@ -63,6 +80,8 @@ def main():
     for p in permissions:
         if p in SENSITIVE:
             problems.append(f"sensitive permission {p}: {SENSITIVE[p]}")
+
+    problems += native_libraries_are_android(apk)
 
     for p in problems:
         print(f"::error::Play policy: {p}")

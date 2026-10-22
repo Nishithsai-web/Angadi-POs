@@ -53,8 +53,8 @@ internal sealed class PlaySubscriptionService(IOptions<BillingOptions> options, 
         var billing = CrossInAppBilling.Current;
         try
         {
-            if (!await billing.ConnectAsync().WaitAsync(ConnectTimeout, ct)) return Fail("not_connected");
-            var purchase = await billing.PurchaseAsync(productId, ItemType.Subscription).WaitAsync(PurchaseTimeout, ct);
+            if (!await billing.ConnectAsync(cancellationToken: ct).WaitAsync(ConnectTimeout, ct)) return Fail("not_connected");
+            var purchase = await billing.PurchaseAsync(productId, ItemType.Subscription, cancellationToken: ct).WaitAsync(PurchaseTimeout, ct);
             if (purchase is null || purchase.State != PurchaseState.Purchased) return Fail("not_purchased");
 
             await AcknowledgeAsync(billing, purchase);
@@ -102,8 +102,8 @@ internal sealed class PlaySubscriptionService(IOptions<BillingOptions> options, 
         var billing = CrossInAppBilling.Current;
         try
         {
-            if (!await billing.ConnectAsync().WaitAsync(ConnectTimeout, ct)) return Fail("not_connected");
-            var purchases = await billing.GetPurchasesAsync(ItemType.Subscription).WaitAsync(QueryTimeout, ct);
+            if (!await billing.ConnectAsync(cancellationToken: ct).WaitAsync(ConnectTimeout, ct)) return Fail("not_connected");
+            var purchases = await billing.GetPurchasesAsync(ItemType.Subscription, cancellationToken: ct).WaitAsync(QueryTimeout, ct);
             var active = purchases?.FirstOrDefault(p => p.State == PurchaseState.Purchased
                 && (p.ProductId == _o.YearlyProductId || p.ProductId == _o.MonthlyProductId));
 

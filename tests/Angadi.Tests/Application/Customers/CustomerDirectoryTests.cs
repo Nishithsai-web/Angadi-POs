@@ -57,7 +57,7 @@ public class CustomerDirectoryTests : IDisposable
         Assert.Equal([expected], await FindAsync(typed));
     }
 
-    [Theory(Skip = "BUG T3-2: phone search matches raw stored digits only; a number typed with a space, +91 or 0 finds nobody")]
+    [Theory]
     [InlineData("98765 43210")]
     [InlineData("+91 98765 43210")]
     [InlineData("09876543210")]

@@ -1,0 +1,10 @@
+{
+  "receipt.composition": "కాంపోజిషన్ పన్ను చెల్లింపుదారు, సరఫరాలపై పన్ను వసూలు చేయడానికి అర్హత లేదు (Composition taxable person, not eligible to collect tax on supplies)",
+  "receipt.cgst": "CGST",
+  "receipt.sgst": "SGST",
+  "receipt.customer": "కొనుగోలుదారు",
+  "setup.composition": "కాంపోజిషన్ స్కీమ్",
+  "setup.composition.note": "మీ GSTIN కాంపోజిషన్ స్కీమ్‌లో ఉంటే దీన్ని ఎంచుకోండి: మీరు GST వసూలు చేయలేరు, కాబట్టి బిల్లు మీ GSTIN మరియు కాంపోజిషన్ వాక్యంతో 'బిల్ ఆఫ్ సప్లై'గా వస్తుంది",
+  "setup.prefix.returning": "ఇంతకు ముందు వేరే ఫోన్‌లో అంగడి వాడారా? బిల్లు నంబర్లు మళ్ళీ రాకుండా కొత్త ముందు అక్షరం (ఉదా. B) ఎంచుకోండి",
+  "bill.void.pastmonth": "ఈ బిల్లు గత నెలది. దీన్ని రద్దు చేస్తే ఆ నెల GST సారాంశం మారుతుంది — మీరు ఇప్పటికే ఫైల్ చేసి ఉండవచ్చు. అయినా రద్దు చేయాలా?"
+}
