@@ -30,7 +30,7 @@ def scanner_back_returns_to_bill():
     # the Bill tab does not pop it. "New bill" is the shopkeeper's own way back to the counter.
     e.goto_tab("Bill")
     e.new_bill()
-    e.tap("Scan", exact=True)
+    e.tap("Scan")                                      # the button reads "▦  Scan"
     e.wait_for("Type it instead", timeout=40)
     e.adb("shell", "input", "keyevent", "4")
     time.sleep(2)
