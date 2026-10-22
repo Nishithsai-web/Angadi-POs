@@ -246,7 +246,8 @@ public sealed class ReportsPage : ContentPage
             (_text["reports.udhaar"], IndianFormat.Rupees(r.Udhaar)),
             (_text["bill.discount"], IndianFormat.Rupees(r.Discounts)),
             (_text["bill.tax"], IndianFormat.Rupees(r.Tax)),
-            (_text["reports.voids"], r.VoidCount.ToString(System.Globalization.CultureInfo.InvariantCulture))));
+            (_text["reports.voids"], r.VoidCount.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            (_text["reports.refunds"], IndianFormat.Rupees(r.Refunds))));   // S1-F1
         // Inventory: what is on the shelf, what it is worth, and whether every change was recorded.
         _body.Add(Card(_text["inventory.title"],
             (_text["inventory.value"], IndianFormat.Rupees(inventory.StockValue)),

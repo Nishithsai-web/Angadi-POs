@@ -79,6 +79,8 @@ public static class ErrorCodes
     public const string BillQtyTooLarge = "BILL_QTY_TOO_LARGE";
     /// <summary>A2-14: voiding a bill from an earlier month needs explicit confirmation (it changes a filed month).</summary>
     public const string BillVoidPastMonth = "BILL_VOID_PAST_MONTH";
+    /// <summary>T1-01: a retry of a bill that already saved, but with different lines/tender/discount (edited after saving).</summary>
+    public const string BillChangedAfterSave = "BILL_CHANGED_AFTER_SAVE";
     /// <summary>A2-16: bill prefix must be 1–8 of A–Z, 0–9, '/', '-' (Rule 46(b): the number stays ≤ 16 characters).</summary>
     public const string BillPrefixInvalid = "BILL_PREFIX_INVALID";
     public const string FreeLimitReached = "FREE_LIMIT_REACHED";

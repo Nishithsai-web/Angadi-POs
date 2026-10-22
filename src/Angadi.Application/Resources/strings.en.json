@@ -68,6 +68,7 @@
   "reports.dues": "Dues outstanding",
   "reports.bills": "Bills",
   "reports.voids": "Voids",
+  "reports.refunds": "Refunds (earlier bills cancelled today)",
   "insights.title": "Shop insights",
   "insights.reorder": "{0} runs out in about {1} days",
   "insights.dead": "Not sold in {0} days",

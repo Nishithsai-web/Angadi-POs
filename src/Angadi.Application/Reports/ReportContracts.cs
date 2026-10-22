@@ -9,7 +9,9 @@ namespace Angadi.Application.Reports;
 public sealed record GetDayEndReportQuery(DateOnly Day) : IQuery<DayEndReport>;
 public sealed record DayEndReport(
     DateOnly Day, int BillCount, int VoidCount, Paise SalesTotal,
-    Paise Cash, Paise Upi, Paise Udhaar, Paise Discounts, Paise Tax);
+    Paise Cash, Paise Upi, Paise Udhaar, Paise Discounts, Paise Tax,
+    // S1-F1: cash/UPI handed back today for bills sold on an EARLIER day and voided today (the drawer is short by this).
+    Paise Refunds = default);
 
 /// <summary>FR-28.</summary>
 public sealed record GetGstSummaryQuery(DateOnly From, DateOnly To) : IQuery<IReadOnlyList<TaxSplit>>;

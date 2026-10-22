@@ -68,6 +68,7 @@
   "reports.dues": "మొత్తం బాకీలు",
   "reports.bills": "బిల్లుల సంఖ్య",
   "reports.voids": "రద్దైనవి",
+  "reports.refunds": "తిరిగి ఇచ్చింది (ముందటి బిల్లులు ఈరోజు రద్దు)",
   "insights.title": "అంగడి సూచనలు",
   "insights.reorder": "{0} సుమారు {1} రోజుల్లో అయిపోతుంది",
   "insights.dead": "{0} రోజులుగా అమ్ముడుకాని సరుకులు",

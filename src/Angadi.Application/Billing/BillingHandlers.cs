@@ -139,6 +139,14 @@ internal sealed class FinalizeBillHandler(
         // double tap) returns that bill. Never a second bill number, never stock or dues taken twice.
         if (await bills.GetAsync(bill.Id, ct) is { Status: not BillStatus.Draft } saved)
         {
+            // FIX(T1-01, 2026-10-22, S1): Flaw: after the watchdog said "paying again is safe", a shopkeeper who added a
+            // forgotten item and paid again got SUCCESS for the old saved bill — the added item was never billed and
+            // the screen showed a total nobody was charged. Fix: the retry must carry the same content as the saved
+            // bill (tender, customer, bill discount, every line's item/qty/price/discount); otherwise it fails with
+            // BILL_CHANGED_AFTER_SAVE and the POS starts a fresh, empty bill (re-adding the old lines would charge them twice). Why: "paid" must always
+            // mean the total on screen. Logged in docs/AGENT_FIX_LOG.md.
+            if (!SameContent(bill, saved))
+                return Result.Failure<FinalizedBill>(Error.With(ErrorCodes.BillChangedAfterSave, saved.Number, IndianFormat.Rupees(saved.GrandTotal)));
             await drafts.ClearAsync(ct);
             return Result.Success(new FinalizedBill(saved.Id, saved.Number, saved.GrandTotal,
                 saved.Tender == TenderType.Cash ? BillCalculator.ChangeDue(saved) : Paise.Zero));
@@ -228,6 +236,17 @@ internal sealed class FinalizeBillHandler(
         // Change is only ever due on cash; for UPI/udhaar ChangeDue(bill) would be −GrandTotal.
         var change = bill.Tender == TenderType.Cash ? BillCalculator.ChangeDue(bill) : Paise.Zero;
         return Result.Success(new FinalizedBill(bill.Id, bill.Number, bill.GrandTotal, change));
+    }
+
+    /// <summary>T1-01: is this retry the bill that already saved (a double tap / watchdog retry), not an edited one?</summary>
+    internal static bool SameContent(Bill retry, Bill saved)
+    {
+        if (retry.Tender != saved.Tender || retry.CustomerId != saved.CustomerId || retry.BillDiscount != saved.BillDiscount
+            || retry.Lines.Count != saved.Lines.Count) return false;
+        static IEnumerable<(Guid, long, long, Discount)> Key(Bill b) => b.Lines
+            .Select(l => (l.ItemId, l.Qty.Milli, l.UnitPrice.Value, l.LineDiscount))
+            .OrderBy(k => k.ItemId).ThenBy(k => k.Milli).ThenBy(k => k.Value);
+        return Key(retry).SequenceEqual(Key(saved));
     }
 }
 

@@ -31,27 +31,48 @@ internal sealed class QuotaStore(AngadiDb db) : IQuotaStore
         db.RunAsync(c =>
         {
             var month = EffectiveMonth(c, now, advance: false);
-            return Count(c, month) + Unabsorbed(c);
+            return Count(c, month) + Unabsorbed(c, SyncedLifetime(c));
         }, ct);
 
     public Task IncrementAsync(DateTimeOffset now, CancellationToken ct = default) =>
         db.RunAsync(c =>
         {
             var month = EffectiveMonth(c, now, advance: true);
-            var lifetime = LifetimeBillCounter.Read(db.DatabasePath);
+            var lifetime = SyncedLifetime(c);
             var watermark = Watermark(c) ?? lifetime;   // M-3: no watermark yet → grandfather (see above)
             var used = Count(c, month) + Math.Max(0, lifetime - watermark);
             c.InsertOrReplace(new MetaRow { Key = CountKey(month), Value = (used + 1).ToString(CultureInfo.InvariantCulture) });
-            LifetimeBillCounter.Write(db.DatabasePath, lifetime + 1);
+            // FIX(S1-F2, 2026-10-22, S1): Flaw: the sibling ".lifetime" file was written HERE, inside the finalize
+            // transaction but outside SQLite — a commit that then failed (storage full) rolled the watermark back while
+            // the file stayed advanced, so every later read counted a phantom bill (a free bill lost per failed save).
+            // Fix: this bill is recorded only in the DB (watermark = lifetime + 1, committed or rolled back with the
+            // bill); the file is caught up from the COMMITTED watermark at the start of every later read/increment
+            // (SyncedLifetime). Why: M-3's floor stays (an out-of-band rewind still cannot lower the count below what
+            // the file saw), and a rolled-back bill can never count. Logged in docs/AGENT_FIX_LOG.md.
             c.InsertOrReplace(new MetaRow { Key = WatermarkKey, Value = (lifetime + 1).ToString(CultureInfo.InvariantCulture) });
         }, ct);
 
+    /// <summary>
+    /// S1-F2: the device counter, caught up to the DB's committed watermark (max of the two, written back when the DB
+    /// is ahead). Called before this operation writes anything, so the watermark it sees is a committed one.
+    /// </summary>
+    private long SyncedLifetime(SQLite.SQLiteConnection c)
+    {
+        var lifetime = LifetimeBillCounter.Read(db.DatabasePath);
+        if (Watermark(c) is { } watermark && watermark > lifetime)
+        {
+            LifetimeBillCounter.Write(db.DatabasePath, watermark);
+            lifetime = watermark;
+        }
+        return lifetime;
+    }
+
     /// <summary>M-3: bills this device finalized that the current DB file has never absorbed.</summary>
-    private int Unabsorbed(SQLite.SQLiteConnection c)
+    private static int Unabsorbed(SQLite.SQLiteConnection c, long lifetime)
     {
         var watermark = Watermark(c);
         if (watermark is null) return 0;   // grandfathered until the first increment stamps it
-        var diff = LifetimeBillCounter.Read(db.DatabasePath) - watermark.Value;
+        var diff = lifetime - watermark.Value;
         return diff > 0 ? (int)Math.Min(diff, int.MaxValue) : 0;
     }
 

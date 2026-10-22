@@ -45,6 +45,10 @@ public interface IBillRepository
     Task<int> CountFinalizedInMonthAsync(int year, int month, CancellationToken ct = default);   // FR-34
     /// <summary>T2-01: how many bills were voided in [from, to) — whatever day they were made on (day-end report).</summary>
     Task<int> CountVoidedAsync(DateTimeOffset from, DateTimeOffset to, CancellationToken ct = default);
+
+    /// <summary>S1-F1: money handed back in [from, to) — the totals of CASH and UPI bills voided then that were sold
+    /// on a day before <paramref name="soldBefore"/> (a same-day void was never a sale; an udhaar void only reverses dues).</summary>
+    Task<long> SumRefundsAsync(DateTimeOffset from, DateTimeOffset to, DateOnly soldBefore, CancellationToken ct = default);
     /// <summary>A customer's finalized and voided bills, newest first (customer account history).</summary>
     Task<IReadOnlyList<Bill>> ListByCustomerAsync(Guid customerId, int limit, CancellationToken ct = default);
     Task SaveAsync(Bill bill, CancellationToken ct = default);   // bill + lines together

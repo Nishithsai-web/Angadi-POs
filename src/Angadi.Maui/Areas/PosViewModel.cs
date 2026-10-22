@@ -481,6 +481,13 @@ public sealed partial class PosViewModel : ViewModelBase
             {
                 await ShowIfFailedAsync(result);
                 if (result.Error.Code == ErrorCodes.FreeLimitReached) await Nav.GoToAsync(Routes.Subscription);
+                if (result.Error.Code == ErrorCodes.BillChangedAfterSave)
+                {
+                    // T1-01: the old bill id is spent (saved at its old total). A fresh, empty bill id for the added items.
+                    UseDraft(new BillDraft(shopHasGstin: _shop?.ChargesGst ?? false));
+                    SetCustomer(null);
+                    Refresh();
+                }
                 return;
             }
             var done = result.Value;

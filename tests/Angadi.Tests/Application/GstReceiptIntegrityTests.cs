@@ -287,6 +287,27 @@ public sealed class GstReceiptIntegrityTests : IDisposable
         Assert.Equal(1, (await h.Sender.Send(new GetBillQuotaQuery())).UsedThisMonth);
     }
 
+    [Fact]
+    public async Task S1_F2_AFailedCommit_NeverCountsTowardTheFreeBills()
+    {
+        // S1-F2: the device lifetime counter (M-3) used to advance even when the commit failed, so every later read
+        // counted a phantom bill. Here the watermark is already stamped (one bill sold) before the failure.
+        var uow = new FailingCommitUnitOfWork();
+        using var h = new AppHost(configure: s => s.AddSingleton<IUnitOfWork>(sp => uow.Wrap(sp.GetRequiredService<AngadiDb>())));
+        await h.SeedShopAsync();
+        var rice = await h.AddItemAsync("Rice", 6_250, stockMilli: 10_000);
+        Assert.True((await h.Sender.Send(new FinalizeBillCommand(AppHost.Draft(TenderType.Cash, (rice, 1_000))))).IsSuccess);
+        Assert.Equal(1, (await h.Sender.Send(new GetBillQuotaQuery())).UsedThisMonth);
+
+        var draft = AppHost.Draft(TenderType.Cash, (rice, 1_000));
+        uow.FailNextCommit = true;
+        Assert.Equal(ErrorCodes.StorageFull, (await h.Sender.Send(new FinalizeBillCommand(draft))).Error.Code);
+        Assert.Equal(1, (await h.Sender.Send(new GetBillQuotaQuery())).UsedThisMonth);   // not 2
+
+        Assert.True((await h.Sender.Send(new FinalizeBillCommand(draft))).IsSuccess);
+        Assert.Equal(2, (await h.Sender.Send(new GetBillQuotaQuery())).UsedThisMonth);   // not 3
+    }
+
     private sealed class FailingCommitUnitOfWork
     {
         public bool FailNextCommit { get; set; }

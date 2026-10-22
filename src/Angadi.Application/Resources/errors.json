@@ -203,6 +203,10 @@
     "te": "పరిమాణం చాలా ఎక్కువ — ఒక్క వరుసలో 1,00,000 వరకు మాత్రమే",
     "en": "Quantity too large — at most 1,00,000 on one line"
   },
+  "BILL_CHANGED_AFTER_SAVE": {
+    "te": "బిల్లు {0} ఇప్పటికే {1} కి సేవ్ అయింది. కొత్తగా చేర్చిన వస్తువులకు కొత్త బిల్లు వేయండి",
+    "en": "Bill {0} was already saved for {1}. Put the items you added on a new bill"
+  },
   "BILL_VOID_PAST_MONTH": {
     "te": "ఈ బిల్లు గత నెలది. రద్దు చేస్తే ఆ నెల GST సారాంశం మారుతుంది — నిర్ధారించండి",
     "en": "This bill is from an earlier month. Cancelling it changes that month's GST summary — please confirm"

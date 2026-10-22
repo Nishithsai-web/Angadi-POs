@@ -587,7 +587,7 @@ public class BillingEdgeCaseTests : IDisposable
     /// The counter's 45 s watchdog tells the shopkeeper "paying again is safe" while the first save may already have
     /// committed. If they add the forgotten item and pay again, the retry must not report success for the OLD bill.
     /// </summary>
-    [Fact(Skip = "BUG T1-01: an idempotent retry of an EDITED bill returns the old saved bill as success; the added item is never billed")]
+    [Fact]
     public async Task Retry_OfABillEditedAfterItSaved_IsNotReportedAsPaidAtTheOldTotal()
     {
         var (rice, soap, _) = await SetupAsync();
@@ -606,6 +606,12 @@ public class BillingEdgeCaseTests : IDisposable
             Assert.Equal(draft.Bill.GrandTotal, retry.Value.GrandTotal);
             Assert.Equal(draft.Bill.GrandTotal, (await BillAsync(retry.Value.BillId)).GrandTotal);
             Assert.Equal(1_000_000 - 1_000, await _h.StockAsync(soap.Id));
+        }
+        else
+        {
+            // T1-01: refused with its own message; the soap was not billed or taken from stock.
+            Assert.Equal(ErrorCodes.BillChangedAfterSave, retry.Error.Code);
+            Assert.Equal(1_000_000, await _h.StockAsync(soap.Id));
         }
     }
 

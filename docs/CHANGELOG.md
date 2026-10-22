@@ -1,6 +1,11 @@
 # CHANGELOG.md — Angadi POS v1
 Every meaningful change: date, what, the issue it addresses, and the one-line why. Newest first.
 
+## 2026-10-22 (Claude Code, S1 money lane, round 2)
+- **Fixed: paying again for an edited bill no longer reports the old bill as paid.** If a bill already saved and the shopkeeper added an item and paid again, the app now says which bill saved and for how much, and opens a new empty bill for the extra items. Why: "paid" must always mean the total on screen (T1-01).
+- **Day-end shows refunds:** cash/UPI handed back today for bills sold on an earlier day. Why: the drawer count must match the report (S1-F1).
+- **Fixed: a save that failed (phone storage full) no longer uses up a free bill** (S1-F2).
+
 ## 2026-10-21 (Claude Code, S1 money lane)
 - **GST receipts landed:** composition shops print a Bill of Supply, regular shops show CGST/SGST, paid UPI receipts no longer say "scan to pay", the customer's name/address print on the receipt, voiding a filed month's bill needs confirmation, bill prefixes are validated, a failed save can be retried, quantities are capped. Why: these are legal receipt requirements and money-integrity fixes (F1, A2-01/02/05/14/15/16, A1-01/06/08, T2-01..04).
 - **Fixed: a Pro shop's first bill each month was counted twice** toward the free-bill quota. Why: a lapsed subscription lost a free bill (T1-03).

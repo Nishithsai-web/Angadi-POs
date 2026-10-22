@@ -25,6 +25,11 @@ internal sealed class ReportHandlers(IBillRepository bills, ICustomerRepository 
         var offset = clock.Now.Offset;
         var dayStart = new DateTimeOffset(q.Day.ToDateTime(TimeOnly.MinValue), offset);
         var voidsToday = await bills.CountVoidedAsync(dayStart, dayStart.AddDays(1), ct);
+        // FIX(S1-F1, 2026-10-22, S1): Flaw: since T2-01 a bill voided on a later day stays in its closed day, but the
+        // void day showed only a count — Tuesday's report claimed the cash handed back for Monday's bill was still in
+        // the drawer. Fix: the day-end carries Refunds = totals of cash/UPI bills sold earlier and voided this day,
+        // shown on Reports. Why: the drawer count must match the report. Logged in docs/AGENT_FIX_LOG.md.
+        var refunds = await bills.SumRefundsAsync(dayStart, dayStart.AddDays(1), q.Day, ct);
         Paise Sum(IEnumerable<Bill> bs) => new(bs.Sum(b => b.GrandTotal.Value));
 
         return new DayEndReport(
@@ -36,7 +41,8 @@ internal sealed class ReportHandlers(IBillRepository bills, ICustomerRepository 
             Upi: Sum(sold.Where(b => b.Tender == TenderType.Upi)),
             Udhaar: Sum(sold.Where(b => b.Tender == TenderType.Udhaar)),
             Discounts: new Paise(sold.Sum(b => BillCalculator.TotalDiscount(b).Value)),
-            Tax: new Paise(sold.Sum(b => b.TaxTotal.Value)));
+            Tax: new Paise(sold.Sum(b => b.TaxTotal.Value)),
+            Refunds: new Paise(refunds));
     }
 
     public async Task<IReadOnlyList<TaxSplit>> Handle(GetGstSummaryQuery q, CancellationToken ct)

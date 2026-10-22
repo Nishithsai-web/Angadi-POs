@@ -152,7 +152,10 @@ public sealed class ReportsTruthTests : IDisposable
         Assert.True((await _h.Sender.Send(new VoidBillCommand(monday.Id, "returned"))).IsSuccess);
 
         Assert.Equal(closedMonday, await _h.Sender.Send(new GetDayEndReportQuery(new DateOnly(2026, 10, 19))));
-        Assert.Equal(1, (await _h.Sender.Send(new GetDayEndReportQuery(new DateOnly(2026, 10, 20)))).VoidCount);
+        var tuesday = await _h.Sender.Send(new GetDayEndReportQuery(new DateOnly(2026, 10, 20)));
+        Assert.Equal(1, tuesday.VoidCount);
+        Assert.Equal(monday.GrandTotal, tuesday.Refunds);   // S1-F1: the cash handed back shows on the void day
+        Assert.Equal(Paise.Zero, closedMonday.Refunds);
     }
 
     // ---------- GST summary ----------

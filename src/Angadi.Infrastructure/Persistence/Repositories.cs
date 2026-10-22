@@ -146,6 +146,16 @@ internal sealed class BillRepository(AngadiDb db, IClock clock) : IBillRepositor
         return db.RunAsync(c => c.ExecuteScalar<int>("SELECT COUNT(*) FROM Bill WHERE Status = 2 AND VoidedAtMs >= ? AND VoidedAtMs < ?", a, b), ct);
     }
 
+    public Task<long> SumRefundsAsync(DateTimeOffset from, DateTimeOffset to, DateOnly soldBefore, CancellationToken ct = default)
+    {
+        var a = Ms(from);
+        var b = Ms(to);
+        var day = Day(soldBefore);
+        return db.RunAsync(c => c.ExecuteScalar<long>(
+            "SELECT COALESCE(SUM(GrandTotalPaise), 0) FROM Bill WHERE Status = 2 AND VoidedAtMs >= ? AND VoidedAtMs < ? AND Day < ? AND Tender IN (0, 1)",
+            a, b, day), ct);
+    }
+
     public Task<int> CountFinalizedInMonthAsync(int year, int month, CancellationToken ct = default)
     {
         var from = year * 10000 + month * 100 + 1;
