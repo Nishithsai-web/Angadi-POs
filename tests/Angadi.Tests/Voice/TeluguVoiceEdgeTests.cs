@@ -220,7 +220,8 @@ public class TeluguVoiceEdgeTests
         Assert.Null(line.Qty);
     }
 
-    [Fact(Skip = "BUG T4-05: '1/2 కేజీ' is exploded into '1' + '/2' before the fraction rule sees it: 1 kg, name '/2 బియ్యం'")]
+    // Was BUG T4-05 ('1/2' exploded into '1' + '/2'); fixed by VOICE-1 (90b05d9) — now its regression test.
+    [Fact]
     public void SlashFraction_IsHalf()
     {
         var line = One("1/2 కేజీ బియ్యం");
