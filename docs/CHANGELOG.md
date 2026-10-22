@@ -1,6 +1,12 @@
 # CHANGELOG.md — Angadi POS v1
 Every meaningful change: date, what, the issue it addresses, and the one-line why. Newest first.
 
+## 2026-10-22 (Claude Code, voice "dialects") — regional Telugu
+- **Voice billing understands how Telangana, Hyderabad, Coastal Andhra, Rayalaseema and Uttarandhra customers actually speak:** Hyderabadi counting (ఏక్, దో, ఆధా, డేఢ్, ఢాయ్, సవా, పౌనా, పావ్ కిలో), English numbers inside Telugu (వన్, టూ, హాఫ్), Latin speech-to-text ("rendu kilo biyyam"), clipped and regional number forms (రెండ్, నాల్గు, రొండు, నూట యాభై, కిలోన్నర), containers (కవర్, కట్ట, పొట్లం, ఉండ, బస్తా), and ~200 regional item names (ఎర్రగడ్డలు, తెల్లగడ్డ, ఉర్లగడ్డలు, కందిబేడలు, టెంకాయ, chawal, shakkar, okacet…). Why: a word the app doesn't know is a typed search at a busy counter.
+- **Generic words and symptoms always ask** (ఆయిల్/tel, దాల్, సోప్/sabun, రవ్వ, మిర్చి, మసాలా, జ్వరం మాత్రలు, బీపీ మాత్ర, paracetamol…). Why: a shelf name is not a product; a symptom is not a medicine.
+- **Fixed four voice money errors:** "రెండు కేజీలు వెయ్యి" (put it) billed 2,000 kg; "బియ్యం వెయ్యి" billed 1,000 kg; "pan 40" proposed 40 strips; "650 పారాసెటమాల్" proposed 500 mg (VD-2, VD-4, VD-5). Plus "కిలోన్నర" now bills 1½ kg (VD-1).
+- **New 212-phrase regional battery** gates CI: ≥ 95 % right, zero wrong auto-adds.
+
 ## 2026-10-20 (afternoon, Claude Code) — production audit, round 1
 - **The shipped build is now tested:** CI builds the Release APK (trimmed, as users get it) and runs the full emulator test on it next to the debug build. Why: every earlier E2E ran the debug build only; trimming bugs would have reached users first.
 - **Google Play policy gate:** targetSdk pinned to 36 (required from 31 Aug 2026) and checked on every build, with debuggable releases and sensitive library permissions failing CI. Why: a rejected upload costs days.

@@ -109,14 +109,22 @@ public sealed partial class TeluguParser(VoiceRules rules) : ITeluguParser
         var name = new List<string>();
 
         var nameDigits = DigitsThatBelongToName(tokens);
+        var prevWasNumber = false;   // VD-2: a scale word multiplies only the number right before it
 
         for (var i = 0; i < tokens.Count; i++)
         {
             var t = tokens[i];
             if (rules.Fillers.Contains(t)) continue;
+            var wasNumber = prevWasNumber;
+            prevWasNumber = false;
             if (nameDigits.Contains(i)) { name.Add(t); continue; }
 
-            if (sawNumber && ScaleFactor(t) is { } factor)
+            // FIX(VD-2, 2026-10-22, dialects): Flaw: a scale word multiplied the running number even
+            // when a unit stood between them — "బియ్యం రెండు కేజీలు వెయ్యి" ("…put it", వెయ్యి is also
+            // the verb 'put') auto-added 2,000 kg. Fix: scale only when the previous non-filler token was
+            // a number; otherwise వెయ్యి reads as a second number and the line asks (range rule).
+            // Why: ×1000 on a bill line is the worst possible money error. Logged in docs/AGENT_FIX_LOG.md.
+            if (sawNumber && wasNumber && ScaleFactor(t) is { } factor)
             {
                 // FIX(VOICE-3/VOICE-4, 2026-10-20, FIX-1): Flaw: only వంద had multiplier treatment.
                 // వెయ్యి sat in the plain number map, so "ఐదు వెయ్యి" tripped the range rule below
@@ -128,11 +136,22 @@ public sealed partial class TeluguParser(VoiceRules rules) : ITeluguParser
                 // Logged in docs/AGENT_FIX_LOG.md.
                 number = (number == 0 ? 1000 : number) * factor;
                 lastPlace = factor * 1000;
+                prevWasNumber = true;
                 continue;
             }
 
-            if (TryNumber(t, out var value))
+            var isNumber = TryNumber(t, out var value);
+            // FIX(VD-3, 2026-10-22, dialects): "పావ్ కిలో" = ¼ kg, "పావ్" alone = pav bread (see VoiceRules.UnitBoundNumbers).
+            if (!isNumber && rules.UnitBoundNumbers.TryGetValue(t, out var bound) && i + 1 < tokens.Count
+                && (rules.Units.ContainsKey(tokens[i + 1]) || rules.Multipliers.ContainsKey(tokens[i + 1])))
             {
+                value = bound;
+                isNumber = true;
+            }
+
+            if (isNumber)
+            {
+                prevWasNumber = true;
                 if (sawNumber && value >= lastPlace)
                 {
                     // "రెండు మూడు కేజీలు" (two-three kg) is a range, not 5. Keep the first number, flag it, let the pipeline ask.
@@ -169,6 +188,15 @@ public sealed partial class TeluguParser(VoiceRules rules) : ITeluguParser
         // M1 guard: a bare leading number ≥ 100 with no unit ("650 పారాసెటమాల్") may be a dosage, not a count — ask.
         if (tokens.Count > 0 && !nameDigits.Contains(0) && Decimal().IsMatch(tokens[0]) && unit is null && !isAmount
             && TryNumber(tokens[0], out var lead) && lead >= 100_000)
+            ambiguous = true;
+
+        // FIX(VD-4, 2026-10-22, dialects): Flaw: the M1 guard above only covered DIGITS in front;
+        // a spoken number word ≥ 100 with no unit ("బియ్యం వెయ్యి" — 'put rice', or a misheard
+        // count) auto-added 1,000 of a per-kg item. Fix: any unit-less, non-amount quantity ≥ 100
+        // is flagged ambiguous, so the matcher asks. Why: no counter sells 100+ of anything by a
+        // bare number without a unit; asking costs one tap, billing 1,000 kg costs the sale.
+        // Logged in docs/AGENT_FIX_LOG.md.
+        if (sawNumber && unit is null && !isAmount && multiplier == 1 && number >= 100_000)
             ambiguous = true;
 
         // M13: a stutter ("బి బియ్యం") repeats the start of the next word — drop the fragment.
@@ -247,7 +275,7 @@ public sealed partial class TeluguParser(VoiceRules rules) : ITeluguParser
         // number word is itself a unit/multiplier/currency word, so names like "అరటిపండ్లు" stay whole.
         if (!rules.Numbers.ContainsKey(token) && !rules.Units.ContainsKey(token))
         {
-            foreach (var num in rules.Numbers.Keys.Where(k => k.Length >= 2 && token.Length > k.Length && token.StartsWith(k, StringComparison.Ordinal)).OrderByDescending(k => k.Length))
+            foreach (var num in rules.Numbers.Keys.Concat(rules.UnitBoundNumbers.Keys).Where(k => k.Length >= 2 && token.Length > k.Length && token.StartsWith(k, StringComparison.Ordinal)).OrderByDescending(k => k.Length))
             {
                 var rest = token[num.Length..];
                 var lead = rules.Units.Keys.Concat(rules.Multipliers.Keys).Concat(rules.Currency)
@@ -266,6 +294,15 @@ public sealed partial class TeluguParser(VoiceRules rules) : ITeluguParser
                 if (TryNumber(prefix, out _)) return [prefix, suffix];
             }
         }
+
+        // FIX(VD-1, 2026-10-22, dialects): Flaw: "కిలోన్నర" / "కేజీన్నర" / "లీటరున్నర" (a unit and a
+        // half — everyday Telugu for 1½) was neither a number nor a unit, so it fell into the item
+        // name: no quantity (billed 1) and a polluted name. Fix: unit word + the half suffix explodes
+        // into "1.5" + the unit. Why: 1 kg billed for 1½ kg is a money error. Logged in docs/AGENT_FIX_LOG.md.
+        var halfSuffix = rules.HalfSuffix;
+        if (token.Length > halfSuffix.Length && token.EndsWith(halfSuffix, StringComparison.Ordinal)
+            && rules.Units.ContainsKey(token[..^halfSuffix.Length]))
+            return ["1.5", token[..^halfSuffix.Length]];
         return [token];
     }
 

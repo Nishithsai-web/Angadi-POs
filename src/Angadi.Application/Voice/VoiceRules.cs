@@ -18,6 +18,13 @@ public sealed class VoiceRules
     /// Logged in docs/AGENT_FIX_LOG.md.
     /// </summary>
     public IReadOnlyDictionary<string, long> ScaleMultipliers { get; init; } = new Dictionary<string, long>();
+    /// <summary>
+    /// FIX(VD-3, 2026-10-22, dialects): Flaw: Hyderabadi "పావ్ కిలో" (¼ kg) could not be a number
+    /// because "పావ్" alone is pav bread. Fix: words in numbers.te.json "unitBoundNumbers" count as a
+    /// number ONLY when a unit/multiplier word follows; otherwise they stay in the item name.
+    /// Why: one word, two meanings — the next word decides. Logged in docs/AGENT_FIX_LOG.md.
+    /// </summary>
+    public IReadOnlyDictionary<string, long> UnitBoundNumbers { get; init; } = new Dictionary<string, long>();
     public required string HalfSuffix { get; init; }
     public required IReadOnlyDictionary<string, Unit> Units { get; init; }
     public required IReadOnlyDictionary<string, int> Multipliers { get; init; }
@@ -88,8 +95,15 @@ public sealed class VoiceRules
                 if (key.Length > 0) genericAliases.Add(key);
             }
 
+        // FIX(VD-3): absent section = no unit-bound words (older rules files).
+        var unitBound = new Dictionary<string, long>(StringComparer.Ordinal);
+        if (numbers.TryGetProperty("unitBoundNumbers", out var unitBoundJson))
+            foreach (var p in unitBoundJson.EnumerateObject())
+                unitBound[TeluguText.Normalize(p.Name)] = p.Value.GetInt64();
+
         return new VoiceRules
         {
+            UnitBoundNumbers = unitBound,
             Numbers = numberMap,
             HundredMultipliers = hundredMultipliers,
             ScaleMultipliers = scaleMultipliers,
