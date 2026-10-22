@@ -34,6 +34,13 @@ public sealed class ItemMatcher(IItemRepository items, IOptions<VoiceOptions> op
         if (query.Length == 0) return new MatchResult(line, MatchKind.NoMatch, []);
         // M1-CORRECTION: "650 పారాసెటమాల్" — a dosage spoken first; also try it rotated to the end of the name.
         var rotated = RotateLeadingDigits(line.Name) is { } r ? TeluguText.MatchKey(r) : null;
+        // FIX(VOICE-8b, 2026-10-22, S2): Flaw: for a BARE "650 పారాసెటమాల్" the parser takes 650 as the (ambiguous)
+        // count, so the name holds no digits, nothing rotated, and the two Paracetamol strengths tied — the 500 mg
+        // won alphabetically (VoiceBatteryTests.T2_BareDosage_AsksWithParacetamolBest). Fix: when the parser flagged
+        // the line ambiguous and the raw phrase starts with a number, also score the name with that number appended.
+        // Why: the confirm dialog must put the strength the shopkeeper said on top. Logged in docs/AGENT_FIX_LOG.md.
+        if (rotated is null && line.IsAmbiguous && LeadingNumber(line.Raw) is { } lead && !line.Name.Contains(lead, StringComparison.Ordinal))
+            rotated = TeluguText.MatchKey(line.Name + " " + lead);
 
         // PERF: scores every active item per phrase — fine to ~2k items; add a first-letter prefilter beyond that.
         var ranked = active
@@ -124,6 +131,12 @@ public sealed class ItemMatcher(IItemRepository items, IOptions<VoiceOptions> op
         // Only an exact key (name/alias) match scores 1.0. Containment tops out below 0.90, so it
         // always asks; a one-letter slip on a long name can still clear the auto threshold.
         return Math.Min(sim, 0.99);
+    }
+
+    private static string? LeadingNumber(string raw)
+    {
+        var first = raw.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+        return first is { Length: > 0 } && first.All(char.IsAsciiDigit) ? first : null;
     }
 
     internal static string? RotateLeadingDigits(string name)
