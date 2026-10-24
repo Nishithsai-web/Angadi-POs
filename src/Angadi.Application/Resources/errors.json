@@ -198,5 +198,33 @@
   "DATABASE_BUSY": {
     "te": "యాప్ ఇంకో పని చేస్తోంది. కొన్ని సెకన్లు ఆగి మళ్ళీ ప్రయత్నించండి",
     "en": "The app is busy saving. Wait a few seconds and try again"
+    },
+  "OWNER_PIN_REQUIRED": {
+    "te": "ఇది యజమాని పని — యజమాని పిన్ కావాలి",
+    "en": "Only the owner can do this — owner PIN needed"
+  },
+  "OWNER_PIN_WRONG": {
+    "te": "పిన్ తప్పు. ఇంకా {0} ప్రయత్నాలు మిగిలాయి",
+    "en": "Wrong PIN. {0} tries left"
+  },
+  "OWNER_PIN_LOCKED": {
+    "te": "చాలా సార్లు తప్పు పిన్. {0} సెకన్ల తర్వాత మళ్ళీ ప్రయత్నించండి",
+    "en": "Too many wrong PINs. Try again in {0} seconds"
+  },
+  "OWNER_PIN_INVALID": {
+    "te": "పిన్ 4 నుండి 6 అంకెలు ఉండాలి",
+    "en": "The PIN must be 4 to 6 digits"
+  },
+  "OWNER_PIN_MISMATCH": {
+    "te": "రెండు పిన్‌లు ఒకటి కాలేదు — మళ్ళీ ప్రయత్నించండి",
+    "en": "The two PINs don't match — try again"
+  },
+  "OWNER_PIN_NOT_SET": {
+    "te": "యజమాని పిన్ ఇంకా పెట్టలేదు",
+    "en": "No owner PIN is set"
+  },
+  "OWNER_PIN_RESET_DENIED": {
+    "te": "పిన్ తీసివేయలేదు — ఫోన్ లాక్ లేదా షాప్ పేరు సరిపోలలేదు",
+    "en": "PIN not reset — the phone lock or shop name did not match"
   }
 }

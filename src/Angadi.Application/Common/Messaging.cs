@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Reflection;
 using Angadi.Application.Persistence;
+using Angadi.Application.Security;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -46,6 +47,19 @@ internal sealed class Sender(IServiceProvider services) : ISender
         return wrapper.Handle(request, services, ct);
     }
 
+    /// <summary>V2S audit trail for owner-only actions; the action already succeeded, so a failed audit write is only logged.</summary>
+    private static async Task AuditAsync(IOwnerSession owner, string name, ILogger log, CancellationToken ct)
+    {
+        try
+        {
+            if (await owner.IsPinSetAsync(ct)) await owner.AuditAsync(name, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            log.LogWarning(ex, "Owner audit for {Request} not written", name);
+        }
+    }
+
     private abstract class Wrapper<TResult>
     {
         public abstract Task<TResult> Handle(IRequest<TResult> request, IServiceProvider sp, CancellationToken ct);
@@ -73,6 +87,14 @@ internal sealed class Sender(IServiceProvider services) : ISender
                 }
             }
 
+            // V2S owner PIN: an owner-only request is refused unless the owner unlocked (shops without a PIN: no change).
+            var owner = typed is IOwnerOnly ? sp.GetService<IOwnerSession>() : null;
+            if (owner is not null && !await owner.IsOwnerAsync(ct))
+            {
+                log.LogWarning("{Request} rejected: {Code}", name, ErrorCodes.OwnerPinRequired);
+                return ResultFactory.Failure<TResult>(new Error(ErrorCodes.OwnerPinRequired, name));
+            }
+
             // Logging (the correlation id shows up in every log line inside this request)
             var sw = Stopwatch.StartNew();
             try
@@ -94,7 +116,10 @@ internal sealed class Sender(IServiceProvider services) : ISender
                 if (result is Result { IsFailure: true } failed)
                     log.LogWarning("{Request} failed {Code} in {Ms} ms", name, failed.Error.Code, sw.ElapsedMilliseconds);
                 else
+                {
                     log.LogInformation("{Request} ok in {Ms} ms", name, sw.ElapsedMilliseconds);
+                    if (owner is not null) await AuditAsync(owner, name, log, ct);
+                }
                 return result;
             }
             catch (Exception ex) when (ex is not OperationCanceledException)

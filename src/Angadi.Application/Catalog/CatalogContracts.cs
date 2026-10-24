@@ -16,11 +16,11 @@ public sealed record GetLowStockQuery : IQuery<IReadOnlyList<Item>>;
 public sealed record GetItemQuery(Guid ItemId) : IQuery<Item?>;
 public sealed record GetItemByBarcodeQuery(string Barcode) : IQuery<Item?>;
 /// <summary>Attach a scanned barcode to an existing item (unknown packet at the counter).</summary>
-public sealed record SetItemBarcodeCommand(Guid ItemId, string Barcode) : ICommand<Result>;
+public sealed record SetItemBarcodeCommand(Guid ItemId, string Barcode) : ICommand<Result>, IOwnerOnly;
 public sealed record GetStockHistoryQuery(Guid ItemId) : IQuery<IReadOnlyList<StockMove>>;
 
 /// <summary>FR-03. New items may carry an opening stock, written to the ledger.</summary>
-public sealed record SaveItemCommand(Item Item, Qty? OpeningStock = null) : ICommand<Result<Guid>>;
+public sealed record SaveItemCommand(Item Item, Qty? OpeningStock = null) : ICommand<Result<Guid>>, IOwnerOnly;
 
 // Customers (FR-21/22)
 public sealed record SearchCustomersQuery(string Text) : IQuery<IReadOnlyList<Customer>>;
@@ -31,14 +31,14 @@ public sealed record SaveCustomerCommand(Customer Customer) : ICommand<Result<Gu
 // Shop (FR-01)
 public sealed record GetShopProfileQuery : IQuery<ShopProfile?>;
 public sealed record SaveShopProfileCommand(ShopProfile Profile) : ICommand<Result>;
-public sealed record SeedItemsCommand(bool Kirana, bool Pharmacy) : ICommand<Result<int>>;
+public sealed record SeedItemsCommand(bool Kirana, bool Pharmacy) : ICommand<Result<int>>, IOwnerOnly;
 
 // Bills (FR-20)
 public sealed record GetBillQuery(Guid BillId) : IQuery<Bill?>;
 
 // Data safety (FR-36/37). Not transactional: restore swaps the database file.
-public sealed record ExportBackupCommand : ICommand<Result<string>>, INoTransaction;
-public sealed record RestoreBackupCommand(string FilePath) : ICommand<Result>, INoTransaction;
+public sealed record ExportBackupCommand : ICommand<Result<string>>, INoTransaction, IOwnerOnly;
+public sealed record RestoreBackupCommand(string FilePath) : ICommand<Result>, INoTransaction, IOwnerOnly;
 
 /// <summary>H11: Settings → Export logs goes through the dispatcher like every other action, so it is logged and testable.</summary>
 /// <summary>Background safety copy (app start, app going to the background). Never waits on the user.</summary>

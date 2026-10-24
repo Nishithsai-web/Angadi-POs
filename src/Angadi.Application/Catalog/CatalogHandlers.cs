@@ -186,7 +186,8 @@ internal sealed class DataSafetyHandlers(IDataSafety safety) :
 // ---------- Shop, seed, bills, backup ----------
 
 internal sealed class ShopHandlers(
-    IShopProfileRepository shop, ISeedService seed, IBillRepository bills, IBackupService backup, ILocalizer text, IOutbox outbox, IClock clock) :
+    IShopProfileRepository shop, ISeedService seed, IBillRepository bills, IBackupService backup, ILocalizer text, IOutbox outbox, IClock clock,
+    Angadi.Application.Security.IOwnerSession owner) :
     IRequestHandler<GetShopProfileQuery, ShopProfile?>,
     IRequestHandler<SaveShopProfileCommand, Result>,
     IRequestHandler<SeedItemsCommand, Result<int>>,
@@ -198,10 +199,22 @@ internal sealed class ShopHandlers(
 
     public async Task<Result> Handle(SaveShopProfileCommand command, CancellationToken ct)
     {
+        // V2S: shop details (UPI ID/QR, bill prefix, GSTIN, name…) are the owner's; switching the language is not.
+        if (await shop.GetAsync(ct) is { } before && OwnerFieldsChanged(before, command.Profile)
+            && await Angadi.Application.Security.OwnerGuard.CheckAsync(owner, "ShopProfileChanged", ct) is { } denied)
+            return Result.Failure(denied);
         await shop.SaveAsync(command.Profile, ct);
         await outbox.AppendAsync("Shop", new ShopProfileChanged(command.Profile.Id, clock.Now), ct);   // M6
         text.Language = command.Profile.Language;
         return Result.Success();
+    }
+
+    private static bool OwnerFieldsChanged(ShopProfile a, ShopProfile b)
+    {
+        static bool Same(string? x, string? y) => string.Equals(x ?? "", y ?? "", StringComparison.Ordinal);
+        return !Same(a.Name, b.Name) || !Same(a.Address, b.Address) || !Same(a.Phone, b.Phone) || !Same(a.UpiId, b.UpiId)
+            || !Same(a.Gstin, b.Gstin) || !Same(a.BillPrefix, b.BillPrefix) || !Same(a.UpiQrPayload, b.UpiQrPayload)
+            || !(a.UpiQrImage ?? []).AsSpan().SequenceEqual(b.UpiQrImage ?? []);
     }
 
     public async Task<Result<int>> Handle(SeedItemsCommand command, CancellationToken ct)

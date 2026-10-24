@@ -109,5 +109,13 @@ public static class ErrorCodes
     public const string StorageFull = "STORAGE_FULL";
     /// <summary>The database lock was not released in time (something else is still saving).</summary>
     public const string DatabaseBusy = "DATABASE_BUSY";
+    /// <summary>V2S: an owner-only action was tried while the owner PIN is set and not unlocked.</summary>
+    public const string OwnerPinRequired = "OWNER_PIN_REQUIRED";
+    public const string OwnerPinWrong = "OWNER_PIN_WRONG";
+    public const string OwnerPinLocked = "OWNER_PIN_LOCKED";
+    public const string OwnerPinInvalid = "OWNER_PIN_INVALID";
+    public const string OwnerPinMismatch = "OWNER_PIN_MISMATCH";
+    public const string OwnerPinNotSet = "OWNER_PIN_NOT_SET";
+    public const string OwnerPinResetDenied = "OWNER_PIN_RESET_DENIED";
     public const string Unexpected = "UNEXPECTED";
 }

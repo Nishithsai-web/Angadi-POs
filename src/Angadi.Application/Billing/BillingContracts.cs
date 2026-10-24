@@ -21,7 +21,7 @@ public sealed record GetBillDraftQuery : IQuery<BillDraftSnapshot?>;
 public sealed record FinalizedBill(Guid BillId, string Number, Paise GrandTotal, Paise ChangeDue);
 
 /// <summary>FR-16. Restores stock (VoidRestore), reverses dues, outbox BillVoided.</summary>
-public sealed record VoidBillCommand(Guid BillId, string Reason) : ICommand<Result>;
+public sealed record VoidBillCommand(Guid BillId, string Reason) : ICommand<Result>, IOwnerOnly;
 
 /// <summary>FR-17/19. Renders (or re-renders, FR-20) and opens the share sheet.</summary>
 public sealed record ShareReceiptCommand(Guid BillId) : ICommand<Result>, INoTransaction;

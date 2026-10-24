@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using Angadi.Application.Common;
 using Angadi.Application.Persistence;
 using Angadi.Application.Platform;
+using Angadi.Application.Security;
 using Angadi.Domain.Billing;
 using Angadi.Domain.Common;
 using Angadi.Domain.Customers;
@@ -80,7 +81,8 @@ internal sealed class FinalizeBillHandler(
     IQuotaStore quota,
     IBillDraftStore drafts,
     IClock clock,
-    IOptions<BillingOptions> options) : IRequestHandler<FinalizeBillCommand, Result<FinalizedBill>>
+    IOptions<BillingOptions> options,
+    IOwnerSession owner) : IRequestHandler<FinalizeBillCommand, Result<FinalizedBill>>
 {
     public async Task<Result<FinalizedBill>> Handle(FinalizeBillCommand command, CancellationToken ct)
     {
@@ -107,9 +109,20 @@ internal sealed class FinalizeBillHandler(
         var profile = await shop.GetAsync(ct);
         if (profile is null) return Result.Failure<FinalizedBill>(ErrorCodes.ValidationFailed, "shop profile missing");
 
+        var priceChanged = false;
         foreach (var itemId in bill.Lines.Select(l => l.ItemId).Distinct())
-            if (await items.GetAsync(itemId, ct) is null)
+        {
+            if (await items.GetAsync(itemId, ct) is not { } item)
                 return Result.Failure<FinalizedBill>(ErrorCodes.ItemNotFound, itemId.ToString("D", System.Globalization.CultureInfo.InvariantCulture));
+            priceChanged |= bill.Lines.Any(l => l.ItemId == itemId && l.UnitPrice != item.Price);
+        }
+
+        // V2S: a price changed at the counter or any discount is the owner's call once an owner PIN is set.
+        if (priceChanged || bill.BillDiscount.Amount != 0 || bill.Lines.Any(l => l.LineDiscount.Amount != 0))
+        {
+            if (await OwnerGuard.CheckAsync(owner, "BillPriceOrDiscount", ct) is { } denied)
+                return Result.Failure<FinalizedBill>(denied);
+        }
 
         try { BillCalculator.Compute(bill, shopHasGstin: !string.IsNullOrWhiteSpace(profile.Gstin)); }
         catch (OverflowException) { return Result.Failure<FinalizedBill>(ErrorCodes.BillAmountTooLarge); }   // M7: checked maths
@@ -317,12 +330,16 @@ internal sealed class SendDuesReminderHandler(
     }
 }
 
-internal sealed class AdjustStockHandler(IItemRepository items, IStockLedger ledger, IOutbox outbox, IClock clock)
+internal sealed class AdjustStockHandler(IItemRepository items, IStockLedger ledger, IOutbox outbox, IClock clock, IOwnerSession owner)
     : IRequestHandler<AdjustStockCommand, Result>
 {
     public async Task<Result> Handle(AdjustStockCommand command, CancellationToken ct)
     {
         if (await items.GetAsync(command.ItemId, ct) is null) return Result.Failure(ErrorCodes.ItemNotFound);
+        // V2S: receiving stock (purchase) stays open to staff; damage and count corrections are the owner's.
+        if (command.Reason != StockMoveReason.Purchase
+            && await OwnerGuard.CheckAsync(owner, "StockAdjusted:" + command.Reason, ct) is { } denied)
+            return Result.Failure(denied);
         await ledger.AdjustAsync(command.ItemId, command.Delta, command.Reason, note: command.Note?.Trim(), ct: ct);
         await outbox.AppendAsync("Item", new StockAdjusted(command.ItemId, clock.Now, command.Delta.Milli, (int)command.Reason), ct);
         return Result.Success();
