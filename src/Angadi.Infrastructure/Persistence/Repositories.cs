@@ -71,10 +71,13 @@ internal sealed class ItemRepository(AngadiDb db, IClock clock) : IItemRepositor
 internal sealed class BillRepository(AngadiDb db, IClock clock) : IBillRepository
 {
     public Task<Bill?> GetAsync(Guid id, CancellationToken ct = default)
-        => db.RunAsync(c =>
+        => db.RunAsync<Bill?>(c =>
         {
             var row = c.Find<BillRow>(id);
-            return row is null ? null : ToDomain(row, c.Query<BillLineRow>("SELECT * FROM BillLine WHERE BillId = ?", id));
+            if (row is null) return null;
+            var bill = ToDomain(row, c.Query<BillLineRow>("SELECT * FROM BillLine WHERE BillId = ?", id));
+            bill.Payments = Payments(c.Query<BillPaymentRow>("SELECT * FROM BillPayment WHERE BillId = ?", id));
+            return bill;
         }, ct);
 
     public Task<IReadOnlyList<Bill>> ListAsync(DateTimeOffset from, DateTimeOffset to, CancellationToken ct = default)
@@ -116,8 +119,28 @@ internal sealed class BillRepository(AngadiDb db, IClock clock) : IBillRepositor
                 list.Add(l);
             }
         }
-        return rows.Select(r => ToDomain(r, lines.TryGetValue(r.Id, out var l) ? l : [])).ToList();
+        // v2 split tender: payment parts, same chunking (single-tender bills have none).
+        var payments = new Dictionary<Guid, List<BillPaymentRow>>();
+        foreach (var chunk in rows.Chunk(LineQueryChunk))
+        {
+            var found = c.Query<BillPaymentRow>(
+                $"SELECT * FROM BillPayment WHERE BillId IN ({string.Join(",", chunk.Select(_ => "?"))})",
+                chunk.Select(r => (object)r.Id).ToArray());
+            foreach (var p in found)
+            {
+                if (!payments.TryGetValue(p.BillId, out var list)) payments[p.BillId] = list = [];
+                list.Add(p);
+            }
+        }
+        return rows.Select(r =>
+        {
+            var bill = ToDomain(r, lines.TryGetValue(r.Id, out var l) ? l : []);
+            if (payments.TryGetValue(r.Id, out var p)) bill.Payments = Payments(p);
+            return bill;
+        }).ToList();
     }
+
+    private static List<BillPayment> Payments(IEnumerable<BillPaymentRow> rows) => rows.OrderBy(p => p.Position).Select(ToDomain).ToList();
 
     public Task<int> CountFinalizedInMonthAsync(int year, int month, CancellationToken ct = default)
     {
@@ -134,6 +157,7 @@ internal sealed class BillRepository(AngadiDb db, IClock clock) : IBillRepositor
         bill.UpdatedAt = now;
         var row = ToRow(bill);
         var lines = bill.Lines.Select((l, i) => ToRow(l, bill.Id, i)).ToList();
+        var payments = bill.Payments.Select((p, i) => ToRow(p, bill.Id, i)).ToList();
         return db.RunAsync(c =>
         {
             c.RunInTransactionIfNeeded(() =>
@@ -141,6 +165,8 @@ internal sealed class BillRepository(AngadiDb db, IClock clock) : IBillRepositor
                 c.InsertOrReplace(row);
                 c.Execute("DELETE FROM BillLine WHERE BillId = ?", bill.Id);
                 c.InsertAll(lines);
+                c.Execute("DELETE FROM BillPayment WHERE BillId = ?", bill.Id);
+                if (payments.Count > 0) c.InsertAll(payments);
             });
         }, ct);
     }
@@ -313,6 +339,7 @@ internal sealed class ShopProfileRepository(AngadiDb db, IClock clock) : IShopPr
             if (existing is null) { c.Insert(row); return; }
             row.Id = existing.Id;   // exactly one profile row
             row.NextBillSequence = existing.NextBillSequence;   // owned by NextBillNumberAsync
+            row.NextReturnSequence = existing.NextReturnSequence;   // owned by NextReturnNumberAsync
             c.Update(row);
             profile.Id = existing.Id;
             profile.NextBillSequence = existing.NextBillSequence;

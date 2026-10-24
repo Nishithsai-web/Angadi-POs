@@ -32,4 +32,5 @@ public sealed class DuesEntry : Entity
     public string? UpiRef { get; set; }
 }
 
-public enum DuesEntryKind { Charge = 0, Payment = 1, Reversal = 2 }
+/// <summary>Return (v2): goods returned against a bill reduce what the customer owes (never below zero).</summary>
+public enum DuesEntryKind { Charge = 0, Payment = 1, Reversal = 2, Return = 3 }

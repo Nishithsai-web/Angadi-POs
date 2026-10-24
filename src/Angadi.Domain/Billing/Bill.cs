@@ -20,6 +20,11 @@ public sealed class Bill : Entity
     public Paise CashReceived { get; set; }                         // for change due
     /// <summary>H9: UPI transaction reference (UTR / last digits) for reconciling UPI bills. Optional.</summary>
     public string? UpiRef { get; set; }
+    /// <summary>
+    /// v2 split tender: the parts of the payment (e.g. ₹300 cash + ₹200 UPI). Empty for a single-tender bill, which
+    /// is read as one part (see <see cref="BillPayments.PartsOf"/>). When set, Tender = the largest part's tender.
+    /// </summary>
+    public List<BillPayment> Payments { get; set; } = [];
 
     // Computed by BillCalculator at finalize, then frozen:
     public Paise SubTotal { get; set; }        // sum of line totals after line discounts

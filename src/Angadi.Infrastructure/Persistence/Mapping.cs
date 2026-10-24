@@ -156,4 +156,48 @@ internal static class Mapping
         CreatedAt = At(r.CreatedAtMs), UpdatedAt = At(r.UpdatedAtMs),
         UpiQrPayload = r.UpiQrPayload, UpiQrImage = r.UpiQrImage,
     };
+
+    // ---- v2-payments: split tender parts and returns
+    public static BillPaymentRow ToRow(BillPayment p, Guid billId, int position) => new()
+    {
+        Id = p.Id, BillId = billId, Position = position, Tender = (int)p.Tender, AmountPaise = p.Amount.Value,
+        CashReceivedPaise = p.CashReceived.Value, UpiRef = NullIfBlank(p.UpiRef),
+    };
+
+    public static BillPayment ToDomain(BillPaymentRow r) => new()
+    {
+        Id = r.Id, Tender = (TenderType)r.Tender, Amount = new Paise(r.AmountPaise), CashReceived = new Paise(r.CashReceivedPaise), UpiRef = r.UpiRef,
+    };
+
+    public static BillReturnRow ToRow(BillReturn r) => new()
+    {
+        Id = r.Id, Number = r.Number, BillId = r.BillId, BillNumber = r.BillNumber, CustomerId = r.CustomerId,
+        ReturnedAtMs = Ms(r.ReturnedAt), ReturnedOffsetMinutes = (int)r.ReturnedAt.Offset.TotalMinutes, Day = Day(r.ReturnedAt),
+        LinesTotalPaise = r.LinesTotal.Value, RoundingPaise = r.RoundingAdjustment.Value, RefundPaise = r.Refund.Value,
+        Method = (int)r.Method, DuesReducedPaise = r.DuesReduced.Value, RefundCashPaise = r.RefundCash.Value, RefundUpiPaise = r.RefundUpi.Value,
+        UpiRef = NullIfBlank(r.UpiRef), Reason = NullIfBlank(r.Reason), IsTaxInvoice = r.IsTaxInvoice, CreatedAtMs = Ms(r.CreatedAt),
+    };
+
+    public static ReturnLineRow ToRow(ReturnLine l, Guid returnId, int position) => new()
+    {
+        Id = l.Id, ReturnId = returnId, Position = position, BillLineId = l.BillLineId, ItemId = l.ItemId,
+        TeluguName = l.TeluguName, EnglishName = l.EnglishName, Unit = (int)l.Unit, GstBasisPoints = (int)l.GstSlab,
+        QtyMilli = l.Qty.Milli, AmountPaise = l.Amount.Value, TaxablePaise = l.Taxable.Value, TaxPaise = l.Tax.Value,
+    };
+
+    public static BillReturn ToDomain(BillReturnRow r, IEnumerable<ReturnLineRow> lines) => new()
+    {
+        Id = r.Id, Number = r.Number, BillId = r.BillId, BillNumber = r.BillNumber, CustomerId = r.CustomerId,
+        ReturnedAt = At(r.ReturnedAtMs, r.ReturnedOffsetMinutes),
+        LinesTotal = new Paise(r.LinesTotalPaise), RoundingAdjustment = new Paise(r.RoundingPaise), Refund = new Paise(r.RefundPaise),
+        Method = (RefundMethod)r.Method, DuesReduced = new Paise(r.DuesReducedPaise), RefundCash = new Paise(r.RefundCashPaise),
+        RefundUpi = new Paise(r.RefundUpiPaise), UpiRef = r.UpiRef, Reason = r.Reason, IsTaxInvoice = r.IsTaxInvoice,
+        CreatedAt = At(r.CreatedAtMs), UpdatedAt = At(r.CreatedAtMs),
+        Lines = lines.OrderBy(l => l.Position).Select(l => new ReturnLine
+        {
+            Id = l.Id, BillLineId = l.BillLineId, ItemId = l.ItemId, TeluguName = l.TeluguName, EnglishName = l.EnglishName,
+            Unit = (Unit)l.Unit, GstSlab = (GstSlab)l.GstBasisPoints, Qty = new Qty(l.QtyMilli),
+            Amount = new Paise(l.AmountPaise), Taxable = new Paise(l.TaxablePaise), Tax = new Paise(l.TaxPaise),
+        }).ToList(),
+    };
 }

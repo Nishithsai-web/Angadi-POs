@@ -148,6 +148,8 @@ internal sealed class ShopProfileRow
     public long UpdatedAtMs { get; set; }
     public string? UpiQrPayload { get; set; }
     public byte[]? UpiQrImage { get; set; }   // in the database, so it travels in backups
+    /// <summary>v2 returns: next return number ("R-000001"). Owned by NextReturnNumberAsync; 0 on migrated rows = 1.</summary>
+    public long NextReturnSequence { get; set; } = 1;
 }
 
 [Table("Meta")]
@@ -165,4 +167,60 @@ internal sealed class NoteRow
     public bool IsDone { get; set; }
     public long CreatedAtMs { get; set; }
     [Indexed] public long UpdatedAtMs { get; set; }
+}
+
+// ---- v2-payments (schema 4): split tender + returns
+
+[Table("BillPayment")]
+internal sealed class BillPaymentRow
+{
+    [PrimaryKey] public Guid Id { get; set; }
+    [Indexed] public Guid BillId { get; set; }
+    public int Position { get; set; }
+    public int Tender { get; set; }
+    public long AmountPaise { get; set; }
+    public long CashReceivedPaise { get; set; }
+    public string? UpiRef { get; set; }
+}
+
+[Table("BillReturn")]
+internal sealed class BillReturnRow
+{
+    [PrimaryKey] public Guid Id { get; set; }
+    [Indexed(Name = "UX_BillReturn_Number", Unique = true)] public string Number { get; set; } = "";
+    [Indexed] public Guid BillId { get; set; }
+    public string BillNumber { get; set; } = "";
+    public Guid? CustomerId { get; set; }
+    public long ReturnedAtMs { get; set; }
+    public int ReturnedOffsetMinutes { get; set; }
+    [Indexed] public int Day { get; set; }   // yyyymmdd local, the day of the return (reports net returns here)
+    public long LinesTotalPaise { get; set; }
+    public long RoundingPaise { get; set; }
+    public long RefundPaise { get; set; }
+    public int Method { get; set; }
+    public long DuesReducedPaise { get; set; }
+    public long RefundCashPaise { get; set; }
+    public long RefundUpiPaise { get; set; }
+    public string? UpiRef { get; set; }
+    public string? Reason { get; set; }
+    public bool IsTaxInvoice { get; set; }
+    public long CreatedAtMs { get; set; }
+}
+
+[Table("ReturnLine")]
+internal sealed class ReturnLineRow
+{
+    [PrimaryKey] public Guid Id { get; set; }
+    [Indexed] public Guid ReturnId { get; set; }
+    public int Position { get; set; }
+    [Indexed] public Guid BillLineId { get; set; }
+    public Guid ItemId { get; set; }
+    public string TeluguName { get; set; } = "";
+    public string EnglishName { get; set; } = "";
+    public int Unit { get; set; }
+    public int GstBasisPoints { get; set; }
+    public long QtyMilli { get; set; }
+    public long AmountPaise { get; set; }
+    public long TaxablePaise { get; set; }
+    public long TaxPaise { get; set; }
 }

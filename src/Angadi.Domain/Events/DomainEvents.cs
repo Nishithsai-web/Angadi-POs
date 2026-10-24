@@ -18,3 +18,7 @@ public sealed record ItemsSeeded(Guid AggregateId, DateTimeOffset OccurredAt, in
 /// <summary>Customer-aggregate dues move (ARCHITECT_CORRECTIONS data medium): v2 can rebuild a ledger from these.</summary>
 public sealed record NoteChanged(Guid AggregateId, DateTimeOffset OccurredAt, bool Deleted) : IDomainEvent;
 public sealed record DuesCharged(Guid AggregateId, DateTimeOffset OccurredAt, long AmountPaise, Guid BillId) : IDomainEvent;
+/// <summary>v2 returns: a return document against a finalized bill (Bill aggregate).</summary>
+public sealed record BillReturned(Guid AggregateId, DateTimeOffset OccurredAt, Guid ReturnId, string ReturnNumber, long RefundPaise) : IDomainEvent;
+/// <summary>v2 returns: a return reduced the customer's dues (Customer aggregate).</summary>
+public sealed record DuesReturnCredited(Guid AggregateId, DateTimeOffset OccurredAt, long AmountPaise, Guid BillId, Guid ReturnId) : IDomainEvent;
