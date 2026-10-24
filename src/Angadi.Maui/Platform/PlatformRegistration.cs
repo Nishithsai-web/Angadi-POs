@@ -22,6 +22,8 @@ public static class PlatformRegistration
         s.AddSingleton<IBarcodeScanner, CameraBarcodeScanner>();
         // Registered after AddAngadiInfrastructure, so it replaces the C2 stub (last registration wins).
         s.AddSingleton<ISubscriptionService, PlaySubscriptionService>();
+        // v2 printing: replaces Infrastructure's no-Bluetooth stub (last registration wins).
+        s.AddSingleton<Angadi.Application.Printing.IBluetoothPrinterTransport, AndroidBluetoothPrinterTransport>();
         return s;
     }
 }

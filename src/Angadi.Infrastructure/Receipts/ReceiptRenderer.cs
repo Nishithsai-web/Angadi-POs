@@ -2,6 +2,8 @@ using System.Collections;
 using System.Text;
 using Angadi.Application.Common;
 using Angadi.Application.Platform;
+using Angadi.Application.Printing;
+using Angadi.Infrastructure.Printing;
 using Angadi.Domain.Billing;
 using Angadi.Domain.Shop;
 using Microsoft.Extensions.Logging;
@@ -18,7 +20,7 @@ namespace Angadi.Infrastructure.Receipts;
 /// The page height comes from a measuring pass that runs the same code as the drawing pass with no canvas.
 /// Thread-safety: HarfBuzz shapers are not thread-safe, so a gate serialises all renders.
 /// </summary>
-public sealed class ReceiptRenderer : IReceiptRenderer, IDisposable
+public sealed class ReceiptRenderer : IReceiptRenderer, IReceiptRasterizer, IDisposable
 {
     /// <summary>80 mm in PDF points (72 per inch).</summary>
     internal const float PageWidth = 80f / 25.4f * 72f;
@@ -113,6 +115,93 @@ public sealed class ReceiptRenderer : IReceiptRenderer, IDisposable
             return Result.Failure<string>(ErrorCodes.ReceiptRenderFailed, ex.GetType().Name);
         }
     }
+
+    // ──────────────────────── thermal raster (v2) ────────────────────────
+
+    /// <summary>Rendered in horizontal strips so a very long bill never needs one huge bitmap (cheap phones).</summary>
+    private const int StripRows = 1024;
+
+    public Task<Result<byte[]>> RenderReceiptAsync(Bill bill, ShopProfile shop, PaperWidth paper, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(bill);
+        ArgumentNullException.ThrowIfNull(shop);
+        return RasterJobAsync(() => ReceiptLayout.Build(bill, shop, _text), paper, bill.Id.ToString("D"), ct);
+    }
+
+    public Task<Result<byte[]>> RenderTestPageAsync(string shopName, PaperWidth paper, CancellationToken ct = default) =>
+        RasterJobAsync(() => TestPageRows(shopName, paper), paper, "test-page", ct);
+
+    private async Task<Result<byte[]>> RasterJobAsync(Func<IReadOnlyList<ReceiptRow>> rows, PaperWidth paper, string what, CancellationToken ct)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        await _gate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            ct.ThrowIfCancellationRequested();
+            return await Task.Run(() =>
+            {
+                try
+                {
+                    var image = RenderMono(rows(), EscPos.DotsFor(paper));
+                    _log.LogInformation("Thermal raster rendered for {What} ({Dots}×{Rows} dots)", what, image.Width, image.Height);
+                    return Result.Success(EscPos.Job(image));
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _log.LogError(ex, "Thermal raster failed for {What}", what);
+                    return Result.Failure<byte[]>(ErrorCodes.ReceiptRenderFailed, ex.GetType().Name);
+                }
+            }, ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    /// <summary>
+    /// The PDF's rows, drawn by the PDF's own code onto a white bitmap <paramref name="dots"/> wide: the 80 mm page
+    /// (in points) is scaled to the printable width, so 58 mm and 80 mm prints keep the exact PDF layout.
+    /// Callers hold the gate.
+    /// </summary>
+    internal MonoBitmap RenderMono(IReadOnlyList<ReceiptRow> rows, int dots)
+    {
+        EnsureFaces();
+        var measure = new Pass(null);
+        foreach (var row in rows) DrawRow(measure, row);
+        var scale = dots / PageWidth;
+        var height = Math.Max(1, (int)Math.Ceiling((measure.Y + Margin) * scale));
+
+        var mono = new MonoBitmap(dots, height);
+        using var strip = new SKBitmap(new SKImageInfo(dots, Math.Min(StripRows, height), SKColorType.Rgba8888, SKAlphaType.Premul));
+        for (var top = 0; top < height; top += StripRows)
+        {
+            using (var canvas = new SKCanvas(strip))
+            {
+                canvas.Clear(SKColors.White);
+                canvas.Translate(0, -top);
+                canvas.Scale(scale);
+                var draw = new Pass(canvas);
+                foreach (var row in rows) DrawRow(draw, row);
+            }
+            Raster.Into(strip, mono, top, Math.Min(StripRows, height - top));
+        }
+        return mono;
+    }
+
+    /// <summary>Test page: the same row kinds as a bill, in the app language, plus a Telugu shaping sample.</summary>
+    private IReadOnlyList<ReceiptRow> TestPageRows(string shopName, PaperWidth paper) =>
+    [
+        new ReceiptRow(ReceiptRowKind.Title) { Text = string.IsNullOrWhiteSpace(shopName) ? _text["printer.test.app"] : shopName },
+        new ReceiptRow(ReceiptRowKind.Heading) { Text = _text["printer.test.heading"] },
+        new ReceiptRow(ReceiptRowKind.Text) { Text = _text.Format("printer.test.paper", (int)paper, EscPos.DotsFor(paper)) },
+        new ReceiptRow(ReceiptRowKind.Separator),
+        new ReceiptRow(ReceiptRowKind.Item) { Text = _text["printer.test.telugu"], Value = "₹1,234.50" },
+        new ReceiptRow(ReceiptRowKind.Field) { Text = _text["printer.test.field"], Value = "0123456789" },
+        new ReceiptRow(ReceiptRowKind.Separator),
+        new ReceiptRow(ReceiptRowKind.GrandTotal) { Text = _text["printer.test.total"], Value = "₹1,234" },
+        new ReceiptRow(ReceiptRowKind.Footer) { Text = _text["printer.test.ok"] },
+    ];
 
     // ───────────────────────────── rows ─────────────────────────────
 

@@ -134,6 +134,7 @@ internal sealed class DataSafety(AngadiDb db, IClock clock, ILogger<DataSafety> 
     private const long HeadroomBytes = 20L * 1024 * 1024;
     private long _lastChanges = -1;
     private string? _lastTarget;
+    private int _lastGeneration;
 
     public DataRecoveryReport? TakeRecoveryReport()
     {
@@ -156,7 +157,10 @@ internal sealed class DataSafety(AngadiDb db, IClock clock, ILogger<DataSafety> 
             var copied = await db.RunAsync(c =>
             {
                 var changes = c.ExecuteScalar<long>("SELECT total_changes()");
-                if (changes == _lastChanges && target == _lastTarget && File.Exists(target)) return false;
+                // v2 several shops: total_changes() restarts with each connection, so a shop switch (new
+                // Generation) never counts as "nothing changed".
+                if (changes == _lastChanges && target == _lastTarget && db.Generation == _lastGeneration && File.Exists(target)) return false;
+                _lastGeneration = db.Generation;
                 if (!HasRoom(db.DatabasePath, dir)) throw new StorageFullException("no room for a safety copy");
                 c.ExecuteScalar<int>("PRAGMA wal_checkpoint(TRUNCATE)");
                 File.Copy(db.DatabasePath, temp, overwrite: true);

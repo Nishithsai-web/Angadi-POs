@@ -24,6 +24,8 @@ public static class PagesRegistration
         Route<ShopSetupPage>(s, Routes.ShopSetup);
         Route<SubscriptionPage>(s, Routes.Subscription);
         Route<NotesPage>(s, Routes.Notes);
+        Route<PrinterSettingsPage>(s, Routes.Printer);
+        Route<ShopsPage>(s, Routes.Shops);
         return s;
     }
 

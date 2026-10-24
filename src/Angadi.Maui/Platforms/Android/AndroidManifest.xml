@@ -12,11 +12,19 @@
   <uses-permission android:name="android.permission.CAMERA" />
   <uses-permission android:name="android.permission.VIBRATE" />
   <uses-permission android:name="com.android.vending.BILLING" />
+  <!-- v2 receipt printing: classic Bluetooth to an ALREADY PAIRED printer only — no discovery, so no BLUETOOTH_SCAN
+       and no location. Android 12+: BLUETOOTH_CONNECT (runtime, asked only when the owner sets up the printer).
+       Android 9-11: the legacy install-time pair, capped at API 30. -->
+  <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+  <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+  <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
 
   <!-- Scanning is optional: manual barcode entry (FR-09) works on camera-less tablets. -->
   <uses-feature android:name="android.hardware.camera" android:required="false" />
   <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
   <uses-feature android:name="android.hardware.microphone" android:required="false" />
+  <!-- Printing is optional: phones without Bluetooth still install and bill (receipts go on WhatsApp). -->
+  <uses-feature android:name="android.hardware.bluetooth" android:required="false" />
 
   <!-- Android 11+ package visibility: what Angadi must be able to see or launch. -->
   <queries>

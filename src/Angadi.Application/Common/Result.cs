@@ -109,5 +109,18 @@ public static class ErrorCodes
     public const string StorageFull = "STORAGE_FULL";
     /// <summary>The database lock was not released in time (something else is still saving).</summary>
     public const string DatabaseBusy = "DATABASE_BUSY";
+    // v2-print-shops: Bluetooth receipt printer.
+    public const string PrinterNotSet = "PRINTER_NOT_SET";
+    public const string PrinterNoBluetooth = "PRINTER_NO_BLUETOOTH";
+    public const string PrinterBluetoothOff = "PRINTER_BLUETOOTH_OFF";
+    public const string PrinterPermissionDenied = "PRINTER_PERMISSION_DENIED";
+    public const string PrinterNonePaired = "PRINTER_NONE_PAIRED";
+    public const string PrinterConnectFailed = "PRINTER_CONNECT_FAILED";
+    public const string PrinterSendFailed = "PRINTER_SEND_FAILED";
+    public const string PrinterTimeout = "PRINTER_TIMEOUT";
+    // v2-print-shops: several shops on one phone.
+    public const string ShopNeedsPro = "SHOP_NEEDS_PRO";
+    public const string ShopNotFound = "SHOP_NOT_FOUND";
+    public const string ShopSwitchFailed = "SHOP_SWITCH_FAILED";
     public const string Unexpected = "UNEXPECTED";
 }

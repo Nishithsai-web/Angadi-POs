@@ -124,6 +124,23 @@ public static class DependencyInjection
         services.AddTransient<IRequestHandler<GetDuesOutstandingQuery, DuesOutstanding>>(sp => sp.GetRequiredService<ReportHandlers>());
         services.AddTransient<IRequestHandler<ListBillsQuery, IReadOnlyList<BillSummary>>>(sp => sp.GetRequiredService<ReportHandlers>());
 
+        // v2-print-shops: Bluetooth receipt printing
+        services.AddOptions<Printing.PrintingOptions>();
+        services.AddTransient<Printing.PrinterSettingsHandlers>();
+        services.AddTransient<IRequestHandler<Printing.GetPrinterSettingsQuery, Printing.PrinterSettings>>(sp => sp.GetRequiredService<Printing.PrinterSettingsHandlers>());
+        services.AddTransient<IRequestHandler<Printing.SavePrinterSettingsCommand, Result>>(sp => sp.GetRequiredService<Printing.PrinterSettingsHandlers>());
+        services.AddTransient<IRequestHandler<Printing.ListPairedPrintersQuery, Result<IReadOnlyList<Printing.PairedPrinter>>>>(sp => sp.GetRequiredService<Printing.PrinterSettingsHandlers>());
+        services.AddTransient<Printing.PrintHandlers>();
+        services.AddTransient<IRequestHandler<Printing.PrintReceiptCommand, Result>>(sp => sp.GetRequiredService<Printing.PrintHandlers>());
+        services.AddTransient<IRequestHandler<Printing.PrintTestPageCommand, Result>>(sp => sp.GetRequiredService<Printing.PrintHandlers>());
+
+        // v2-print-shops: several shops on one phone
+        services.AddTransient<Shops.ShopDirectoryHandlers>();
+        services.AddTransient<IRequestHandler<Shops.ListShopsQuery, Shops.ShopList>>(sp => sp.GetRequiredService<Shops.ShopDirectoryHandlers>());
+        services.AddTransient<IRequestHandler<Shops.AddShopCommand, Result<Shops.ShopEntry>>>(sp => sp.GetRequiredService<Shops.ShopDirectoryHandlers>());
+        services.AddTransient<IRequestHandler<Shops.SwitchShopCommand, Result>>(sp => sp.GetRequiredService<Shops.ShopDirectoryHandlers>());
+        services.AddTransient<IRequestHandler<Shops.RenameShopCommand, Result>>(sp => sp.GetRequiredService<Shops.ShopDirectoryHandlers>());
+
         return services;
     }
 }

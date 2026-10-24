@@ -198,5 +198,49 @@
   "DATABASE_BUSY": {
     "te": "యాప్ ఇంకో పని చేస్తోంది. కొన్ని సెకన్లు ఆగి మళ్ళీ ప్రయత్నించండి",
     "en": "The app is busy saving. Wait a few seconds and try again"
+  },
+  "PRINTER_NOT_SET": {
+    "te": "ప్రింటర్ ఎంచుకోలేదు. సెట్టింగ్స్ → రసీదు ప్రింటర్‌లో మీ ప్రింటర్ ఎంచుకోండి",
+    "en": "No printer chosen. Pick your printer in Settings → Receipt printer"
+  },
+  "PRINTER_NO_BLUETOOTH": {
+    "te": "ఈ ఫోన్‌లో బ్లూటూత్ లేదు. రసీదును WhatsApp‌లో పంపండి",
+    "en": "This phone has no Bluetooth. Send the receipt on WhatsApp instead"
+  },
+  "PRINTER_BLUETOOTH_OFF": {
+    "te": "బ్లూటూత్ ఆఫ్‌లో ఉంది. బ్లూటూత్ ఆన్ చేసి మళ్ళీ ప్రయత్నించండి",
+    "en": "Bluetooth is off. Turn Bluetooth on and try again"
+  },
+  "PRINTER_PERMISSION_DENIED": {
+    "te": "ప్రింటర్‌కు కనెక్ట్ అవ్వడానికి అనుమతి లేదు. ఫోన్ సెట్టింగ్స్ → యాప్‌లు → అంగడి → అనుమతులలో 'సమీప పరికరాలు' ఆన్ చేయండి",
+    "en": "No permission to connect to the printer. Allow 'Nearby devices' in phone Settings → Apps → Angadi → Permissions"
+  },
+  "PRINTER_NONE_PAIRED": {
+    "te": "జత చేసిన ప్రింటర్ లేదు. ముందు ఫోన్ బ్లూటూత్ సెట్టింగ్స్‌లో ప్రింటర్‌ను జత చేయండి (PIN సాధారణంగా 0000 లేదా 1234)",
+    "en": "No paired printer. First pair the printer in the phone's Bluetooth settings (PIN is usually 0000 or 1234)"
+  },
+  "PRINTER_CONNECT_FAILED": {
+    "te": "ప్రింటర్‌కు కనెక్ట్ కాలేదు. ప్రింటర్ ఆన్‌లో ఉందా, దగ్గరగా ఉందా చూడండి. బిల్లు సేవ్ అయింది",
+    "en": "Could not connect to the printer. Check it is on and nearby. The bill is saved"
+  },
+  "PRINTER_SEND_FAILED": {
+    "te": "ప్రింట్ మధ్యలో ఆగిపోయింది. పేపర్ ఉందా చూసి మళ్ళీ ప్రింట్ నొక్కండి. బిల్లు సేవ్ అయింది",
+    "en": "Printing stopped midway. Check the paper and tap Print again. The bill is saved"
+  },
+  "PRINTER_TIMEOUT": {
+    "te": "ప్రింటర్ స్పందించలేదు. ప్రింటర్ ఆన్ చేసి మళ్ళీ ప్రయత్నించండి. బిల్లు సేవ్ అయింది",
+    "en": "The printer did not answer. Switch it on and try again. The bill is saved"
+  },
+  "SHOP_NEEDS_PRO": {
+    "te": "ఉచిత ప్లాన్‌లో ఒక్క షాపే. ఇంకో షాపు కోసం ప్రో తీసుకోండి — ఒక్క సబ్‌స్క్రిప్షన్ ఈ ఫోన్‌లోని అన్ని షాపులకు",
+    "en": "The free plan has one shop. Get Pro to add another — one subscription covers every shop on this phone"
+  },
+  "SHOP_NOT_FOUND": {
+    "te": "ఆ షాపు కనబడలేదు",
+    "en": "That shop was not found"
+  },
+  "SHOP_SWITCH_FAILED": {
+    "te": "ఆ షాపు తెరవలేకపోయాం. ఇప్పటి షాపే తెరిచి ఉంది — మీ డేటా సురక్షితం",
+    "en": "Could not open that shop. The current shop is still open — your data is safe"
   }
 }

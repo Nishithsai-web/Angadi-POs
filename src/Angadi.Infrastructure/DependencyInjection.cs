@@ -1,6 +1,10 @@
 using Angadi.Application.Persistence;
 using Angadi.Application.Platform;
+using Angadi.Application.Printing;
+using Angadi.Application.Shops;
 using Angadi.Infrastructure.Billing;
+using Angadi.Infrastructure.Printing;
+using Angadi.Infrastructure.Shops;
 using Angadi.Infrastructure.Logging;
 using Angadi.Infrastructure.Persistence;
 using Angadi.Infrastructure.Receipts;
@@ -26,7 +30,15 @@ public static class DependencyInjection
     {
         services.AddSingleton(options);
         services.AddSingleton<IClock, SystemClock>();
-        services.AddSingleton(_ => new AngadiDb(Path.Combine(options.DataDirectory, "angadi.db"), Path.Combine(options.DataDirectory, "snapshots")));
+        // v2 several shops: the database opened at start is the current shop's (the first shop keeps files/angadi.db).
+        services.AddSingleton(_ => new ShopRegistry(options.DataDirectory));
+        services.AddSingleton(sp =>
+        {
+            var shops = sp.GetRequiredService<ShopRegistry>();
+            var current = shops.CurrentId;
+            return new AngadiDb(shops.DatabasePath(current), shops.SnapshotDirectory(current));
+        });
+        services.AddSingleton<IShopDirectory, ShopDirectory>();
         services.AddSingleton<IUnitOfWork>(sp => sp.GetRequiredService<AngadiDb>());
         services.AddSingleton<IDataSafety, DataSafety>();
         services.AddSingleton<IBillDraftStore, BillDraftStore>();
@@ -51,9 +63,15 @@ public static class DependencyInjection
         // the gate itself lives in the MAUI head). Logged in docs/AGENT_FIX_LOG.md.
         services.AddSingleton<IPinService, PinService>();
 
-        services.AddSingleton<IReceiptRenderer>(sp => new ReceiptRenderer(
+        services.AddSingleton(sp => new ReceiptRenderer(
             options.ReceiptFonts, Path.Combine(options.CacheDirectory, "receipts"),
             sp.GetRequiredService<ILocalizer>(), sp.GetRequiredService<ILogger<ReceiptRenderer>>()));
+        services.AddSingleton<IReceiptRenderer>(sp => sp.GetRequiredService<ReceiptRenderer>());
+        // v2 printing: the thermal raster comes from the SAME renderer (layout, fonts, HarfBuzz shaping) as the PDF.
+        services.AddSingleton<IReceiptRasterizer>(sp => sp.GetRequiredService<ReceiptRenderer>());
+        services.AddSingleton<IPrinterSettingsStore>(_ => new PrinterSettingsStore(Path.Combine(options.DataDirectory, "printer.json")));
+        // No Bluetooth outside the Android head; the platform layer replaces this (last registration wins).
+        services.AddSingleton<IBluetoothPrinterTransport, NoBluetoothPrinterTransport>();
 
         // C2: never-Pro stub until the Play Billing adapter lands; the platform layer may replace it.
         services.AddSingleton<ISubscriptionService, StubSubscriptionService>();
