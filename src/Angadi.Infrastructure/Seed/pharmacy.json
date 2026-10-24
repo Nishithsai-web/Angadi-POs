@@ -9,7 +9,10 @@
     "dolo",
     "dolo 650",
     "paracetamol",
-    "జ్వరం మాత్రలు"
+    "జ్వరం మాత్రలు",
+    "డోలో 650",
+    "dolo650",
+    "పారాసిటమాల్ 650"
    ],
    "category": "మాత్రలు",
    "unit": "Strip",
@@ -25,7 +28,9 @@
    "aliases": [
     "క్రోసిన్",
     "crocin",
-    "paracetamol 500"
+    "paracetamol 500",
+    "crocin 500",
+    "పారాసిటమాల్ 500"
    ],
    "category": "మాత్రలు",
    "unit": "Strip",
@@ -41,7 +46,12 @@
    "aliases": [
     "cetirizine",
     "సెట్జిన్",
-    "అలర్జీ మాత్ర"
+    "అలర్జీ మాత్ర",
+    "సిట్రిజిన్",
+    "సెటిరిజైన్",
+    "okacet",
+    "ఒకాసెట్",
+    "cetzine"
    ],
    "category": "మాత్రలు",
    "unit": "Strip",
@@ -57,7 +67,9 @@
    "aliases": [
     "azithromycin",
     "అజిత్రాల్",
-    "azithral"
+    "azithral",
+    "azee",
+    "అజిత్రోమైసిన్"
    ],
    "category": "మాత్రలు",
    "unit": "Strip",
@@ -90,7 +102,9 @@
     "pantoprazole",
     "ప్యాన్ 40",
     "pan 40",
-    "గ్యాస్ మాత్ర"
+    "గ్యాస్ మాత్ర",
+    "pantop",
+    "పాంటాప్"
    ],
    "category": "మాత్రలు",
    "unit": "Strip",
@@ -123,7 +137,8 @@
     "ibuprofen",
     "బ్రూఫెన్",
     "brufen",
-    "నొప్పి మాత్ర"
+    "నొప్పి మాత్ర",
+    "ఐబుప్రొఫెన్"
    ],
    "category": "మాత్రలు",
    "unit": "Strip",
@@ -155,7 +170,9 @@
    "aliases": [
     "metformin",
     "షుగర్ మాత్ర",
-    "గ్లైసిఫేజ్"
+    "గ్లైసిఫేజ్",
+    "glycomet",
+    "గ్లైకోమెట్"
    ],
    "category": "మాత్రలు",
    "unit": "Strip",
@@ -171,7 +188,9 @@
    "aliases": [
     "amlodipine",
     "బీపీ మాత్ర",
-    "bp tablet"
+    "bp tablet",
+    "amlong",
+    "ఆమ్లాంగ్"
    ],
    "category": "మాత్రలు",
    "unit": "Strip",
@@ -202,7 +221,9 @@
    "en": "Atorvastatin 10 mg",
    "aliases": [
     "atorvastatin",
-    "కొలెస్ట్రాల్ మాత్ర"
+    "కొలెస్ట్రాల్ మాత్ర",
+    "atorva",
+    "అటోర్వా"
    ],
    "category": "మాత్రలు",
    "unit": "Strip",
@@ -219,7 +240,8 @@
     "ors",
     "ఓ ఆర్ ఎస్",
     "ఎలక్ట్రాల్",
-    "electral"
+    "electral",
+    "ఓఆర్ఎస్ పౌడర్"
    ],
    "category": "సాషేలు",
    "unit": "Piece",
@@ -252,7 +274,10 @@
     "డైజీన్",
     "digene",
     "antacid",
-    "గ్యాస్ సిరప్"
+    "గ్యాస్ సిరప్",
+    "డైజిన్",
+    "జెలుసిల్",
+    "gelusil"
    ],
    "category": "సిరప్‌లు",
    "unit": "Piece",
@@ -284,7 +309,8 @@
    "aliases": [
     "b complex",
     "బీకాంప్లెక్స్",
-    "becosules"
+    "becosules",
+    "బీకోజ్యూల్స్"
    ],
    "category": "విటమిన్లు",
    "unit": "Strip",
@@ -300,7 +326,8 @@
    "aliases": [
     "calcium",
     "కాల్షియం మాత్రలు",
-    "shelcal"
+    "shelcal",
+    "షెల్కాల్"
    ],
    "category": "విటమిన్లు",
    "unit": "Strip",
@@ -333,7 +360,9 @@
     "ఆయింట్‌మెంట్",
     "pain balm",
     "బామ్",
-    "balm"
+    "balm",
+    "మూవ్",
+    "moov"
    ],
    "category": "క్రీములు",
    "unit": "Piece",
@@ -349,7 +378,10 @@
    "aliases": [
     "డెట్టాల్",
     "dettol",
-    "antiseptic"
+    "antiseptic",
+    "డెటాల్",
+    "savlon",
+    "సావ్లాన్"
    ],
    "category": "ప్రథమ చికిత్స",
    "unit": "Piece",
@@ -365,7 +397,8 @@
    "aliases": [
     "band aid",
     "బ్యాండేజ్ స్ట్రిప్స్",
-    "plaster"
+    "plaster",
+    "ప్లాస్టర్"
    ],
    "category": "ప్రథమ చికిత్స",
    "unit": "Pack",
@@ -381,7 +414,9 @@
    "aliases": [
     "కాటన్",
     "cotton",
-    "duudi"
+    "duudi",
+    "కాటన్ రోల్",
+    "cotton roll"
    ],
    "category": "ప్రథమ చికిత్స",
    "unit": "Piece",
@@ -460,7 +495,9 @@
     "నాప్కిన్స్",
     "pads",
     "sanitary napkins",
-    "విస్పర్"
+    "విస్పర్",
+    "whisper",
+    "stayfree"
    ],
    "category": "స్త్రీ సంరక్షణ",
    "unit": "Pack",
@@ -476,7 +513,8 @@
    "aliases": [
     "డైపర్",
     "diapers",
-    "pampers"
+    "pampers",
+    "పాంపర్స్"
    ],
    "category": "శిశు సంరక్షణ",
    "unit": "Pack",
@@ -539,7 +577,9 @@
    "aliases": [
     "glucose",
     "గ్లూకోజ్ పొడి",
-    "glucon d"
+    "glucon d",
+    "గ్లూకాన్ డి",
+    "glucon-d"
    ],
    "category": "సాషేలు",
    "unit": "Piece",
@@ -603,7 +643,8 @@
    "aliases": [
     "multivitamin",
     "మల్టీ విటమిన్",
-    "zincovit"
+    "zincovit",
+    "జింకోవిట్"
    ],
    "category": "విటమిన్లు",
    "unit": "Strip",
@@ -620,7 +661,8 @@
     "జలుబు మాత్ర",
     "cold tablet",
     "sinarest",
-    "సైనారెస్ట్"
+    "సైనారెస్ట్",
+    "సైనరెస్ట్"
    ],
    "category": "మాత్రలు",
    "unit": "Strip",

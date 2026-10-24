@@ -41,14 +41,37 @@ public sealed class ItemMatcher(IItemRepository items, IOptions<VoiceOptions> op
         // offer the 650 mg strip first. Logged in docs/AGENT_FIX_LOG.md.
         var rotated = (RotateLeadingDigits(line.Name) ?? LeadingDosageAsName(line)) is { } r ? TeluguText.MatchKey(r) : null;
 
+        // FIX(VD-5, 2026-10-22, dialects): Flaw: a strength spoken as a bare number became the
+        // QUANTITY — "pan 40" proposed 40 strips, and "650 పారాసెటమాల్" tied 500 mg with 650 mg and
+        // picked 500 mg alphabetically (T2_BareDosage_AsksWithParacetamolBest was red on the base
+        // branch). Fix: when the line has a whole, unit-less count, also score name+count ("pan40",
+        // "పారాసెటమాల్650"); if THAT is an exact item name/alias, the number was the strength: the
+        // line keeps no quantity (1 of the item) and always asks. Why: 40 strips of the wrong
+        // tablet is a money and a dispensing error. Logged in docs/AGENT_FIX_LOG.md.
+        var dosage = line is { Unit: null, Amount: null, Qty: { Milli: > 0 } q } && q.Milli % 1000 == 0
+            ? TeluguText.MatchKey(line.Name + (q.Milli / 1000).ToString(System.Globalization.CultureInfo.InvariantCulture))
+            : null;
+        var dosageExact = new HashSet<Guid>();
+
         // PERF: scores every active item per phrase — fine to ~2k items; add a first-letter prefilter beyond that.
         var ranked = active
             .Select(item =>
             {
                 var a = ScoreItemDetailed(query, item, genericKeys);
-                if (rotated is null) return (item, score: a.Score, learned: a.Learned);
-                var b = ScoreItemDetailed(rotated, item, genericKeys);
-                return b.Score > a.Score ? (item, score: b.Score, learned: b.Learned) : (item, score: a.Score, learned: a.Learned);
+                var plainExact = a.Score >= 1.0;
+                if (rotated is not null)
+                {
+                    var b = ScoreItemDetailed(rotated, item, genericKeys);
+                    if (b.Score > a.Score) a = b;
+                }
+                // VD-5 composes with VOICE-10: the rotation may already have found the strength; the
+                // count is still dropped whenever the NAME alone was not an exact hit.
+                if (dosage is not null && !plainExact)
+                {
+                    var d = ScoreItemDetailed(dosage, item, genericKeys);
+                    if (d.Score >= 1.0) { a = d; dosageExact.Add(item.Id); }
+                }
+                return (item, score: a.Score, learned: a.Learned);
             })
             .Where(x => x.score >= MinCandidateScore)
             .OrderByDescending(x => x.score)
@@ -68,6 +91,13 @@ public sealed class ItemMatcher(IItemRepository items, IOptions<VoiceOptions> op
             kind = MatchKind.Confirm;
         if (kind == MatchKind.AutoAdd && line.IsAmbiguous)
             kind = MatchKind.Confirm;   // H6: the item is right, the quantity is uncertain — ask
+
+        if (dosageExact.Contains(ranked[0].ItemId))
+        {
+            // VD-5: the spoken number was the strength, not a count.
+            line = line with { Qty = null, IsAmbiguous = true };
+            if (kind == MatchKind.AutoAdd) kind = MatchKind.Confirm;
+        }
 
         return new MatchResult(line, kind, ranked);
     }

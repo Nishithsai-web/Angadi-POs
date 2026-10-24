@@ -5,6 +5,11 @@ Every meaningful change: date, what, the issue it addresses, and the one-line wh
 - **Fixed: paying again for an edited bill no longer reports the old bill as paid.** If a bill already saved and the shopkeeper added an item and paid again, the app now says which bill saved and for how much, and opens a new empty bill for the extra items. Why: "paid" must always mean the total on screen (T1-01).
 - **Day-end shows refunds:** cash/UPI handed back today for bills sold on an earlier day. Why: the drawer count must match the report (S1-F1).
 - **Fixed: a save that failed (phone storage full) no longer uses up a free bill** (S1-F2).
+## 2026-10-22 (Claude Code, voice "dialects") — regional Telugu
+- **Voice billing understands how Telangana, Hyderabad, Coastal Andhra, Rayalaseema and Uttarandhra customers actually speak:** Hyderabadi counting (ఏక్, దో, ఆధా, డేఢ్, ఢాయ్, సవా, పౌనా, పావ్ కిలో), English numbers inside Telugu (వన్, టూ, హాఫ్), Latin speech-to-text ("rendu kilo biyyam"), clipped and regional number forms (రెండ్, నాల్గు, రొండు, నూట యాభై, కిలోన్నర), containers (కవర్, కట్ట, పొట్లం, ఉండ, బస్తా), and ~200 regional item names (ఎర్రగడ్డలు, తెల్లగడ్డ, ఉర్లగడ్డలు, కందిబేడలు, టెంకాయ, chawal, shakkar, okacet…). Why: a word the app doesn't know is a typed search at a busy counter.
+- **Generic words and symptoms always ask** (ఆయిల్/tel, దాల్, సోప్/sabun, రవ్వ, మిర్చి, మసాలా, జ్వరం మాత్రలు, బీపీ మాత్ర, paracetamol…). Why: a shelf name is not a product; a symptom is not a medicine.
+- **Fixed four voice money errors:** "రెండు కేజీలు వెయ్యి" (put it) billed 2,000 kg; "బియ్యం వెయ్యి" billed 1,000 kg; "pan 40" proposed 40 strips; "650 పారాసెటమాల్" proposed 500 mg (VD-2, VD-4, VD-5). Plus "కిలోన్నర" now bills 1½ kg (VD-1).
+- **New 212-phrase regional battery** gates CI: ≥ 95 % right, zero wrong auto-adds.
 
 ## 2026-10-21 (Claude Code, S1 money lane)
 - **GST receipts landed:** composition shops print a Bill of Supply, regular shops show CGST/SGST, paid UPI receipts no longer say "scan to pay", the customer's name/address print on the receipt, voiding a filed month's bill needs confirmation, bill prefixes are validated, a failed save can be retried, quantities are capped. Why: these are legal receipt requirements and money-integrity fixes (F1, A2-01/02/05/14/15/16, A1-01/06/08, T2-01..04).

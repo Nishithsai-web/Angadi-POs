@@ -9,7 +9,11 @@
     "rice",
     "రైస్",
     "సోనా మసూరి",
-    "సోనామసూరి"
+    "సోనామసూరి",
+    "chawal",
+    "చావల్",
+    "sona masoori",
+    "biyyamu"
    ],
    "category": "ధాన్యాలు",
    "unit": "Kilogram",
@@ -27,7 +31,12 @@
     "ఆటా",
     "వీట్ ఫ్లోర్",
     "గోధుమపిండి",
-    "godhuma pindi"
+    "godhuma pindi",
+    "చపాతీ పిండి",
+    "chapati pindi",
+    "gehu atta",
+    "గేహూ ఆటా",
+    "atta pindi"
    ],
    "category": "పిండ్లు",
    "unit": "Kilogram",
@@ -42,7 +51,8 @@
    "en": "Maida",
    "aliases": [
     "maida",
-    "మైదా పిండి"
+    "మైదా పిండి",
+    "maida pindi"
    ],
    "category": "పిండ్లు",
    "unit": "Kilogram",
@@ -60,7 +70,12 @@
     "ఉప్మా రవ్వ",
     "sooji",
     "rava",
-    "suji"
+    "suji",
+    "సూజీ",
+    "సూజి",
+    "బొంబాయ్ రవ్వ",
+    "upma rava",
+    "bombay rava"
    ],
    "category": "పిండ్లు",
    "unit": "Kilogram",
@@ -78,7 +93,14 @@
     "తూర్ దాల్",
     "toor dal",
     "kandi pappu",
-    "తూర్ దాల్"
+    "తూర్ దాల్",
+    "kandipappu",
+    "toor",
+    "tur dal",
+    "arhar dal",
+    "అర్హర్ దాల్",
+    "తువర్ దాల్",
+    "కందిబేడలు"
    ],
    "category": "పప్పులు",
    "unit": "Kilogram",
@@ -94,7 +116,11 @@
    "aliases": [
     "పెసరపప్పు",
     "moong dal",
-    "pesara pappu"
+    "pesara pappu",
+    "pesarapappu",
+    "మూంగ్ దాల్",
+    "moong",
+    "పెసరబేడలు"
    ],
    "category": "పప్పులు",
    "unit": "Kilogram",
@@ -111,7 +137,11 @@
     "మినపప్పు",
     "మినప గుళ్ళు",
     "urad dal",
-    "minapa pappu"
+    "minapa pappu",
+    "minappappu",
+    "మినుముల పప్పు",
+    "ఉరద్ దాల్",
+    "urad"
    ],
    "category": "పప్పులు",
    "unit": "Kilogram",
@@ -127,7 +157,12 @@
    "aliases": [
     "శనగపప్పు",
     "chana dal",
-    "senaga pappu"
+    "senaga pappu",
+    "సెనగపప్పు",
+    "సెనగ పప్పు",
+    "శెనగపప్పు",
+    "చనా దాల్",
+    "senagapappu"
    ],
    "category": "పప్పులు",
    "unit": "Kilogram",
@@ -143,7 +178,9 @@
    "aliases": [
     "పుట్నాలు",
     "putnalu",
-    "roasted gram"
+    "roasted gram",
+    "putnala pappu",
+    "పుట్నాలపప్పు"
    ],
    "category": "పప్పులు",
    "unit": "Kilogram",
@@ -161,7 +198,12 @@
     "sugar",
     "chakkera",
     "panchadara",
-    "షుగర్"
+    "షుగర్",
+    "shakkar",
+    "షక్కర్",
+    "చీనీ",
+    "cheeni",
+    "chini"
    ],
    "category": "ధాన్యాలు",
    "unit": "Kilogram",
@@ -176,7 +218,9 @@
    "en": "Jaggery",
    "aliases": [
     "bellam",
-    "jaggery"
+    "jaggery",
+    "gud",
+    "gur"
    ],
    "category": "ధాన్యాలు",
    "unit": "Kilogram",
@@ -193,7 +237,9 @@
     "salt",
     "uppu",
     "సాల్ట్",
-    "ఉప్పు ప్యాకెట్"
+    "ఉప్పు ప్యాకెట్",
+    "namak",
+    "నమక్"
    ],
    "category": "ధాన్యాలు",
    "unit": "Pack",
@@ -210,7 +256,15 @@
     "పల్లీ నూనె",
     "వేరుశనగ నూనె",
     "groundnut oil",
-    "palli nune"
+    "palli nune",
+    "పల్లినూనె",
+    "వేరుశెనగ నూనె",
+    "వేరుసెనగ నూనె",
+    "పల్లి ఆయిల్",
+    "పల్లీ ఆయిల్",
+    "palli oil",
+    "peanut oil",
+    "verusenaga nune"
    ],
    "category": "నూనెలు",
    "unit": "Litre",
@@ -227,7 +281,11 @@
     "సన్‌ఫ్లవర్ ఆయిల్",
     "sunflower oil",
     "సన్‌ఫ్లవర్",
-    "రిఫైండ్ ఆయిల్"
+    "రిఫైండ్ ఆయిల్",
+    "sunflower",
+    "సన్ ఫ్లవర్ ఆయిల్",
+    "sunflower nune",
+    "తేల్"
    ],
    "category": "నూనెలు",
    "unit": "Litre",
@@ -257,7 +315,8 @@
    "en": "Ghee (500 ml)",
    "aliases": [
     "neyyi",
-    "ghee"
+    "ghee",
+    "ఘీ"
    ],
    "category": "పాల ఉత్పత్తులు",
    "unit": "Piece",
@@ -274,7 +333,11 @@
     "పాల ప్యాకెట్",
     "milk",
     "paalu",
-    "మిల్క్"
+    "మిల్క్",
+    "పాల",
+    "doodh",
+    "దూద్",
+    "palu"
    ],
    "category": "పాల ఉత్పత్తులు",
    "unit": "Pack",
@@ -291,7 +354,9 @@
     "perugu",
     "curd",
     "కర్డ్",
-    "పెరుగు ప్యాకెట్"
+    "పెరుగు ప్యాకెట్",
+    "dahi",
+    "దహీ"
    ],
    "category": "పాల ఉత్పత్తులు",
    "unit": "Pack",
@@ -306,7 +371,8 @@
    "en": "Butter (100 g)",
    "aliases": [
     "butter",
-    "venna"
+    "venna",
+    "బటర్"
    ],
    "category": "పాల ఉత్పత్తులు",
    "unit": "Piece",
@@ -339,7 +405,11 @@
     "గుడ్డు",
     "ఎగ్స్",
     "eggs",
-    "egg"
+    "egg",
+    "అండే",
+    "అండా",
+    "anda",
+    "ande"
    ],
    "category": "పాల ఉత్పత్తులు",
    "unit": "Piece",
@@ -356,7 +426,11 @@
     "చాయ్ పొడి",
     "టీపొడి",
     "tea",
-    "tea powder"
+    "tea powder",
+    "చాయ్ పత్తీ",
+    "chai patti",
+    "tea patti",
+    "టీ పత్తీ"
    ],
    "category": "పానీయాలు",
    "unit": "Pack",
@@ -391,7 +465,13 @@
     "onion",
     "onions",
     "ullipayalu",
-    "ఆనియన్"
+    "ఆనియన్",
+    "ఎర్రగడ్డలు",
+    "ఎర్రగడ్డ",
+    "ప్యాజ్",
+    "pyaz",
+    "pyaaz",
+    "ullipaya"
    ],
    "category": "కూరగాయలు",
    "unit": "Kilogram",
@@ -409,7 +489,11 @@
     "టమాట",
     "tomato",
     "tomatoes",
-    "టొమాటో"
+    "టొమాటో",
+    "టమోటా",
+    "టమాటర్",
+    "tamatar",
+    "tamata"
    ],
    "category": "కూరగాయలు",
    "unit": "Kilogram",
@@ -428,7 +512,11 @@
     "బంగాళదుంప",
     "potato",
     "potatoes",
-    "aloo"
+    "aloo",
+    "ఉర్లగడ్డలు",
+    "ఆలూ",
+    "aloogadda",
+    "alugadda"
    ],
    "category": "కూరగాయలు",
    "unit": "Kilogram",
@@ -445,7 +533,10 @@
     "మిర్చి",
     "పచ్చి మిరపకాయలు",
     "green chilli",
-    "mirchi"
+    "mirchi",
+    "హరీ మిర్చ్",
+    "hari mirch",
+    "pachi mirchi"
    ],
    "category": "కూరగాయలు",
    "unit": "Kilogram",
@@ -460,7 +551,9 @@
    "en": "Ginger",
    "aliases": [
     "allam",
-    "ginger"
+    "ginger",
+    "అద్రక్",
+    "adrak"
    ],
    "category": "కూరగాయలు",
    "unit": "Kilogram",
@@ -477,7 +570,13 @@
     "ఎల్లిపాయ",
     "వెల్లుల్లిపాయలు",
     "garlic",
-    "vellulli"
+    "vellulli",
+    "తెల్లగడ్డలు",
+    "తెల్లగడ్డ",
+    "ఎల్లిగడ్డలు",
+    "lehsun",
+    "lahsun",
+    "లెహసున్"
    ],
    "category": "కూరగాయలు",
    "unit": "Kilogram",
@@ -494,7 +593,10 @@
     "నిమ్మకాయ",
     "lemon",
     "lemons",
-    "nimmakaya"
+    "nimmakaya",
+    "నింబు",
+    "nimbu",
+    "లెమన్"
    ],
    "category": "కూరగాయలు",
    "unit": "Piece",
@@ -509,7 +611,11 @@
    "en": "Curry leaves",
    "aliases": [
     "karivepaku",
-    "curry leaves"
+    "curry leaves",
+    "కరేపాకు",
+    "కర్వేపాకు",
+    "kadi patta",
+    "karepaku"
    ],
    "category": "కూరగాయలు",
    "unit": "Pack",
@@ -524,7 +630,12 @@
    "en": "Coriander leaves",
    "aliases": [
     "kothimeera",
-    "coriander"
+    "coriander",
+    "కొత్మీర",
+    "కోత్మీర్",
+    "kothmir",
+    "kothmeer",
+    "హరా ధనియా"
    ],
    "category": "కూరగాయలు",
    "unit": "Pack",
@@ -541,7 +652,13 @@
     "కారం పొడి",
     "మిరప్పొడి",
     "chilli powder",
-    "karam"
+    "karam",
+    "mirchi powder",
+    "మిర్చి పొడి",
+    "లాల్ మిర్చ్",
+    "lal mirch",
+    "red chilli powder",
+    "karam podi"
    ],
    "category": "మసాలాలు",
    "unit": "Kilogram",
@@ -557,7 +674,10 @@
    "aliases": [
     "పసుపు పొడి",
     "turmeric",
-    "pasupu"
+    "pasupu",
+    "haldi",
+    "హల్దీ",
+    "pasupu podi"
    ],
    "category": "మసాలాలు",
    "unit": "Kilogram",
@@ -605,7 +725,9 @@
    "en": "Mustard seeds",
    "aliases": [
     "avalu",
-    "mustard"
+    "mustard",
+    "rai",
+    "రాయ్"
    ],
    "category": "మసాలాలు",
    "unit": "Kilogram",
@@ -637,7 +759,9 @@
    "aliases": [
     "miriyalu",
     "pepper",
-    "black pepper"
+    "black pepper",
+    "kali mirch",
+    "కాలీ మిర్చ్"
    ],
    "category": "మసాలాలు",
    "unit": "Kilogram",
@@ -654,7 +778,9 @@
     "ఏలకులు",
     "ఇలాచీ",
     "elaichi",
-    "cardamom"
+    "cardamom",
+    "యాలుకలు",
+    "ilaichi"
    ],
    "category": "మసాలాలు",
    "unit": "Pack",
@@ -669,7 +795,9 @@
    "en": "Cloves (10 g)",
    "aliases": [
     "lavangalu",
-    "cloves"
+    "cloves",
+    "laung",
+    "లవంగ్"
    ],
    "category": "మసాలాలు",
    "unit": "Pack",
@@ -685,7 +813,9 @@
    "aliases": [
     "chintapandu",
     "tamarind",
-    "imli"
+    "imli",
+    "ఇమ్లీ",
+    "chinthapandu"
    ],
    "category": "మసాలాలు",
    "unit": "Kilogram",
@@ -731,7 +861,8 @@
    "aliases": [
     "పోహా",
     "poha",
-    "atukulu"
+    "atukulu",
+    "పోహ"
    ],
    "category": "ధాన్యాలు",
    "unit": "Kilogram",
@@ -747,7 +878,9 @@
    "aliases": [
     "semiya",
     "vermicelli",
-    "సేమ్యా"
+    "సేమ్యా",
+    "semiyan",
+    "సేవియా"
    ],
    "category": "ధాన్యాలు",
    "unit": "Pack",
@@ -764,7 +897,9 @@
     "బిస్కెట్",
     "బిస్కట్లు",
     "biscuit",
-    "biscuits"
+    "biscuits",
+    "బిస్కిట్లు",
+    "biskit"
    ],
    "category": "స్నాక్స్",
    "unit": "Pack",
@@ -780,7 +915,10 @@
    "aliases": [
     "bread",
     "పావ్",
-    "రొట్టె"
+    "రొట్టె",
+    "డబల్ రొట్టె",
+    "డబుల్ రోటీ",
+    "double roti"
    ],
    "category": "స్నాక్స్",
    "unit": "Pack",
@@ -860,7 +998,9 @@
     "కూల్‌డ్రింక్",
     "సాఫ్ట్ డ్రింక్",
     "cool drink",
-    "soft drink"
+    "soft drink",
+    "thanda",
+    "ఠండా"
    ],
    "category": "పానీయాలు",
    "unit": "Piece",
@@ -877,7 +1017,8 @@
     "మంచినీళ్ళు",
     "నీళ్ళ బాటిల్",
     "water",
-    "water bottle"
+    "water bottle",
+    "వాటర్"
    ],
    "category": "పానీయాలు",
    "unit": "Piece",
@@ -893,7 +1034,10 @@
    "aliases": [
     "బాత్ సోప్",
     "bath soap",
-    "ఒంటి సబ్బు"
+    "ఒంటి సబ్బు",
+    "స్నానపు సబ్బు",
+    "nahane ka sabun",
+    "సాబున్"
    ],
    "category": "సౌందర్య",
    "unit": "Piece",
@@ -926,7 +1070,9 @@
     "సర్ఫ్",
     "వాషింగ్ పౌడర్",
     "detergent",
-    "washing powder"
+    "washing powder",
+    "surf",
+    "surf excel"
    ],
    "category": "శుభ్రత",
    "unit": "Pack",
@@ -942,7 +1088,9 @@
    "aliases": [
     "పేస్ట్",
     "toothpaste",
-    "paste"
+    "paste",
+    "కోల్గేట్",
+    "colgate"
    ],
    "category": "సౌందర్య",
    "unit": "Piece",
@@ -990,7 +1138,9 @@
     "తల నూనె",
     "కొబ్బరినూనె",
     "coconut oil",
-    "hair oil"
+    "hair oil",
+    "kobbari nune",
+    "కొబ్బరి ఆయిల్"
    ],
    "category": "సౌందర్య",
    "unit": "Piece",
@@ -1006,7 +1156,13 @@
    "aliases": [
     "అగ్గిపుల్లలు",
     "matchbox",
-    "agipette"
+    "agipette",
+    "అగ్గిపెట్టి",
+    "అగ్గి పెట్టె",
+    "మాచిస్",
+    "machis",
+    "aggipette",
+    "match box"
    ],
    "category": "పూజ",
    "unit": "Piece",
@@ -1023,7 +1179,10 @@
     "అగర్‌బత్తి",
     "అగరబత్తీలు",
     "agarbatti",
-    "incense"
+    "incense",
+    "అగర్బత్తీ",
+    "అగరువత్తి",
+    "అగరొత్తులు"
    ],
    "category": "పూజ",
    "unit": "Pack",
@@ -1039,7 +1198,9 @@
    "aliases": [
     "కొవ్వొత్తులు",
     "candle",
-    "candles"
+    "candles",
+    "మోంబత్తి",
+    "mombatti"
    ],
    "category": "పూజ",
    "unit": "Piece",
@@ -1056,7 +1217,9 @@
     "అరటిపండు",
     "అరటి పండ్లు",
     "banana",
-    "bananas"
+    "bananas",
+    "kela",
+    "కేలా"
    ],
    "category": "పండ్లు",
    "unit": "Piece",
@@ -1072,7 +1235,11 @@
    "aliases": [
     "కొబ్బరి కాయ",
     "coconut",
-    "kobbarikaya"
+    "kobbarikaya",
+    "టెంకాయ",
+    "నారియల్",
+    "nariyal",
+    "tenkaya"
    ],
    "category": "పండ్లు",
    "unit": "Piece",
@@ -1090,7 +1257,11 @@
     "పల్లీ",
     "groundnut",
     "peanuts",
-    "palleelu"
+    "palleelu",
+    "వేరుశెనగలు",
+    "పల్లి గింజలు",
+    "palli",
+    "verusenagalu"
    ],
    "category": "ధాన్యాలు",
    "unit": "Kilogram",
@@ -1124,7 +1295,9 @@
     "ఎండు ద్రాక్ష",
     "ఎండుద్రాక్ష",
     "raisins",
-    "kismis"
+    "kismis",
+    "kishmish",
+    "కిష్మిష్"
    ],
    "category": "డ్రై ఫ్రూట్స్",
    "unit": "Kilogram",
@@ -1140,7 +1313,9 @@
    "aliases": [
     "సగ్గు బియ్యం",
     "sabudana",
-    "saggubiyyam"
+    "saggubiyyam",
+    "సాబుదానా",
+    "sago"
    ],
    "category": "ధాన్యాలు",
    "unit": "Kilogram",
@@ -1206,7 +1381,11 @@
     "కాబూలీ శనగలు",
     "chana",
     "chickpeas",
-    "senagalu"
+    "senagalu",
+    "సెనగలు",
+    "శెనగలు",
+    "chole",
+    "చోలే"
    ],
    "category": "పప్పులు",
    "unit": "Kilogram",
@@ -1221,7 +1400,8 @@
    "en": "Noodles",
    "aliases": [
     "noodles",
-    "మ్యాగీ"
+    "మ్యాగీ",
+    "maggi"
    ],
    "category": "స్నాక్స్",
    "unit": "Pack",
@@ -1269,7 +1449,8 @@
    "aliases": [
     "అప్పడం",
     "papad",
-    "appadalu"
+    "appadalu",
+    "పాపడ్"
    ],
    "category": "స్నాక్స్",
    "unit": "Pack",
