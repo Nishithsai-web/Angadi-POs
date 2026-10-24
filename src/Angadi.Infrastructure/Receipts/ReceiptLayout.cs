@@ -116,6 +116,16 @@ public static class ReceiptLayout
                 Value = IndianFormat.Rupees(line.LineTotal),
             });
 
+            // v2-stock: batch-tracked medicines print the batch and expiry they were sold from.
+            if (line.Batches.Count > 0)
+                rows.Add(new(ReceiptRowKind.ItemNote)
+                {
+                    Text = text.Format("receipt.batch", string.Join(", ", line.Batches.Select(b => b.Expiry is { } e
+                        ? b.BatchNo + " " + text.Format("receipt.batch.exp", e.ToString("MM/yy", CultureInfo.InvariantCulture))
+                        : b.BatchNo))),
+                    Value = "",
+                });
+
             var lineDiscount = line.Gross - line.LineTotal;
             if (lineDiscount > Paise.Zero)
                 rows.Add(new(ReceiptRowKind.ItemNote)

@@ -14,7 +14,8 @@ public static class SeedCatalog
     public sealed record SeedItem(Item Item, Qty OpeningStock);
 
     public static IReadOnlyList<SeedItem> Kirana() => Load("kirana.json");
-    public static IReadOnlyList<SeedItem> Pharmacy() => Load("pharmacy.json");
+    // v2-stock: pharmacy items start with "Track batch & expiry" on (the owner can switch it off per item).
+    public static IReadOnlyList<SeedItem> Pharmacy() => Load("pharmacy.json", tracksBatches: true);
 
     private static readonly JsonSerializerOptions Json = new()
     {
@@ -22,7 +23,7 @@ public static class SeedCatalog
         Converters = { new JsonStringEnumConverter() },
     };
 
-    private static IReadOnlyList<SeedItem> Load(string file)
+    private static IReadOnlyList<SeedItem> Load(string file, bool tracksBatches = false)
     {
         using var stream = typeof(SeedCatalog).Assembly.GetManifestResourceStream($"Angadi.Seed.{file}")
             ?? throw new InvalidOperationException($"Missing seed resource {file}");
@@ -39,6 +40,7 @@ public static class SeedCatalog
             GstSlab = (GstSlab)r.GstBasisPoints,
             LowStockThreshold = new Qty(r.LowStockMilli),
             IsQuickSale = r.QuickSale,
+            TracksBatches = tracksBatches,
         }, new Qty(r.OpeningStockMilli))).ToList();
     }
 

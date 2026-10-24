@@ -36,6 +36,11 @@ public sealed class Item : Entity
     public bool IsQuickSale { get; set; }   // FR-10
     public bool IsActive { get; set; } = true;
 
+    /// <summary>v2-stock: "Track batch &amp; expiry" (pharmacies). Off = stock behaves exactly as in v1.</summary>
+    public bool TracksBatches { get; set; }
+    /// <summary>v2-stock: latest purchase cost per whole unit, before GST. Zero = unknown. Owned by purchase entry.</summary>
+    public Paise Cost { get; set; }
+
     public bool IsLowStock => IsActive && Stock <= LowStockThreshold;
 }
 

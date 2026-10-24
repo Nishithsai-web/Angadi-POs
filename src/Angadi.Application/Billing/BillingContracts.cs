@@ -18,6 +18,10 @@ public sealed record FinalizeBillCommand(Bill Draft) : ICommand<Result<Finalized
     /// bill whose computed total is ₹0 ("this bill is free"). Without it the validator rejects such a bill —
     /// a 100%-discount typo must not silently give goods away, burn a bill number and a quota slot.</summary>
     public bool FreeBillConfirmed { get; init; }
+
+    /// <summary>v2-stock: the owner confirmed (through the owner-PIN gate) that this bill may sell from an expired
+    /// batch. Without it the finalize guard refuses such a bill with BATCH_EXPIRED.</summary>
+    public bool ExpiredBatchConfirmed { get; init; }
 }
 /// <summary>Saves the counter's unfinished bill after every change (an empty draft clears it).</summary>
 public sealed record SaveBillDraftCommand(BillDraftSnapshot Draft) : ICommand<Result>;

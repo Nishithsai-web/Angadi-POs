@@ -62,6 +62,11 @@ internal sealed class ItemRepository(AngadiDb db, IClock clock) : IItemRepositor
             var existing = c.Find<ItemRow>(row.Id);
             if (existing is null) { c.Insert(row); return; }
             row.StockMilli = existing.StockMilli;
+            // v2-stock: the latest cost is owned by purchase entry (like stock by the ledger); switching batch tracking
+            // on puts any stock not yet in a batch into the item's "no batch" row, so Σ batches == stock from then on.
+            row.CostPaise = existing.CostPaise;
+            item.Cost = new Paise(existing.CostPaise);
+            if (row.TracksBatches) c.RunInTransactionIfNeeded(() => BatchSql.Reconcile(c, row.Id, Ms(now)));
             // FIX(DATA-3, 2026-10-20, FIX-2): Flaw: only stock was protected — a flow holding an Item
             // across an AliasLearner write (the learner loads fresh, appends, saves) saved its stale copy
             // and silently reverted LearnedAliasesJson: the voice learning evaporated. Fix: same pattern
@@ -83,11 +88,33 @@ internal sealed class ItemRepository(AngadiDb db, IClock clock) : IItemRepositor
 internal sealed class BillRepository(AngadiDb db, IClock clock) : IBillRepository
 {
     public Task<Bill?> GetAsync(Guid id, CancellationToken ct = default)
-        => db.RunAsync(c =>
+        => db.RunAsync<Bill?>(c =>
         {
             var row = c.Find<BillRow>(id);
-            return row is null ? null : ToDomain(row, c.Query<BillLineRow>("SELECT * FROM BillLine WHERE BillId = ?", id));
+            if (row is null) return null;
+            var bill = ToDomain(row, c.Query<BillLineRow>("SELECT * FROM BillLine WHERE BillId = ?", id));
+            AttachBatches(c, bill);
+            return bill;
         }, ct);
+
+    /// <summary>v2-stock: the named batches each item of this bill was sold from (for the receipt). Read-only.</summary>
+    private static void AttachBatches(SQLite.SQLiteConnection c, Bill bill)
+    {
+        var used = c.Query<LineBatchRow>(
+            "SELECT DISTINCT m.ItemId AS ItemId, b.BatchNo AS BatchNo, b.ExpiryDay AS ExpiryDay FROM StockMove m " +
+            "JOIN Batch b ON b.Id = m.BatchId WHERE m.BillId = ? AND m.Reason = ? AND b.BatchNo <> '' ORDER BY b.ExpiryDay, b.BatchNo",
+            bill.Id, (int)StockMoveReason.Sale);
+        foreach (var g in used.GroupBy(u => u.ItemId))
+            if (bill.Lines.FirstOrDefault(l => l.ItemId == g.Key) is { } line)
+                line.Batches = g.Select(u => new LineBatch(u.BatchNo, u.ExpiryDay is { } d ? FromDay(d) : null)).ToList();
+    }
+
+    private sealed class LineBatchRow
+    {
+        public Guid ItemId { get; set; }
+        public string BatchNo { get; set; } = "";
+        public int? ExpiryDay { get; set; }
+    }
 
     public Task<IReadOnlyList<Bill>> ListAsync(DateTimeOffset from, DateTimeOffset to, CancellationToken ct = default)
     {
@@ -217,11 +244,15 @@ internal sealed class CustomerRepository(AngadiDb db, IClock clock) : ICustomerR
     }
 }
 
-internal sealed class StockLedger(AngadiDb db, IClock clock) : IStockLedger
+internal sealed partial class StockLedger(AngadiDb db, IClock clock) : IStockLedger
 {
+    private AngadiDb Db => db;        // v2-stock: for the batch half in StockLedgerBatches.cs
+    private IClock Clock => clock;
+
     public Task AdjustAsync(Guid itemId, Qty delta, StockMoveReason reason, Guid? billId = null, string? note = null, CancellationToken ct = default)
     {
         var now = clock.Now;
+        var today = clock.Today;
         var row = new StockMoveRow
         {
             Id = Guid.NewGuid(), ItemId = itemId, DeltaMilli = delta.Milli, Reason = (int)reason, BillId = billId, Note = note,
@@ -230,6 +261,13 @@ internal sealed class StockLedger(AngadiDb db, IClock clock) : IStockLedger
         // Relative UPDATE, never read-modify-write: concurrent adjusts cannot lose an update (NFR-06).
         return db.RunAsync(c => c.RunInTransactionIfNeeded(() =>
         {
+            // v2-stock: a batch-tracked item splits the change across its batches (FEFO out, back to source on
+            // void/return). Every other item takes exactly the v1 path below.
+            if (BatchSql.Tracks(c, itemId))
+            {
+                BatchSql.Apply(c, itemId, delta.Milli, reason, billId, note, now, today);
+                return;
+            }
             var changed = c.Execute("UPDATE Item SET StockMilli = StockMilli + ?, UpdatedAtMs = ? WHERE Id = ?", delta.Milli, row.CreatedAtMs, itemId);
             if (changed != 1) throw new InvalidOperationException($"Stock adjust for unknown item {itemId}");
             c.Insert(row);

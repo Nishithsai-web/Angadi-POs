@@ -25,6 +25,8 @@ internal sealed class ItemRow
     [Indexed] public bool IsActive { get; set; }
     public long CreatedAtMs { get; set; }
     public long UpdatedAtMs { get; set; }
+    public bool TracksBatches { get; set; }   // v2-stock (schema 5)
+    public long CostPaise { get; set; }       // v2-stock: latest purchase cost per unit, before GST; owned by purchase entry
 }
 
 [Table("Bill")]
@@ -116,6 +118,8 @@ internal sealed class StockMoveRow
     public string? Note { get; set; }
     [Indexed] public int Day { get; set; }
     public long CreatedAtMs { get; set; }
+    [Indexed] public Guid? BatchId { get; set; }      // v2-stock (schema 5)
+    [Indexed] public Guid? PurchaseId { get; set; }   // v2-stock (schema 5)
 }
 
 [Table("Outbox")]
@@ -165,4 +169,75 @@ internal sealed class NoteRow
     public bool IsDone { get; set; }
     public long CreatedAtMs { get; set; }
     [Indexed] public long UpdatedAtMs { get; set; }
+}
+
+// ---- v2-stock (schema 5): batches, suppliers, purchases, purchase orders
+
+[Table("Batch")]
+internal sealed class BatchRow
+{
+    [PrimaryKey] public Guid Id { get; set; }
+    [Indexed] public Guid ItemId { get; set; }
+    public string BatchNo { get; set; } = "";
+    public int? ExpiryDay { get; set; }   // yyyymmdd; null = unknown (the "no batch" placeholder)
+    public long QtyMilli { get; set; }
+    public long CostPaise { get; set; }
+    public long CreatedAtMs { get; set; }
+    public long UpdatedAtMs { get; set; }
+}
+
+[Table("Supplier")]
+internal sealed class SupplierRow
+{
+    [PrimaryKey] public Guid Id { get; set; }
+    public string Name { get; set; } = "";
+    public string? Phone { get; set; }
+    public string? Gstin { get; set; }
+    public string? Notes { get; set; }
+    public long CreatedAtMs { get; set; }
+    public long UpdatedAtMs { get; set; }
+}
+
+[Table("Purchase")]
+internal sealed class PurchaseRow
+{
+    [PrimaryKey] public Guid Id { get; set; }
+    [Indexed] public Guid SupplierId { get; set; }
+    public string SupplierName { get; set; } = "";
+    public string SupplierBillNo { get; set; } = "";
+    [Indexed] public int BillDay { get; set; }   // yyyymmdd of the supplier's bill
+    public Guid? PurchaseOrderId { get; set; }
+    public long TotalPaise { get; set; }
+    public long CreatedAtMs { get; set; }
+}
+
+[Table("PurchaseLine")]
+internal sealed class PurchaseLineRow
+{
+    [PrimaryKey] public Guid Id { get; set; }
+    [Indexed] public Guid PurchaseId { get; set; }
+    public int Position { get; set; }
+    [Indexed] public Guid ItemId { get; set; }
+    public string TeluguName { get; set; } = "";
+    public string EnglishName { get; set; } = "";
+    public int Unit { get; set; }
+    public long QtyMilli { get; set; }
+    public long CostPaise { get; set; }
+    public int GstBasisPoints { get; set; }
+    public string? BatchNo { get; set; }
+    public int? ExpiryDay { get; set; }
+    public Guid? BatchId { get; set; }
+    public long LineTotalPaise { get; set; }
+}
+
+[Table("PurchaseOrder")]
+internal sealed class PurchaseOrderRow
+{
+    [PrimaryKey] public Guid Id { get; set; }
+    [Indexed] public Guid SupplierId { get; set; }
+    public int Status { get; set; }
+    public string LinesJson { get; set; } = "[]";   // [[itemId, qtyMilli], ...] — an order is a note to a supplier, not a ledger
+    public Guid? PurchaseId { get; set; }
+    public long CreatedAtMs { get; set; }
+    public long UpdatedAtMs { get; set; }
 }

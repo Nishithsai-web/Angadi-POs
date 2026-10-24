@@ -12,8 +12,10 @@ namespace Angadi.Infrastructure.Persistence;
 /// </summary>
 public sealed class AngadiDb : IUnitOfWork, IDisposable
 {
-    /// <summary>2: customer account columns + Note table. 3: shop's own UPI QR. Bump on every schema change.</summary>
-    public const int SchemaVersion = 3;
+    /// <summary>2: customer account columns + Note table. 3: shop's own UPI QR. 5 (v2-stock): Batch, Supplier,
+    /// Purchase, PurchaseLine, PurchaseOrder tables; Item.TracksBatches/CostPaise; StockMove.BatchId/PurchaseId.
+    /// Bump on every schema change.</summary>
+    public const int SchemaVersion = 5;
     public const string AppMarker = "angadi";
 
     private readonly SemaphoreSlim _gate = new(1, 1);
@@ -134,6 +136,12 @@ public sealed class AngadiDb : IUnitOfWork, IDisposable
         c.CreateTable<ShopProfileRow>();
         c.CreateTable<MetaRow>();
         c.CreateTable<NoteRow>();
+        // v2-stock (schema 5): additive tables; existing items get TracksBatches/CostPaise = NULL → off / unknown.
+        c.CreateTable<BatchRow>();
+        c.CreateTable<SupplierRow>();
+        c.CreateTable<PurchaseRow>();
+        c.CreateTable<PurchaseLineRow>();
+        c.CreateTable<PurchaseOrderRow>();
 
         c.InsertOrReplace(new MetaRow { Key = "app", Value = AppMarker });
         var current = c.Find<MetaRow>("schema_version");

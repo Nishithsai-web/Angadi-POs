@@ -198,5 +198,49 @@
   "DATABASE_BUSY": {
     "te": "యాప్ ఇంకో పని చేస్తోంది. కొన్ని సెకన్లు ఆగి మళ్ళీ ప్రయత్నించండి",
     "en": "The app is busy saving. Wait a few seconds and try again"
+  },
+  "SUPPLIER_NAME_REQUIRED": {
+    "te": "సరఫరాదారు పేరు రాయండి",
+    "en": "Enter the supplier's name"
+  },
+  "SUPPLIER_NOT_FOUND": {
+    "te": "ఈ సరఫరాదారు దొరకలేదు — మళ్ళీ ఎంచుకోండి",
+    "en": "Supplier not found — pick the supplier again"
+  },
+  "PURCHASE_BILL_NO_REQUIRED": {
+    "te": "సరఫరాదారు బిల్లు నంబర్ రాయండి",
+    "en": "Enter the supplier's bill number"
+  },
+  "PURCHASE_EMPTY": {
+    "te": "కొనుగోలులో కనీసం ఒక సరుకు చేర్చండి",
+    "en": "Add at least one item to the purchase"
+  },
+  "PURCHASE_LINE_INVALID": {
+    "te": "పరిమాణం సున్నా కంటే ఎక్కువ, ధర సరైనదిగా ఉండాలి",
+    "en": "Each line needs a quantity above zero and a valid cost"
+  },
+  "PURCHASE_DUPLICATE": {
+    "te": "ఈ సరఫరాదారు బిల్లు {0} ఇప్పటికే నమోదైంది",
+    "en": "This supplier's bill {0} is already entered"
+  },
+  "BATCH_DETAILS_REQUIRED": {
+    "te": "'{0}' కి బ్యాచ్ నంబర్, ఎక్స్‌పైరీ (నెల/సంవత్సరం) రాయండి",
+    "en": "'{0}' needs a batch number and an expiry (MM/YY)"
+  },
+  "BATCH_NOT_FOUND": {
+    "te": "ఈ బ్యాచ్ దొరకలేదు",
+    "en": "Batch not found"
+  },
+  "BATCH_EXPIRED": {
+    "te": "గడువు ముగిసిన బ్యాచ్ నుండి అమ్మకం: {0}. యజమాని నిర్ధారించాలి",
+    "en": "This sells from an expired batch: {0}. The owner must confirm"
+  },
+  "ORDER_NOT_FOUND": {
+    "te": "ఈ ఆర్డర్ దొరకలేదు",
+    "en": "Order not found"
+  },
+  "ORDER_NOT_EDITABLE": {
+    "te": "ఈ ఆర్డర్ ఇప్పటికే పంపబడింది లేదా అందింది — మార్చలేము",
+    "en": "This order was already sent or received — it can't be changed"
   }
 }

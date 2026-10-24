@@ -50,7 +50,9 @@ public static class DependencyInjection
         services.AddSingleton<IValidator<SaveShopProfileCommand>, SaveShopProfileValidator>();
 
         // Billing
-        services.AddTransient<IRequestHandler<FinalizeBillCommand, Result<FinalizedBill>>, FinalizeBillHandler>();
+        // v2-stock: FinalizeBillHandler is wrapped by the expired-batch guard (Stock/StockHandlers.cs); the handler itself is unchanged.
+        services.AddTransient<FinalizeBillHandler>();
+        services.AddTransient<IRequestHandler<FinalizeBillCommand, Result<FinalizedBill>>, Angadi.Application.Stock.ExpiryGuardedFinalizeHandler>();
         services.AddTransient<IRequestHandler<VoidBillCommand, Result>, VoidBillHandler>();
         services.AddTransient<IRequestHandler<ShareReceiptCommand, Result>, ShareReceiptHandler>();
         services.AddTransient<IRequestHandler<SendBillToCustomerCommand, Result>, SendBillToCustomerHandler>();
@@ -123,6 +125,9 @@ public static class DependencyInjection
         services.AddTransient<IRequestHandler<GetTopItemsQuery, IReadOnlyList<TopItem>>>(sp => sp.GetRequiredService<ReportHandlers>());
         services.AddTransient<IRequestHandler<GetDuesOutstandingQuery, DuesOutstanding>>(sp => sp.GetRequiredService<ReportHandlers>());
         services.AddTransient<IRequestHandler<ListBillsQuery, IReadOnlyList<BillSummary>>>(sp => sp.GetRequiredService<ReportHandlers>());
+
+        // v2-stock: suppliers, purchases, purchase orders, batch & expiry
+        Angadi.Application.Stock.StockRegistration.AddStock(services);
 
         return services;
     }
