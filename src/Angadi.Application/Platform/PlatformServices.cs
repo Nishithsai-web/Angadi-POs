@@ -57,7 +57,9 @@ public interface ISubscriptionService
 }
 
 public enum SubscriptionPlan { Monthly = 0, Yearly = 1 }
-public sealed record SubscriptionStatus(bool IsPro, SubscriptionPlan? Plan, DateTimeOffset? RenewsOn);
+/// <param name="NeedsReconfirm">A2-11: still Pro (a paying shop is never blocked at the counter for being offline),
+/// but the last confirmation with Play is older than the offline grace — the counter asks to connect.</param>
+public sealed record SubscriptionStatus(bool IsPro, SubscriptionPlan? Plan, DateTimeOffset? RenewsOn, bool NeedsReconfirm = false);
 
 /// <summary>FR-37. Copies the SQLite file out/in; restore validates schema version first.</summary>
 public interface IBackupService

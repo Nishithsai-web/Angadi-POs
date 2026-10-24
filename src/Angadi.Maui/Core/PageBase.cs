@@ -21,7 +21,9 @@ public class PageBase : ContentPage
     {
         base.OnAppearing();
         if (_viewModel is null) return;
-        try { await _viewModel.OnAppearingAsync(); }
-        catch (Exception ex) { GlobalExceptions.Report(ex, GetType().Name); }
+        // FIX(A1-04, 2026-10-21, S2): Flaw: a failed view-model load was only logged — the page sat half-empty with
+        // no message. Fix: the same SafeUi.Run wrapping UI-1 gave every ContentPage (logged AND toasted).
+        // Why: one never-fail mechanism for every page. Logged in docs/AGENT_FIX_LOG.md.
+        await SafeUi.Run(_viewModel.OnAppearingAsync);
     }
 }

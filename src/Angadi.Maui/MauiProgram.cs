@@ -130,7 +130,10 @@ public static class MauiProgram
         try
         {
             var text = services.GetRequiredService<ILocalizer>();
-            var profile = services.GetRequiredService<ISender>().Send(new GetShopProfileQuery()).GetAwaiter().GetResult();
+            // A1-05: database work continues on the thread pool; blocking the UI thread on it directly could deadlock
+            // (a continuation posted back to the blocked UI thread). Task.Run keeps the whole chain off it.
+            var sender = services.GetRequiredService<ISender>();
+            var profile = Task.Run(() => sender.Send(new GetShopProfileQuery())).GetAwaiter().GetResult();
             if (profile is not null) text.Language = profile.Language;
             else if (Enum.TryParse<Angadi.Domain.Shop.UiLanguage>(Preferences.Default.Get(AppShell.LanguageKey, ""), out var chosen))
                 text.Language = chosen;   // first run: chosen before the shop was set up
@@ -159,7 +162,7 @@ public static class MauiProgram
         {
             GlobalExceptions.Report(e.Exception, "Android");
             e.Handled = true;   // keep the counter open; the shopkeeper gets a message, the log gets the details
-            _ = SafeUi.ShowUnexpectedAsync();
+            if (!GlobalExceptions.IsKnownScannerTeardownRace(e.Exception)) _ = SafeUi.ShowUnexpectedAsync();
         };
 #endif
     }

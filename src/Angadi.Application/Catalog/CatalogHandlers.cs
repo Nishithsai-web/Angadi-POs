@@ -214,7 +214,6 @@ internal sealed class ShopHandlers(
     IRequestHandler<SaveShopProfileCommand, Result>,
     IRequestHandler<SeedItemsCommand, Result<int>>,
     IRequestHandler<GetBillQuery, Bill?>,
-    IRequestHandler<ExportBackupCommand, Result<string>>,
     IRequestHandler<RestoreBackupCommand, Result>
 {
     public Task<ShopProfile?> Handle(GetShopProfileQuery q, CancellationToken ct) => shop.GetAsync(ct);
@@ -244,6 +243,5 @@ internal sealed class ShopHandlers(
     }
 
     public Task<Bill?> Handle(GetBillQuery q, CancellationToken ct) => bills.GetAsync(q.BillId, ct);
-    public Task<Result<string>> Handle(ExportBackupCommand command, CancellationToken ct) => backup.ExportAsync(ct);
     public Task<Result> Handle(RestoreBackupCommand command, CancellationToken ct) => backup.RestoreAsync(command.FilePath, ct);
 }

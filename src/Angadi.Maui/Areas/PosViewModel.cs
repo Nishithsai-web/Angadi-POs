@@ -25,7 +25,6 @@ public sealed partial class PosViewModel : ViewModelBase
 {
     private readonly ISpeechToText _speech;
     private readonly IVoiceBillingPipeline _voice;
-    private readonly IAliasLearner _aliases;
     private readonly IBarcodeScanner _scanner;
     private readonly VoiceOptions _voiceOptions;
     private readonly ILogger<PosViewModel> _log;
@@ -36,13 +35,12 @@ public sealed partial class PosViewModel : ViewModelBase
     private CancellationTokenSource? _searchCts;
 
     public PosViewModel(ISender sender, ILocalizer text, INavigationService nav, IDialogService dialogs,
-        ISpeechToText speech, IVoiceBillingPipeline voice, IAliasLearner aliases, IBarcodeScanner scanner, IOptions<VoiceOptions> voiceOptions,
+        ISpeechToText speech, IVoiceBillingPipeline voice, IBarcodeScanner scanner, IOptions<VoiceOptions> voiceOptions,
         ILogger<PosViewModel> log)
         : base(sender, text, nav, dialogs)
     {
         _speech = speech;
         _voice = voice;
-        _aliases = aliases;
         _scanner = scanner;
         _voiceOptions = voiceOptions.Value;
         _log = log;
@@ -92,6 +90,8 @@ public sealed partial class PosViewModel : ViewModelBase
     [ObservableProperty] private string _quotaText = "";
     /// <summary>"3 customers are due a dues reminder — tap" (empty = hidden).</summary>
     [ObservableProperty] private string _dueBanner = "";
+    /// <summary>A2-03: "no backup for 7 days" (empty = hidden). Tap → Settings; ✕ hides it until tomorrow.</summary>
+    [ObservableProperty] private string _backupBanner = "";
     /// <summary>The customer whose account this bill goes to (any tender); "+ Customer" when none.</summary>
     [ObservableProperty] private string _customerLabel = "";
     private Customer? _customer;
@@ -99,34 +99,42 @@ public sealed partial class PosViewModel : ViewModelBase
 
     public override async Task OnAppearingAsync()
     {
+        // FIX(A1-04, 2026-10-21, S2): Flaw: the one-time recovery report was taken first but shown last — any later
+        // failing query lost it for good, and _draftChecked was set before the draft restore ran, so a failed restore
+        // was never retried. Fix: show the report the moment it is taken; mark the draft checked only after the
+        // restore succeeded. Why: "your data was repaired" and the bill on screen must never silently vanish.
+        // Logged in docs/AGENT_FIX_LOG.md.
+        // Startup found the data file damaged and repaired it: shown here, on the first screen that is fully up
+        // (an alert raised from the shell while it is still being attached is dropped on Android).
+        if (await Sender.Send(new GetDataRecoveryQuery()) is { } recovery) await ShowRecoveryNoticeAsync(recovery);
+
         _shop = await Sender.Send(new GetShopProfileQuery());
         var gst = _shop?.ChargesGst ?? false;
         var restored = false;
-        Angadi.Application.Platform.DataRecoveryReport? recovery = null;
         if (!_draftChecked)
         {
-            // Startup found the data file damaged and repaired it: shown here, on the first screen that is fully up
-            // (an alert raised from the shell while it is still being attached is dropped on Android).
-            recovery = await Sender.Send(new GetDataRecoveryQuery());
             // The bill that was on screen when the app was closed (phone call, Android memory, crash) comes back.
-            _draftChecked = true;
             if (_draft.IsEmpty && await Sender.Send(new GetBillDraftQuery()) is { } saved)
             {
                 UseDraft(BillDraft.Restore(saved, gst));
                 _customer = saved.CustomerId is { } cid ? await Sender.Send(new GetCustomerQuery(cid)) : null;
                 restored = !_draft.IsEmpty;
             }
+            _draftChecked = true;
         }
         if (_draft.IsEmpty) UseDraft(new BillDraft(gst));
         SetCustomer(_customer);   // label text, and keeps an attached customer on a fresh draft
         QuickSale.Clear();
         foreach (var i in await Sender.Send(new GetQuickSaleItemsQuery())) QuickSale.Add(Tile(i));
         var quota = await Sender.Send(new GetBillQuotaQuery());
-        QuotaText = quota.IsPro ? "" : Text.Format("sub.limit.left", Math.Max(0, quota.FreeLimit - quota.UsedThisMonth));
+        // A2-11: a Pro shop offline for over 7 days keeps billing; it is only asked to connect.
+        QuotaText = !quota.IsPro ? Text.Format("sub.limit.left", Math.Max(0, quota.FreeLimit - quota.UsedThisMonth))
+            : quota.NeedsReconfirm ? Text["sub.reconfirm"] : "";
         var due = await Sender.Send(new Angadi.Application.Customers.GetDueRemindersQuery());
         DueBanner = due.Count > 0 ? Text.Format("pos.due.banner", due.Count) : "";
+        var backup = await Sender.Send(new GetBackupStatusQuery());
+        BackupBanner = !backup.ShowReminder ? "" : Text[backup.IsLarge ? "backup.reminder.large" : "backup.reminder"];
         Refresh();
-        if (recovery is not null) await ShowRecoveryNoticeAsync(recovery);
         if (restored) await Dialogs.ToastAsync(Text["pos.draft.restored"]);
     }
 
@@ -198,6 +206,13 @@ public sealed partial class PosViewModel : ViewModelBase
                 // Why: a fallback that needs a hunt for the box is a dead mic at a busy counter.
                 // Logged in docs/AGENT_FIX_LOG.md.
                 if (heard.Error.Detail == "manual") { await Dialogs.ToastAsync(Text["pos.voice.offline"]); SearchFocusRequested?.Invoke(this, EventArgs.Empty); return; }
+                if (heard.Error.Detail == Angadi.Maui.Platform.AndroidSpeechToText.PermissionDeniedPermanently)
+                {
+                    // A2-18: Android won't ask again; Settings is the only way back — one tap there.
+                    if (await Dialogs.ConfirmAsync(Text["perm.title"], Text["perm.mic.off"], Text["perm.open.settings"], Text["common.cancel"]))
+                        AppInfo.Current.ShowSettingsUI();
+                    return;
+                }
                 if (heard.Error.Detail != "cancelled") await ShowIfFailedAsync(heard);
                 return;
             }
@@ -226,7 +241,10 @@ public sealed partial class PosViewModel : ViewModelBase
             if (candidate is not null)
             {
                 chosen = candidate.ItemId;
-                await _aliases.LearnAsync(candidate.ItemId, m.Line.Name);
+                // FIX(A1-11, 2026-10-21, S2): Flaw: the view model called IAliasLearner directly — no correlation id,
+                // no logging, and the multi-item alias rewrite ran outside a transaction. Fix: LearnAliasCommand through
+                // the pipeline. Why: a half-written alias table mis-hears the next bill. Logged in docs/AGENT_FIX_LOG.md.
+                await Sender.Send(new LearnAliasCommand(candidate.ItemId, m.Line.Name));
             }
         }
 
@@ -297,6 +315,18 @@ public sealed partial class PosViewModel : ViewModelBase
         var line = _draft.Lines.FirstOrDefault(l => l.Id == row.Id);
         if (line is not null) _draft.SetQty(row.Id, line.Qty - Qty.Whole(1));
     }
+
+    // FIX(A2-03, 2026-10-21, S2): Flaw: nothing ever told the owner that no manual backup existed — Android's Auto
+    // Backup silently stops past 25 MB. Fix: a counter banner after 7 days without one (tap → Settings, ✕ = hide for
+    // today), status kept in Meta. Why: a lost phone must not mean lost udhaar books. Logged in docs/AGENT_FIX_LOG.md.
+    [RelayCommand]
+    private Task BackupNow() => SafeAsync(() => Nav.GoToAsync("//" + Routes.Settings));
+
+    [RelayCommand]
+    private Task HideBackupBanner() => SafeAsync(async () =>
+    {
+        if (!await ShowIfFailedAsync(await Sender.Send(new DismissBackupReminderCommand()))) BackupBanner = "";
+    });
 
     // FIX(UI-2, 2026-10-20, FIX-3): Flaw: EditLine was the only POS command not routed through SafeAsync —
     // a prompt/parse exception faulted the command task instead of showing the friendly toast. Fix: route

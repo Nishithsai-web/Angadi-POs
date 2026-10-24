@@ -57,6 +57,7 @@ public abstract partial class ViewModelBase(ISender sender, ILocalizer text, INa
         {
             ErrorMessage = Text.Error(new Error(ErrorCodes.Unexpected));
             GlobalExceptions.Report(ex, GetType().Name);
+            await Dialogs.ToastAsync(ErrorMessage);   // A1-07: nothing binds ErrorMessage — say it, like SafeAsync
         }
         finally { IsBusy = false; }
     }

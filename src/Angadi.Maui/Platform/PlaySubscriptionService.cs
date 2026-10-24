@@ -12,7 +12,10 @@ namespace Angadi.Maui.Platform;
 ///   • GetStatusAsync answers ONLY from the on-device cache — instantly — and starts a background re-check with
 ///     Play when the cache is older than a day. Billing never waits on Play (the contract on ISubscriptionService).
 ///   • Every Play call has a time limit, so an emulator or phone without Play services can't hang anything.
-///   • Offline: a Pro status confirmed within the last 7 days is kept; after that the app falls back to free.
+///   • Offline: a Pro status stays Pro (A2-11: a paying shop is never blocked at the counter for being offline);
+///     past 7 days unconfirmed the counter asks to connect (SubscriptionCachePolicy). A successful check with Play
+///     that finds no active subscription clears the cache → free.
+///   • A purchase still waiting for its payment (UPI collect, cash at a store) is PURCHASE_PENDING, not a failure.
 ///   • Every purchase is acknowledged (Play refunds unacknowledged purchases after 3 days).
 ///   • No server in v1: trust is the Play client's purchase list. Server-side verification is v2.
 /// A sideloaded APK or missing Play products simply reads as free; purchases fail with PURCHASE_FAILED.
@@ -21,8 +24,7 @@ internal sealed class PlaySubscriptionService(IOptions<BillingOptions> options, 
     : ISubscriptionService
 {
     private const string Key = "angadi.pro";            // "plan|confirmedAtMs"
-    private static readonly TimeSpan Recheck = TimeSpan.FromDays(1);
-    private static readonly TimeSpan OfflineGrace = TimeSpan.FromDays(7);
+    private static readonly TimeSpan Recheck = SubscriptionCachePolicy.Recheck;
     private static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan QueryTimeout = TimeSpan.FromSeconds(20);
     private static readonly TimeSpan PurchaseTimeout = TimeSpan.FromMinutes(5);   // the user is in Play's sheet
@@ -40,8 +42,7 @@ internal sealed class PlaySubscriptionService(IOptions<BillingOptions> options, 
         var stale = cached is not { } c || now - c.ConfirmedAt >= Recheck;
         if (stale && now - _lastAttempt > TimeSpan.FromMinutes(10)) StartBackgroundRefresh();
 
-        var status = cached is { } v && now - v.ConfirmedAt < OfflineGrace ? ToStatus(v) : Free;
-        return Task.FromResult(status);
+        return Task.FromResult(SubscriptionCachePolicy.Evaluate(cached?.Plan, cached?.ConfirmedAt, now));
     }
 
     public Task<Result<SubscriptionStatus>> RestoreAsync(CancellationToken ct = default) => RefreshAsync(ct);
@@ -55,6 +56,12 @@ internal sealed class PlaySubscriptionService(IOptions<BillingOptions> options, 
         {
             if (!await billing.ConnectAsync(cancellationToken: ct).WaitAsync(ConnectTimeout, ct)) return Fail("not_connected");
             var purchase = await billing.PurchaseAsync(productId, ItemType.Subscription, cancellationToken: ct).WaitAsync(PurchaseTimeout, ct);
+            if (purchase is { State: PurchaseState.PaymentPending })
+            {
+                // A2-12: Play accepted the order but the money hasn't arrived yet; Restore picks it up once paid.
+                log.LogInformation("Subscription payment pending: {Plan}", plan);
+                return Result.Failure<SubscriptionStatus>(ErrorCodes.PurchasePending, "pending");
+            }
             if (purchase is null || purchase.State != PurchaseState.Purchased) return Fail("not_purchased");
 
             await AcknowledgeAsync(billing, purchase);
@@ -143,8 +150,8 @@ internal sealed class PlaySubscriptionService(IOptions<BillingOptions> options, 
     }
 
     // Status: RenewsOn is the next time Angadi re-confirms with Play (Play gives no expiry date to the client).
-    private static SubscriptionStatus ToStatus((SubscriptionPlan Plan, DateTimeOffset ConfirmedAt) c) =>
-        new(true, c.Plan, c.ConfirmedAt + Recheck);
+    private SubscriptionStatus ToStatus((SubscriptionPlan Plan, DateTimeOffset ConfirmedAt) c) =>
+        SubscriptionCachePolicy.Evaluate(c.Plan, c.ConfirmedAt, clock.Now);
 
     private (SubscriptionPlan Plan, DateTimeOffset ConfirmedAt)? ReadCache()
     {

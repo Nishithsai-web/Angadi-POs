@@ -59,9 +59,30 @@ public static class GlobalExceptions
 {
     public static ILogger? Logger { get; set; }
 
+    /// <summary>
+    /// FIX(SCAN-1, 2026-10-24, Claude Code): Flaw: BarcodeScanning.Native.Maui's CameraManager posts a camera-init
+    /// callback that can run after the camera controller was disposed (Back pressed while the camera is still
+    /// starting) and throws ObjectDisposedException on the main looper. It is harmless (the page is already gone)
+    /// but was logged as an app error. Fix: recognised by its exact shape and logged as a warning. Why: real app
+    /// errors must stay visible; a known third-party teardown race must not drown them. Logged in AGENT_FIX_LOG.md.
+    /// </summary>
+    internal static bool IsKnownScannerTeardownRace(Exception ex) =>
+        ex is ObjectDisposedException
+        && ex.StackTrace is { } trace
+        && trace.Contains("BarcodeScanning.CameraManager", StringComparison.Ordinal)
+        && trace.Contains("CameraController", StringComparison.Ordinal);
+
     public static string Report(Exception ex, string source)
     {
         var correlationId = Guid.NewGuid().ToString("N")[..8];
+        if (IsKnownScannerTeardownRace(ex))
+        {
+            Logger?.LogWarning("Scanner camera callback after close ignored ({Source})", source);
+#if ANDROID
+            Android.Util.Log.Warn("Angadi", $"Scanner camera callback after close ignored [{correlationId}]");
+#endif
+            return correlationId;
+        }
         // FIX(LOG-3b, 2026-10-20, FIX-3): Flaw: the correlation id was only interpolated into the message
         // text, so the file template's {CorrelationId} property rendered BLANK on unhandled-exception lines —
         // the very lines support searches by. Fix: carry it as a log-scope property (the request pipeline's

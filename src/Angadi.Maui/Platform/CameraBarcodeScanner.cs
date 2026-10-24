@@ -7,11 +7,12 @@ using Microsoft.Extensions.Logging;
 namespace Angadi.Maui.Platform;
 
 /// <summary>
-/// FR-08 camera scanner (in locked scope; restored after the v1 cut). On-device ML Kit, no network.
+/// FR-08 camera scanner (in locked scope; restored after the v1 cut). Codes are decoded on the device by Google ML Kit
+/// (no image leaves the phone); ML Kit itself sends usage diagnostics to Google — disclosed in docs/PRIVACY_POLICY.md (A2-04).
 /// Never a dead end: no camera, permission denied, or the shopkeeper taps "type it" → the manual box
 /// (which a USB/Bluetooth barcode gun also types into).
 /// </summary>
-internal sealed class CameraBarcodeScanner(ManualBarcodeScanner manual, ILocalizer text, ILogger<CameraBarcodeScanner> log) : IBarcodeScanner
+internal sealed class CameraBarcodeScanner(ManualBarcodeScanner manual, IDialogService dialogs, ILocalizer text, ILogger<CameraBarcodeScanner> log) : IBarcodeScanner
 {
     public async Task<Result<string>> ScanAsync(CancellationToken ct = default)
     {
@@ -19,10 +20,20 @@ internal sealed class CameraBarcodeScanner(ManualBarcodeScanner manual, ILocaliz
         {
             if (!MediaPicker.Default.IsCaptureSupported) return await manual.ScanAsync(ct);
 
-            var status = await MainThread.InvokeOnMainThreadAsync(Permissions.RequestAsync<Permissions.Camera>);
+            var (status, permanent) = await MainThread.InvokeOnMainThreadAsync(async () =>
+            {
+                var s = await Permissions.RequestAsync<Permissions.Camera>();
+                return (s, s != PermissionStatus.Granted && !Permissions.ShouldShowRationale<Permissions.Camera>());
+            });
             if (status != PermissionStatus.Granted)
             {
-                log.LogInformation("Camera permission not granted; manual entry");
+                log.LogInformation("Camera permission not granted (permanent: {Permanent}); manual entry", permanent);
+                // A2-18: Android will not ask again — say where to turn it on, with a one-tap way there.
+                if (permanent && await dialogs.ConfirmAsync(text["perm.title"], text["perm.camera.off"], text["perm.open.settings"], text["scan.manual"]))
+                {
+                    AppInfo.Current.ShowSettingsUI();
+                    return Result.Failure<string>(ErrorCodes.ValidationFailed, "cancelled");
+                }
                 return await manual.ScanAsync(ct);
             }
 
@@ -77,6 +88,12 @@ internal sealed class ScanPage : ContentPage
             BarcodeSymbologies = BarcodeFormats.Ean13 | BarcodeFormats.Ean8 | BarcodeFormats.Upca | BarcodeFormats.Upce
                                  | BarcodeFormats.Code128 | BarcodeFormats.Code39 | BarcodeFormats.QRCode,
         };
+        // FIX(SCAN-1, 2026-10-24, Claude Code): Flaw: when the page closed, MAUI disconnected the CameraView handler at
+        // once, disposing the camera controller while the library's camera-init callback was still queued (Back
+        // pressed right after opening) → ObjectDisposedException. Fix: this view's handler is disconnected manually,
+        // a few seconds after the page closes, once the camera has stopped. Why: no crash-class error on Back.
+        // Logged in docs/AGENT_FIX_LOG.md.
+        HandlerProperties.SetDisconnectPolicy(_camera, HandlerDisconnectPolicy.Manual);
         _camera.OnDetectionFinished += (_, e) =>
         {
             string? frame = null;
@@ -126,7 +143,10 @@ internal sealed class ScanPage : ContentPage
     public void Finish(string? value)
     {
         if (!_done.TrySetResult(value)) return;
-        MainThread.BeginInvokeOnMainThread(() => _camera.CameraEnabled = false);
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            if (_camera.Handler is not null) _camera.CameraEnabled = false;   // A2-08: never on a torn-down view
+        });
     }
 
     protected override bool OnBackButtonPressed()
@@ -135,9 +155,36 @@ internal sealed class ScanPage : ContentPage
         return true;
     }
 
+    // FIX(A2-08b, 2026-10-22, S2): Flaw: on Android 16 predictive Back the modal is popped natively, and the
+    // OnDisappearing → Finish → CameraEnabled=false that followed made BarcodeScanning post a runnable that touched
+    // the already-disposed LifecycleCameraController — an unhandled ObjectDisposedException (E2E scanner-back,
+    // app-log-clean). Fix: leaving the page only completes the result; the camera is stopped by its handler's own
+    // teardown. Why: a crash-class error on every Back from the scanner. Logged in docs/AGENT_FIX_LOG.md.
     protected override void OnDisappearing()
     {
         base.OnDisappearing();
-        Finish(null);
+        _done.TrySetResult(null);
+        _ = ReleaseCameraLaterAsync();
+    }
+
+    private static readonly TimeSpan ReleaseDelay = TimeSpan.FromSeconds(3);
+
+    /// <summary>SCAN-1: stop the camera, give its queued init callback time to run, then tear the handler down.</summary>
+    private async Task ReleaseCameraLaterAsync()
+    {
+        try
+        {
+            await Task.Delay(ReleaseDelay);
+            await MainThread.InvokeOnMainThreadAsync(() =>
+            {
+                if (_camera.Handler is null) return;
+                _camera.CameraEnabled = false;
+                _camera.Handler.DisconnectHandler();
+            });
+        }
+        catch (Exception ex)
+        {
+            GlobalExceptions.Report(ex, "scanner-release");
+        }
     }
 }

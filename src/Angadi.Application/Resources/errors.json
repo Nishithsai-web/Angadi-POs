@@ -63,6 +63,10 @@
     "te": "చెల్లింపు పూర్తి కాలేదు — మళ్ళీ ప్రయత్నించండి",
     "en": "Purchase didn't complete — please try again"
   },
+  "PURCHASE_PENDING": {
+    "te": "చెల్లింపు ఇంకా రాలేదు — డబ్బు చేరాక ప్రో మొదలవుతుంది. తర్వాత 'కొనుగోలు తిరిగి తెచ్చు' నొక్కండి",
+    "en": "Payment is pending — Pro starts once Google receives it. Tap 'Restore purchase' later"
+  },
   "SHARE_FAILED": {
     "te": "బిల్లు పంపలేకపోయాం — మళ్ళీ ప్రయత్నించండి",
     "en": "Couldn't share the bill — please try again"

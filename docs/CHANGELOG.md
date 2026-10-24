@@ -18,6 +18,13 @@ Every meaningful change: date, what, the issue it addresses, and the one-line wh
 - **Customer search finds a number typed with spaces, +91, a leading 0 or a dash** (T3-2).
 - **A WhatsApp bill with more than 15 items now says how many more**, so the listed items never seem to miss the total (T3-3).
 - **Voice: "650 పారాసెటమాల్" offers the 650 mg strip first** (VOICE-10).
+## 2026-10-21 (S2, Claude Code agent) — platform & counter fixes (F2 work landed on the merged base)
+- **Backup reminder + status:** the counter shows a banner after 7 days without a manual backup (✕ hides it for today); Settings shows data size and the last backup. Why: Android's own backup stops past 25 MB — a lost phone must not mean lost udhaar books.
+- **Offline Pro keeps billing:** a paid shop that has not reached Google Play for over 7 days stays Pro and is only asked to connect; a pending UPI/cash Play payment has its own message. Why: a paying shop was being blocked at the counter for being offline.
+- **UPI fraud warning + payee** on the UPI screen, and switching to the UPI app to check the money no longer cancels the payment. Why: fake "payment successful" screens are the common counter fraud.
+- **Permission "Open settings"** when the mic or camera is permanently denied. Why: Android never asks again; the shopkeeper had no way back.
+- **No silent failures:** database work leaves the UI thread (ANR risk on cheap phones), the restore lock is always released, huge spoken numbers no longer crash voice billing, overlapping safety snapshots are serialized, alias learning goes through the pipeline, failed saves/shares/loads are toasted, the restore staging copy is always deleted.
+- **E2E on Android 16 (API 36)** plus platform steps (UPI warning across backgrounding, scanner Back, backup status, first-run Back). Privacy policy: Auto Backup 25 MB limit and SMS reminders disclosed.
 
 ## 2026-10-20 (afternoon, Claude Code) — production audit, round 1
 - **The shipped build is now tested:** CI builds the Release APK (trimmed, as users get it) and runs the full emulator test on it next to the debug build. Why: every earlier E2E ran the debug build only; trimming bugs would have reached users first.

@@ -219,7 +219,7 @@ public sealed class ItemEditPage : ContentPage, IQueryAttributable
     public void ApplyQueryAttributes(IDictionary<string, object> query)
     {
         if (query.TryGetValue("barcode", out var code)) _barcode.Text = code?.ToString();
-        if (query.TryGetValue("itemId", out var id) && Guid.TryParse(id?.ToString(), out var itemId)) _ = LoadAsync(itemId);
+        if (query.TryGetValue("itemId", out var id) && Guid.TryParse(id?.ToString(), out var itemId)) _ = SafeUi.Run(() => LoadAsync(itemId));   // A1-03: logged and toasted, not lost
         else Show();
     }
 

@@ -155,7 +155,11 @@ public sealed class AngadiDb : IUnitOfWork, IDisposable
     {
         if (_inTransaction.Value) return Guarded(action);
         await EnterAsync(ct).ConfigureAwait(false);
-        try { return Guarded(action); }
+        try
+        {
+            await OffTheUiThread();
+            return Guarded(action);
+        }
         finally { _gate.Release(); }
     }
 
@@ -177,6 +181,7 @@ public sealed class AngadiDb : IUnitOfWork, IDisposable
         _inTransaction.Value = true;   // set before awaiting work, so it flows into it
         try
         {
+            await OffTheUiThread();
             _conn.BeginTransaction();
             T result;
             try
@@ -213,6 +218,18 @@ public sealed class AngadiDb : IUnitOfWork, IDisposable
     /// on screen) instead of freezing every screen of the app — the failure the owner hit on the emulator.
     /// </summary>
     public static readonly TimeSpan LockTimeout = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    /// A1-05: an uncontended gate completes synchronously, so without this every query ran on the caller's thread —
+    /// the UI thread (reports run ~10 queries: an ANR risk on a cheap phone). Always continue on the thread pool.
+    /// Callers must never block on a database task from the UI thread (MauiProgram.ApplySavedLanguage uses Task.Run).
+    /// </summary>
+    // FIX(A1-05, 2026-10-21, S2): Flaw: the first version was an async helper awaited WITHOUT ConfigureAwait(false) —
+    // its own continuation hopped to the pool, but the caller's await posted straight back to the UI context, so the
+    // query still ran on the UI thread (PlatformFixTests.A1_05 failed). Fix: return the configured awaitable itself,
+    // so the caller's own await is the forced yield. Why: an ANR at the counter is a frozen bill. Logged in docs/AGENT_FIX_LOG.md.
+    private static System.Runtime.CompilerServices.ConfiguredTaskAwaitable OffTheUiThread() =>
+        Task.CompletedTask.ConfigureAwait(ConfigureAwaitOptions.ForceYielding);
 
     private async Task EnterAsync(CancellationToken ct)
     {

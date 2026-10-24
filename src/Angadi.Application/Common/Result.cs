@@ -85,6 +85,7 @@ public static class ErrorCodes
     public const string BillPrefixInvalid = "BILL_PREFIX_INVALID";
     public const string FreeLimitReached = "FREE_LIMIT_REACHED";
     public const string PurchaseFailed = "PURCHASE_FAILED";
+    public const string PurchasePending = "PURCHASE_PENDING";   // A2-12: Play order placed, payment not yet received
     public const string ShareFailed = "SHARE_FAILED";
     public const string ReceiptRenderFailed = "RECEIPT_RENDER_FAILED";
     public const string BackupFailed = "BACKUP_FAILED";

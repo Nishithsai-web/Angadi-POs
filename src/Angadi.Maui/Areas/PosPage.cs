@@ -84,6 +84,21 @@ public sealed class PosPage : PageBase
         var voiceText = Ui.Caption();
         voiceText.SetBinding(Label.TextProperty, nameof(PosViewModel.VoiceText));
 
+        // A2-03: no manual backup for a week → tap to back up (Settings); ✕ hides it until tomorrow.
+        var backupNow = new Button
+        {
+            BackgroundColor = Color.FromArgb("#FFF4D6"), TextColor = Theme.Warning, FontSize = 15, CornerRadius = 10, LineBreakMode = LineBreakMode.WordWrap,
+        };
+        backupNow.SetBinding(Button.TextProperty, nameof(PosViewModel.BackupBanner));
+        backupNow.SetBinding(Button.CommandProperty, nameof(PosViewModel.BackupNowCommand));
+        var hideBackup = new Button { Text = "✕", WidthRequest = 48, BackgroundColor = Color.FromArgb("#FFF4D6"), TextColor = Theme.Warning, CornerRadius = 10, Padding = 0 };
+        SemanticProperties.SetDescription(hideBackup, vm.Text["backup.reminder.hide"]);
+        hideBackup.SetBinding(Button.CommandProperty, nameof(PosViewModel.HideBackupBannerCommand));
+        var backupBanner = new Grid { ColumnDefinitions = { new(GridLength.Star), new(GridLength.Auto) }, ColumnSpacing = 6 };
+        backupBanner.Add(backupNow, 0, 0);
+        backupBanner.Add(hideBackup, 1, 0);
+        backupBanner.SetBinding(VisualElement.IsVisibleProperty, new Binding(nameof(PosViewModel.BackupBanner), converter: new NotEmpty()));
+
         var search = _searchEntry = Ui.Entry(vm.Text["pos.search"]);
         search.SetBinding(Entry.TextProperty, nameof(PosViewModel.SearchText));
 
@@ -91,7 +106,7 @@ public sealed class PosPage : PageBase
         // No results, no space: the list only exists while a search has found something.
         results.SetBinding(VisualElement.IsVisibleProperty, new Binding("SearchResults.Count", converter: new Positive()));
         results.SetBinding(ItemsView.ItemsSourceProperty, nameof(PosViewModel.SearchResults));
-        results.SelectionChanged += (_, e) => Pick(vm, results, e);
+        results.SelectionChanged += SafeUi.On<SelectionChangedEventArgs>(e => Pick(vm, results, e));   // A1-03
 
         var quick = _quick = new CollectionView
         {
@@ -100,7 +115,7 @@ public sealed class PosPage : PageBase
             ItemsLayout = new GridItemsLayout(3, ItemsLayoutOrientation.Vertical) { HorizontalItemSpacing = 8, VerticalItemSpacing = 8 },
         };
         quick.SetBinding(ItemsView.ItemsSourceProperty, nameof(PosViewModel.QuickSale));
-        quick.SelectionChanged += (_, e) => Pick(vm, quick, e, quickSale: true);
+        quick.SelectionChanged += SafeUi.On<SelectionChangedEventArgs>(e => Pick(vm, quick, e, quickSale: true));
 
         var actions = new Grid { ColumnDefinitions = { new(GridLength.Star), new(GridLength.Star) }, ColumnSpacing = 8 };
         actions.Add(mic, 0, 0);
@@ -109,23 +124,28 @@ public sealed class PosPage : PageBase
         var grid = new Grid
         {
             RowSpacing = 8,
-            RowDefinitions = { new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Star) },
+            RowDefinitions = { new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Star) },
         };
-        grid.Add(dueBanner, 0, 0);
-        grid.Add(actions, 0, 1);
-        grid.Add(voiceText, 0, 2);
-        grid.Add(search, 0, 3);
-        grid.Add(results, 0, 4);
-        grid.Add(Ui.Caption(vm.Text["pos.quicksale"]), 0, 5);
-        grid.Add(quick, 0, 6);
+        grid.Add(backupBanner, 0, 0);
+        grid.Add(dueBanner, 0, 1);
+        grid.Add(actions, 0, 2);
+        grid.Add(voiceText, 0, 3);
+        grid.Add(search, 0, 4);
+        grid.Add(results, 0, 5);
+        grid.Add(Ui.Caption(vm.Text["pos.quicksale"]), 0, 6);
+        grid.Add(quick, 0, 7);
         return grid;
     }
 
-    private static void Pick(PosViewModel vm, CollectionView list, SelectionChangedEventArgs e, bool quickSale = false)
+    private static Task Pick(PosViewModel vm, CollectionView list, SelectionChangedEventArgs e, bool quickSale = false)
     {
-        if (e.CurrentSelection.FirstOrDefault() is ItemTile tile)
-            vm.Add(tile, quickSale ? LineSource.QuickSale : LineSource.Manual);
-        list.SelectedItem = null;
+        try
+        {
+            if (e.CurrentSelection.FirstOrDefault() is ItemTile tile)
+                vm.Add(tile, quickSale ? LineSource.QuickSale : LineSource.Manual);
+        }
+        finally { list.SelectedItem = null; }   // a tile must stay tappable again even after a failure
+        return Task.CompletedTask;
     }
 
     private static DataTemplate TileTemplate() => new(() =>
@@ -268,6 +288,7 @@ public sealed class UpiPayPage : ContentPage, IQueryAttributable
     private readonly Image _qr = new() { HeightRequest = 280, WidthRequest = 280, HorizontalOptions = LayoutOptions.Center };
     private readonly Label _amount = Ui.Amount();
     private readonly Label _note = Ui.Caption();
+    private readonly Label _payee = Ui.Body();
     private readonly Button _switch;
     private ImageSource? _generated;
     private ImageSource? _ownPhoto;
@@ -282,6 +303,13 @@ public sealed class UpiPayPage : ContentPage, IQueryAttributable
         Title = text["tender.upi"];
         _amount.HorizontalTextAlignment = TextAlignment.Center;
         _note.HorizontalTextAlignment = TextAlignment.Center;
+        _payee.HorizontalTextAlignment = TextAlignment.Center;
+        // A2-06: the common counter fraud is a fake "payment successful" screen on the customer's phone.
+        var checkOwn = new Label
+        {
+            Text = text["upi.check.own"], FontFamily = Theme.FontBold, FontSize = 16, TextColor = Theme.Warning,
+            HorizontalTextAlignment = TextAlignment.Center,
+        };
         // The owner's uploaded QR photo (if any) can be shown instead; the generated one carries the amount.
         _switch = Ui.Secondary(text["upi.show.mine"]);
         _switch.IsVisible = false;
@@ -290,7 +318,7 @@ public sealed class UpiPayPage : ContentPage, IQueryAttributable
         paid.Clicked += SafeUi.On(async () => { _answered = true; await _nav.ReturnAsync<string>("paid"); });
         var cancel = Ui.Secondary(text["common.cancel"]);
         cancel.Clicked += SafeUi.On(async () => { _answered = true; await _nav.ReturnAsync<string>(null); });
-        Content = Ui.Scroll(Ui.Title(text["tender.upi.scan"]), _qr, _amount, _note, _switch, paid, cancel);
+        Content = Ui.Scroll(Ui.Title(text["tender.upi.scan"]), _qr, _amount, _payee, _note, checkOwn, _switch, paid, cancel);
     }
 
     private void Show(bool own)
@@ -318,6 +346,7 @@ public sealed class UpiPayPage : ContentPage, IQueryAttributable
         if (query.TryGetValue("amount", out var amount)) _amount.Text = amount?.ToString();
         if (query.TryGetValue("payload", out var payload) && payload is string upi)
         {
+            _payee.Text = UpiQr.Parse(upi) is { } payee ? _text.Format("upi.paying.to", payee.PayeeAddress) : "";
             using var generator = new QRCodeGenerator();
             using var data = generator.CreateQrCode(upi, QRCodeGenerator.ECCLevel.M);
             var png = new PngByteQRCode(data).GetGraphic(12);
@@ -327,10 +356,14 @@ public sealed class UpiPayPage : ContentPage, IQueryAttributable
         _ = LoadOwnPhotoAsync();
     }
 
-    protected override void OnDisappearing()
+    /// <summary>
+    /// Back = not paid. On navigation only, never OnDisappearing: the shopkeeper switching to PhonePe/GPay to check
+    /// the money arrived must not cancel the pending payment ("Payment received" afterwards would do nothing).
+    /// </summary>
+    protected override void OnNavigatedFrom(NavigatedFromEventArgs args)
     {
-        base.OnDisappearing();
-        if (!_answered) { _answered = true; _nav.CancelPending(); }   // back button = not paid
+        base.OnNavigatedFrom(args);
+        if (!_answered) { _answered = true; _nav.CancelPending(); }
     }
 }
 
@@ -375,7 +408,7 @@ public sealed class ReceiptPage : ContentPage, IQueryAttributable
         if (query.TryGetValue("billId", out var id) && Guid.TryParse(id?.ToString(), out var billId)) _billId = billId;
         if (query.TryGetValue("change", out var change) && change is string c && c != IndianFormat.Rupees(default))
             _change.Text = _text.Format("pos.change.due", c);
-        _ = LoadAsync();
+        _ = SafeUi.Run(LoadAsync);   // A1-03
     }
 
     private async Task LoadAsync()

@@ -114,7 +114,7 @@ public sealed class BillDetailPage : ContentPage, IQueryAttributable
 
     public void ApplyQueryAttributes(IDictionary<string, object> query)
     {
-        if (query.TryGetValue("billId", out var id) && Guid.TryParse(id?.ToString(), out var billId)) { _billId = billId; _ = LoadAsync(); }
+        if (query.TryGetValue("billId", out var id) && Guid.TryParse(id?.ToString(), out var billId)) { _billId = billId; _ = SafeUi.Run(LoadAsync); }   // A1-03: a failed receipt load is logged and toasted, not lost
     }
 
     private async Task LoadAsync()
