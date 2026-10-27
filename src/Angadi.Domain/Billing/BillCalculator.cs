@@ -62,8 +62,13 @@ public static class BillCalculator
     }
 
     /// <summary>B1: change exists only for cash. UPI/udhaar bills never show a (negative) change due.</summary>
-    public static Paise ChangeDue(Bill bill) =>
-        bill.Tender == TenderType.Cash && bill.CashReceived > bill.GrandTotal ? bill.CashReceived - bill.GrandTotal : Paise.Zero;
+    public static Paise ChangeDue(Bill bill) => bill.Tender switch
+    {
+        TenderType.Cash => bill.CashReceived > bill.GrandTotal ? bill.CashReceived - bill.GrandTotal : Paise.Zero,
+        // v2 split tender: change is only ever due on the bill's (single) cash part.
+        TenderType.Split => new Paise(bill.Payments.Sum(p => p.ChangeDue.Value)),
+        _ => Paise.Zero,
+    };
 
     /// <summary>Line discounts plus bill discount, for the day-end report.</summary>
     public static Paise TotalDiscount(Bill bill)

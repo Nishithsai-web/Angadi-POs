@@ -112,6 +112,14 @@ public static class ErrorCodes
     public const string ShopNameRequired = "SHOP_NAME_REQUIRED";
     public const string BillAmountTooLarge = "BILL_AMOUNT_TOO_LARGE";
     public const string ValidationFailed = "VALIDATION_FAILED";
+    // v2 split tender + returns (docs/BILLING_RULES.md)
+    public const string BillSplitInvalid = "BILL_SPLIT_INVALID";
+    public const string BillSplitSumMismatch = "BILL_SPLIT_SUM_MISMATCH";
+    public const string BillHasReturns = "BILL_HAS_RETURNS";
+    public const string ReturnEmpty = "RETURN_EMPTY";
+    public const string ReturnQtyTooLarge = "RETURN_QTY_TOO_LARGE";
+    public const string ReturnBillNotFinalized = "RETURN_BILL_NOT_FINALIZED";
+    public const string ReturnNeedsCustomer = "RETURN_NEEDS_CUSTOMER";
     /// <summary>The watchdog fired while a bill was still saving. Tapping pay again is safe (finalize is idempotent).</summary>
     public const string BillSaveSlow = "BILL_SAVE_SLOW";
     /// <summary>The phone's storage is full: SQLite could not write.</summary>

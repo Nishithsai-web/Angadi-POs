@@ -88,10 +88,19 @@ internal sealed class BackupService(AngadiDb db, IClock clock, string exportDire
         Append<ItemRow>(c, sb); Append<BillRow>(c, sb); Append<BillLineRow>(c, sb); Append<CustomerRow>(c, sb);
         Append<DuesEntryRow>(c, sb); Append<StockMoveRow>(c, sb); Append<OutboxRow>(c, sb); Append<ShopProfileRow>(c, sb);
         Append<NoteRow>(c, sb);
+        // v2 (schema 4): split-tender parts and returns are books too, so the MAC covers them. Only when the table
+        // exists — a backup made before schema 4 has none, and its MAC input must stay exactly what it was.
+        AppendIfPresent<BillPaymentRow>(c, sb, "BillPayment"); AppendIfPresent<SalesReturnRow>(c, sb, "SalesReturn");
+        AppendIfPresent<ReturnLineRow>(c, sb, "ReturnLine");
         sb.Append("MetaRow\n");
         foreach (var row in c.Table<MetaRow>().Where(m => m.Key != HmacMeta).ToList().OrderBy(r => JsonSerializer.Serialize(r)))
             sb.Append(JsonSerializer.Serialize(row)).Append('\n');
         return sb.ToString();
+
+        static void AppendIfPresent<T>(SQLiteConnection conn, StringBuilder b, string table) where T : new()
+        {
+            if (conn.ExecuteScalar<int>("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?", table) > 0) Append<T>(conn, b);
+        }
 
         static void Append<T>(SQLiteConnection conn, StringBuilder b) where T : new()
         {
@@ -271,7 +280,8 @@ internal sealed class BackupService(AngadiDb db, IClock clock, string exportDire
             {
                 liveSequence = c.Table<ShopProfileRow>().FirstOrDefault()?.NextBillSequence ?? 1;
                 foreach (var m in c.Table<MetaRow>())
-                    if (m.Key.StartsWith("quota.", StringComparison.Ordinal)
+                    // v2 returns: "seq." document sequences (the return number) carry forward like the bill sequence.
+                    if ((m.Key.StartsWith("quota.", StringComparison.Ordinal) || m.Key.StartsWith("seq.", StringComparison.Ordinal))
                         && long.TryParse(m.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var v))
                         liveQuota[m.Key] = v;
             }, ct);
@@ -342,6 +352,25 @@ internal sealed class BackupService(AngadiDb db, IClock clock, string exportDire
 
         var orphanDues = c.ExecuteScalar<int>("SELECT COUNT(*) FROM DuesEntry e WHERE NOT EXISTS (SELECT 1 FROM Customer cu WHERE cu.Id = e.CustomerId)");
         if (orphanDues > 0) { reason = $"{orphanDues} dues entries without a customer"; return false; }
+
+        // v2 split tender + returns (schema 4; older backups have no such tables): a bill's parts must add up to its
+        // total, and no part or return may point at a bill that is not there.
+        if (c.ExecuteScalar<int>("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'BillPayment'") > 0)
+        {
+            var badParts = c.ExecuteScalar<int>(
+                "SELECT COUNT(*) FROM Bill b WHERE b.Status <> 0 AND EXISTS (SELECT 1 FROM BillPayment p WHERE p.BillId = b.Id) " +
+                "AND b.GrandTotalPaise <> (SELECT SUM(p.AmountPaise) FROM BillPayment p WHERE p.BillId = b.Id)");
+            if (badParts > 0) { reason = $"{badParts} bill(s) whose payment parts do not add up to the total"; return false; }
+            var orphanParts = c.ExecuteScalar<int>("SELECT COUNT(*) FROM BillPayment p WHERE NOT EXISTS (SELECT 1 FROM Bill b WHERE b.Id = p.BillId)");
+            if (orphanParts > 0) { reason = $"{orphanParts} payment part(s) without a bill"; return false; }
+        }
+        if (c.ExecuteScalar<int>("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'SalesReturn'") > 0)
+        {
+            var orphanReturns = c.ExecuteScalar<int>("SELECT COUNT(*) FROM SalesReturn r WHERE NOT EXISTS (SELECT 1 FROM Bill b WHERE b.Id = r.BillId AND b.Status = 1)");
+            if (orphanReturns > 0) { reason = $"{orphanReturns} return(s) without a finalized bill"; return false; }
+            var badRefunds = c.ExecuteScalar<int>("SELECT COUNT(*) FROM SalesReturn WHERE RefundTotalPaise <> CashRefundPaise + UpiRefundPaise + DuesCreditPaise");
+            if (badRefunds > 0) { reason = $"{badRefunds} return(s) whose refund does not add up"; return false; }
+        }
 
         // FIX(RESTORE-2, 2026-10-20, FIX-2): Flaw: the sweep reconciled the ledgers but never recomputed
         // a single bill — a backup with hand-edited bill totals restored silently, and a rewound

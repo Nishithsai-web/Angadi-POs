@@ -94,7 +94,8 @@ internal sealed class BillRepository(AngadiDb db, IClock clock) : IBillRepositor
         => db.RunAsync(c =>
         {
             var row = c.Find<BillRow>(id);
-            return row is null ? null : ToDomain(row, c.Query<BillLineRow>("SELECT * FROM BillLine WHERE BillId = ?", id));
+            return row is null ? null : ToDomain(row, c.Query<BillLineRow>("SELECT * FROM BillLine WHERE BillId = ?", id),
+                c.Query<BillPaymentRow>("SELECT * FROM BillPayment WHERE BillId = ?", id));
         }, ct);
 
     public Task<IReadOnlyList<Bill>> ListAsync(DateTimeOffset from, DateTimeOffset to, CancellationToken ct = default)
@@ -125,18 +126,23 @@ internal sealed class BillRepository(AngadiDb db, IClock clock) : IBillRepositor
         // One "?" per bill would break past SQLite's host-parameter limit (999 on older builds) on a busy month:
         // fetch the lines in chunks instead.
         var lines = new Dictionary<Guid, List<BillLineRow>>();
+        var payments = new Dictionary<Guid, List<BillPaymentRow>>();   // v2 split tender parts
         foreach (var chunk in rows.Chunk(LineQueryChunk))
         {
-            var found = c.Query<BillLineRow>(
-                $"SELECT * FROM BillLine WHERE BillId IN ({string.Join(",", chunk.Select(_ => "?"))})",
-                chunk.Select(r => (object)r.Id).ToArray());
-            foreach (var l in found)
+            var placeholders = string.Join(",", chunk.Select(_ => "?"));
+            var ids = chunk.Select(r => (object)r.Id).ToArray();
+            foreach (var l in c.Query<BillLineRow>($"SELECT * FROM BillLine WHERE BillId IN ({placeholders})", ids))
             {
                 if (!lines.TryGetValue(l.BillId, out var list)) lines[l.BillId] = list = [];
                 list.Add(l);
             }
+            foreach (var p in c.Query<BillPaymentRow>($"SELECT * FROM BillPayment WHERE BillId IN ({placeholders})", ids))
+            {
+                if (!payments.TryGetValue(p.BillId, out var list)) payments[p.BillId] = list = [];
+                list.Add(p);
+            }
         }
-        return rows.Select(r => ToDomain(r, lines.TryGetValue(r.Id, out var l) ? l : [])).ToList();
+        return rows.Select(r => ToDomain(r, lines.TryGetValue(r.Id, out var l) ? l : [], payments.TryGetValue(r.Id, out var p) ? p : null)).ToList();
     }
 
     public Task<int> CountVoidedAsync(DateTimeOffset from, DateTimeOffset to, CancellationToken ct = default)
@@ -151,8 +157,13 @@ internal sealed class BillRepository(AngadiDb db, IClock clock) : IBillRepositor
         var a = Ms(from);
         var b = Ms(to);
         var day = Day(soldBefore);
+        // v2 split tender: a voided split bill (Tender 3) hands back only its cash + UPI parts (its udhaar part is reversed).
         return db.RunAsync(c => c.ExecuteScalar<long>(
             "SELECT COALESCE(SUM(GrandTotalPaise), 0) FROM Bill WHERE Status = 2 AND VoidedAtMs >= ? AND VoidedAtMs < ? AND Day < ? AND Tender IN (0, 1)",
+            a, b, day)
+            + c.ExecuteScalar<long>(
+            "SELECT COALESCE(SUM(p.AmountPaise), 0) FROM BillPayment p JOIN Bill b ON b.Id = p.BillId " +
+            "WHERE b.Status = 2 AND b.VoidedAtMs >= ? AND b.VoidedAtMs < ? AND b.Day < ? AND b.Tender = 3 AND p.Tender IN (0, 1)",
             a, b, day), ct);
     }
 
@@ -171,6 +182,7 @@ internal sealed class BillRepository(AngadiDb db, IClock clock) : IBillRepositor
         bill.UpdatedAt = now;
         var row = ToRow(bill);
         var lines = bill.Lines.Select((l, i) => ToRow(l, bill.Id, i)).ToList();
+        var payments = bill.Payments.Select((p, i) => PaymentMapping.ToRow(p, bill.Id, i)).ToList();
         return db.RunAsync(c =>
         {
             c.RunInTransactionIfNeeded(() =>
@@ -178,6 +190,8 @@ internal sealed class BillRepository(AngadiDb db, IClock clock) : IBillRepositor
                 c.InsertOrReplace(row);
                 c.Execute("DELETE FROM BillLine WHERE BillId = ?", bill.Id);
                 c.InsertAll(lines);
+                c.Execute("DELETE FROM BillPayment WHERE BillId = ?", bill.Id);
+                c.InsertAll(payments);
             });
         }, ct);
     }
@@ -216,6 +230,11 @@ internal sealed class CustomerRepository(AngadiDb db, IClock clock) : ICustomerR
         => db.RunAsync<IReadOnlyList<Customer>>(c => c.Query<CustomerRow>(
                 "SELECT * FROM Customer WHERE DuesBalancePaise <> 0 ORDER BY DuesBalancePaise DESC")
             .Select(ToDomain).ToList(), ct);
+
+    public Task<Paise> SumEntriesAsync(DuesEntryKind kind, DateTimeOffset from, DateTimeOffset to, CancellationToken ct = default)
+        => db.RunAsync(c => new Paise(c.ExecuteScalar<long>(
+            "SELECT COALESCE(SUM(AmountPaise), 0) FROM DuesEntry WHERE Kind = ? AND CreatedAtMs >= ? AND CreatedAtMs < ?",
+            (int)kind, Ms(from), Ms(to))), ct);
 
     public Task<IReadOnlyList<DuesEntry>> GetLedgerAsync(Guid customerId, CancellationToken ct = default)
         => db.RunAsync<IReadOnlyList<DuesEntry>>(c => c.Query<DuesEntryRow>(
@@ -287,8 +306,8 @@ internal sealed class StockLedger(AngadiDb db, IClock clock) : IStockLedger
 
     public Task<IReadOnlyList<DailySales>> GetDailySalesAsync(DateOnly from, DateOnly to, CancellationToken ct = default)
         => db.RunAsync<IReadOnlyList<DailySales>>(c => c.Query<DailySalesRow>(
-                "SELECT ItemId, Day, -SUM(DeltaMilli) AS SoldMilli FROM StockMove WHERE Reason IN (?, ?) AND Day >= ? AND Day <= ? GROUP BY ItemId, Day",
-                (int)StockMoveReason.Sale, (int)StockMoveReason.VoidRestore, Day(from), Day(to))
+                "SELECT ItemId, Day, -SUM(DeltaMilli) AS SoldMilli FROM StockMove WHERE Reason IN (?, ?, ?) AND Day >= ? AND Day <= ? GROUP BY ItemId, Day",
+                (int)StockMoveReason.Sale, (int)StockMoveReason.VoidRestore, (int)StockMoveReason.Return, Day(from), Day(to))
             .Select(r => new DailySales(r.ItemId, FromDay(r.Day), new Qty(r.SoldMilli))).ToList(), ct);
 
     public Task<IReadOnlyList<StockMove>> ListMovesAsync(DateOnly from, DateOnly to, CancellationToken ct = default)

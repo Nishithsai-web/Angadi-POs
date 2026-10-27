@@ -12,8 +12,9 @@ namespace Angadi.Infrastructure.Persistence;
 /// </summary>
 public sealed class AngadiDb : IUnitOfWork, IDisposable
 {
-    /// <summary>2: customer account columns + Note table. 3: shop's own UPI QR. Bump on every schema change.</summary>
-    public const int SchemaVersion = 3;
+    /// <summary>2: customer account columns + Note table. 3: shop's own UPI QR. 4: split tender (BillPayment) +
+    /// returns (SalesReturn, ReturnLine). Bump on every schema change.</summary>
+    public const int SchemaVersion = 4;
     public const string AppMarker = "angadi";
 
     private readonly SemaphoreSlim _gate = new(1, 1);
@@ -134,6 +135,9 @@ public sealed class AngadiDb : IUnitOfWork, IDisposable
         c.CreateTable<ShopProfileRow>();
         c.CreateTable<MetaRow>();
         c.CreateTable<NoteRow>();
+        c.CreateTable<BillPaymentRow>();    // v2 split tender (schema 4)
+        c.CreateTable<SalesReturnRow>();    // v2 returns (schema 4)
+        c.CreateTable<ReturnLineRow>();
 
         c.InsertOrReplace(new MetaRow { Key = "app", Value = AppMarker });
         var current = c.Find<MetaRow>("schema_version");

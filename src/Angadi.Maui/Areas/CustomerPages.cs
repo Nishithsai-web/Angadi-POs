@@ -25,6 +25,7 @@ internal static class CustomerFormat
     {
         TenderType.Cash => text["tender.cash"],
         TenderType.Upi => text["tender.upi"],
+        TenderType.Split => text["tender.split"],   // v2 split tender
         _ => text["tender.udhaar"],
     };
 }

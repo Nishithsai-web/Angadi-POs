@@ -15,7 +15,13 @@ public sealed class Bill : Entity
     public List<BillLine> Lines { get; set; } = [];
 
     public Discount BillDiscount { get; set; } = Discount.None;   // FR-12
-    public TenderType? Tender { get; set; }                         // FR-14, single tender in v1
+    public TenderType? Tender { get; set; }                         // FR-14; Split = several parts in Payments (v2)
+    /// <summary>
+    /// v2 split tender: how the bill was paid, part by part — BillPayment rows are the source of truth. For a Split
+    /// draft the counter fills them; for a single tender finalize writes the one part. Bills saved before v2 have
+    /// none: read every bill through <see cref="BillPayments.PartsOf"/>, which presents an old tender as one part.
+    /// </summary>
+    public List<BillPayment> Payments { get; set; } = [];
     public Guid? CustomerId { get; set; }                           // required when Tender == Udhaar
     public Paise CashReceived { get; set; }                         // for change due
     /// <summary>H9: UPI transaction reference (UTR / last digits) for reconciling UPI bills. Optional.</summary>
@@ -71,5 +77,6 @@ public sealed record TaxSplit(GstSlab Slab, Paise Taxable, Paise Tax)
 }
 
 public enum BillStatus { Draft = 0, Finalized = 1, Void = 2 }
-public enum TenderType { Cash = 0, Upi = 1, Udhaar = 2 }
+/// <summary>Split (v2) = the bill was paid in parts (cash/UPI/udhaar), listed in <see cref="Bill.Payments"/>.</summary>
+public enum TenderType { Cash = 0, Upi = 1, Udhaar = 2, Split = 3 }
 public enum LineSource { Manual = 0, Voice = 1, Barcode = 2, QuickSale = 3 }

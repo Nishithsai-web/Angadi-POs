@@ -33,6 +33,7 @@ public static class DependencyInjection
 
         services.AddSingleton<IItemRepository, ItemRepository>();
         services.AddSingleton<IBillRepository, BillRepository>();
+        services.AddSingleton<IReturnRepository, ReturnRepository>();   // v2 returns
         services.AddSingleton<ICustomerRepository, CustomerRepository>();
         services.AddSingleton<IStockLedger, StockLedger>();
         services.AddSingleton<IOutbox, Outbox>();

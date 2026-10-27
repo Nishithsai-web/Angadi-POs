@@ -69,6 +69,8 @@ public interface ICustomerRepository
     Task<Customer?> GetAsync(Guid id, CancellationToken ct = default);
     Task<IReadOnlyList<Customer>> SearchAsync(string text, CancellationToken ct = default);
     Task<IReadOnlyList<Customer>> GetWithDuesAsync(CancellationToken ct = default);   // FR-30
+    /// <summary>v2 day-end: Σ ledger entries of <paramref name="kind"/> written in [from, to) (e.g. udhaar collected today).</summary>
+    Task<Angadi.Domain.Common.Paise> SumEntriesAsync(DuesEntryKind kind, DateTimeOffset from, DateTimeOffset to, CancellationToken ct = default);
     Task<IReadOnlyList<DuesEntry>> GetLedgerAsync(Guid customerId, CancellationToken ct = default);
     Task SaveAsync(Customer customer, CancellationToken ct = default);
     Task AddDuesEntryAsync(DuesEntry entry, CancellationToken ct = default);

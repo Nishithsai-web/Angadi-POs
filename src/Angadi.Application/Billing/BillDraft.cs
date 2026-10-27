@@ -143,6 +143,27 @@ public sealed class BillDraft
         // A customer can be attached to any bill (account history); udhaar requires one.
         if (customerId is not null) Bill.CustomerId = customerId;
         Bill.CashReceived = tender == TenderType.Cash ? cashReceived ?? Paise.Zero : Paise.Zero;
+        Bill.Payments = [];   // v2: a single tender's one part is written by finalize
+        Changed?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// v2 split tender: the bill is paid in parts (cash/UPI/udhaar). The finalize validator and handler enforce the
+    /// rules (parts add up to the total exactly, ≤1 cash part, ≤1 udhaar part with a customer).
+    /// </summary>
+    public void SetSplit(IEnumerable<BillPayment> parts, Guid? customerId = null)
+    {
+        ArgumentNullException.ThrowIfNull(parts);
+        Bill.Tender = TenderType.Split;
+        Bill.Payments = parts.Select(p => new BillPayment
+        {
+            Tender = p.Tender, Amount = p.Amount,
+            UpiRef = p.Tender == TenderType.Upi && !string.IsNullOrWhiteSpace(p.UpiRef) ? p.UpiRef.Trim() : null,
+            CashReceived = p.Tender == TenderType.Cash ? p.CashReceived : Paise.Zero,
+        }).ToList();
+        Bill.UpiRef = null;
+        Bill.CashReceived = Paise.Zero;
+        if (customerId is not null) Bill.CustomerId = customerId;
         Changed?.Invoke(this, EventArgs.Empty);
     }
 
@@ -153,7 +174,7 @@ public sealed class BillDraft
         Changed?.Invoke(this, EventArgs.Empty);
     }
 
-    public Paise ChangeDue => Bill.Tender == TenderType.Cash && Bill.CashReceived.Value > 0
+    public Paise ChangeDue => (Bill.Tender == TenderType.Cash && Bill.CashReceived.Value > 0) || Bill.Tender == TenderType.Split
         ? BillCalculator.ChangeDue(Bill)
         : Paise.Zero;
 

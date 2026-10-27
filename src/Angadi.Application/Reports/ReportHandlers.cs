@@ -3,12 +3,13 @@ using Angadi.Application.Persistence;
 using Angadi.Application.Platform;
 using Angadi.Domain.Billing;
 using Angadi.Domain.Common;
+using Angadi.Domain.Customers;
 using Angadi.Domain.Items;
 
 namespace Angadi.Application.Reports;
 
 /// <summary>FR-27–30 and the bill list (FR-20). Read-only; voided bills are excluded from money totals.</summary>
-internal sealed class ReportHandlers(IBillRepository bills, ICustomerRepository customers, ILocalizer text, IClock clock) :
+internal sealed class ReportHandlers(IBillRepository bills, ICustomerRepository customers, ILocalizer text, IClock clock, IReturnRepository returns) :
     IRequestHandler<GetDayEndReportQuery, DayEndReport>,
     IRequestHandler<GetGstSummaryQuery, IReadOnlyList<TaxSplit>>,
     IRequestHandler<GetTopItemsQuery, IReadOnlyList<TopItem>>,
@@ -31,24 +32,38 @@ internal sealed class ReportHandlers(IBillRepository bills, ICustomerRepository 
         // shown on Reports. Why: the drawer count must match the report. Logged in docs/AGENT_FIX_LOG.md.
         var refunds = await bills.SumRefundsAsync(dayStart, dayStart.AddDays(1), q.Day, ct);
         Paise Sum(IEnumerable<Bill> bs) => new(bs.Sum(b => b.GrandTotal.Value));
+        // v2 split tender: tender totals sum payment parts (an old single-tender bill reads as one part).
+        Paise By(TenderType t) => new(sold.Sum(b => BillPayments.AmountBy(b, t).Value));
+        // v2 returns: on the day they happen, whatever day the bill was.
+        var dayReturns = await returns.ListByDayAsync(q.Day, q.Day, ct);
+        var collected = await customers.SumEntriesAsync(DuesEntryKind.Payment, dayStart, dayStart.AddDays(1), ct);
 
         return new DayEndReport(
             q.Day,
             BillCount: sold.Count,
             VoidCount: voidsToday,
             SalesTotal: Sum(sold),
-            Cash: Sum(sold.Where(b => b.Tender == TenderType.Cash)),
-            Upi: Sum(sold.Where(b => b.Tender == TenderType.Upi)),
-            Udhaar: Sum(sold.Where(b => b.Tender == TenderType.Udhaar)),
+            Cash: By(TenderType.Cash),
+            Upi: By(TenderType.Upi),
+            Udhaar: By(TenderType.Udhaar),
             Discounts: new Paise(sold.Sum(b => BillCalculator.TotalDiscount(b).Value)),
             Tax: new Paise(sold.Sum(b => b.TaxTotal.Value)),
-            Refunds: new Paise(refunds));
+            Refunds: new Paise(refunds),
+            ReturnCount: dayReturns.Count,
+            Returns: new Paise(dayReturns.Sum(r => r.RefundTotal.Value)),
+            CashRefunds: new Paise(dayReturns.Sum(r => r.CashRefund.Value)),
+            UpiRefunds: new Paise(dayReturns.Sum(r => r.UpiRefund.Value)),
+            DuesCredited: new Paise(dayReturns.Sum(r => r.DuesCredit.Value)),
+            DuesCollected: collected);
     }
 
     public async Task<IReadOnlyList<TaxSplit>> Handle(GetGstSummaryQuery q, CancellationToken ct)
     {
         var sold = (await bills.ListByDayAsync(q.From, q.To, ct)).Where(b => b.Status == BillStatus.Finalized);
-        return sold.SelectMany(b => b.TaxSplits)
+        // v2 returns are credit notes: their GST comes off in the period the return happened, whatever the bill's month.
+        var credited = (await returns.ListByDayAsync(q.From, q.To, ct))
+            .SelectMany(r => r.TaxSplits).Select(s => new TaxSplit(s.Slab, -s.Taxable, -s.Tax));
+        return sold.SelectMany(b => b.TaxSplits).Concat(credited)
             .GroupBy(s => s.Slab)
             .OrderBy(g => (int)g.Key)
             .Select(g => new TaxSplit(g.Key, new Paise(g.Sum(s => s.Taxable.Value)), new Paise(g.Sum(s => s.Tax.Value))))

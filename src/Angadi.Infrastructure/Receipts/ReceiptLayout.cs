@@ -177,6 +177,21 @@ public static class ReceiptLayout
         {
             rows.Add(new(ReceiptRowKind.Separator));
             rows.Add(new(ReceiptRowKind.Field) { Text = text["receipt.paidby"], Value = text[TenderKey(tender)] });
+            if (tender == TenderType.Split)
+            {
+                // v2 split tender: every part on its own line; the UPI ref and cash received/change on their own part.
+                foreach (var part in BillPayments.PartsOf(bill))
+                {
+                    rows.Add(new(ReceiptRowKind.Field) { Text = "  " + text[TenderKey(part.Tender)], Value = IndianFormat.Rupees(part.Amount) });
+                    if (part.Tender == TenderType.Upi && !string.IsNullOrWhiteSpace(part.UpiRef))
+                        rows.Add(new(ReceiptRowKind.Field) { Text = text["receipt.upiref"], Value = part.UpiRef });
+                    if (part.Tender == TenderType.Cash && part.CashReceived > part.Amount)
+                    {
+                        rows.Add(new(ReceiptRowKind.Field) { Text = text["tender.received"], Value = IndianFormat.Rupees(part.CashReceived) });
+                        rows.Add(new(ReceiptRowKind.Field) { Text = text["tender.change"], Value = IndianFormat.Rupees(part.ChangeDue) });
+                    }
+                }
+            }
             if (tender == TenderType.Upi && !string.IsNullOrWhiteSpace(bill.UpiRef))
                 rows.Add(new(ReceiptRowKind.Field) { Text = text["receipt.upiref"], Value = bill.UpiRef });   // H9
             if (tender == TenderType.Cash && bill.CashReceived > Paise.Zero)
@@ -206,7 +221,7 @@ public static class ReceiptLayout
     /// <summary>The QR rule from the class summary.</summary>
     public static bool ShowsQr(Bill bill, ShopProfile shop) =>
         bill.Status != BillStatus.Void
-        && bill.Tender is not (TenderType.Cash or TenderType.Upi)
+        && bill.Tender is not (TenderType.Cash or TenderType.Upi or TenderType.Split)   // v2: a split bill is settled part by part
         && !string.IsNullOrWhiteSpace(shop.UpiId)
         && bill.GrandTotal > Paise.Zero;
 
@@ -219,6 +234,7 @@ public static class ReceiptLayout
         TenderType.Cash => "tender.cash",
         TenderType.Upi => "tender.upi",
         TenderType.Udhaar => "tender.udhaar",
+        TenderType.Split => "tender.split",
         _ => "tender.pay",
     };
 

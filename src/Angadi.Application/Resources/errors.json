@@ -215,6 +215,34 @@
     "te": "ఈ బిల్లు గత నెలది. రద్దు చేస్తే ఆ నెల GST సారాంశం మారుతుంది — నిర్ధారించండి",
     "en": "This bill is from an earlier month. Cancelling it changes that month's GST summary — please confirm"
   },
+  "BILL_SPLIT_INVALID": {
+    "te": "విభజన సరిగా లేదు — ప్రతి భాగం సున్నా కంటే ఎక్కువ, బిల్లు మొత్తం కంటే తక్కువ ఉండాలి; నగదు ఒక్కసారి, ఉద్దెర ఒక్కసారి మాత్రమే",
+    "en": "That split doesn't work — each part must be more than zero and less than the bill; cash once, udhaar once"
+  },
+  "BILL_SPLIT_SUM_MISMATCH": {
+    "te": "భాగాల మొత్తం {0}, బిల్లు {1} — రెండూ సమానంగా ఉండాలి",
+    "en": "The parts add up to {0} but the bill is {1} — they must match"
+  },
+  "BILL_HAS_RETURNS": {
+    "te": "ఈ బిల్లుపై సరుకు వాపసు అయ్యింది — రద్దు చేయలేం. మిగతావి కూడా వాపసు తీసుకోండి",
+    "en": "Items on this bill were already returned — it can't be voided. Return the rest instead"
+  },
+  "RETURN_EMPTY": {
+    "te": "వాపసు చేసే సరుకు ఎంచుకోండి",
+    "en": "Pick at least one item to return"
+  },
+  "RETURN_QTY_TOO_LARGE": {
+    "te": "{0}: {1} మాత్రమే వాపసు తీసుకోవచ్చు",
+    "en": "{0}: only {1} can be returned"
+  },
+  "RETURN_BILL_NOT_FINALIZED": {
+    "te": "రద్దైన బిల్లుపై వాపసు కుదరదు",
+    "en": "A cancelled bill can't have returns"
+  },
+  "RETURN_NEEDS_CUSTOMER": {
+    "te": "ఉద్దెర తగ్గించడానికి ఈ బిల్లుకు కస్టమర్ ఉండాలి — నగదు లేదా UPIతో తిరిగి ఇవ్వండి",
+    "en": "Reducing udhaar needs a customer on this bill — refund by cash or UPI instead"
+  },
   "BILL_PREFIX_INVALID": {
     "te": "బిల్లు ముందు అక్షరం 1–8 అక్షరాలు/అంకెలు మాత్రమే (/ మరియు - కూడా సరే)",
     "en": "Bill prefix must be 1–8 letters or digits (/ and - allowed)"

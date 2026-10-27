@@ -33,7 +33,7 @@ internal sealed class CustomerAccountHandlers(
         var ledger = await customers.GetLedgerAsync(q.CustomerId, ct);
 
         long total = sold.Sum(b => b.GrandTotal.Value);
-        long By(TenderType t) => sold.Where(b => b.Tender == t).Sum(b => b.GrandTotal.Value);
+        long By(TenderType t) => sold.Sum(b => BillPayments.AmountBy(b, t).Value);   // v2: split bills by their parts
 
         var top = sold.SelectMany(b => b.Lines.Select(l => (bill: b.Id, line: l)))
             .GroupBy(x => x.line.ItemId)

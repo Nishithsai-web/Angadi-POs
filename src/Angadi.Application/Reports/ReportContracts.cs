@@ -7,11 +7,21 @@ namespace Angadi.Application.Reports;
 
 /// <summary>FR-27.</summary>
 public sealed record GetDayEndReportQuery(DateOnly Day) : IQuery<DayEndReport>;
+/// <remarks>
+/// v2: Cash/Upi/Udhaar sum the bills' payment PARTS (a split bill counts in each of its tenders; an old bill is one
+/// part). Returns are reported on the day they happen (the bill's day never changes): ReturnCount/Returns, how the
+/// refunds went out, and NetSales = SalesTotal − Returns. DuesCollected = udhaar payments recorded that day.
+/// </remarks>
 public sealed record DayEndReport(
     DateOnly Day, int BillCount, int VoidCount, Paise SalesTotal,
     Paise Cash, Paise Upi, Paise Udhaar, Paise Discounts, Paise Tax,
     // S1-F1: cash/UPI handed back today for bills sold on an EARLIER day and voided today (the drawer is short by this).
-    Paise Refunds = default);
+    Paise Refunds = default,
+    int ReturnCount = 0, Paise Returns = default, Paise CashRefunds = default, Paise UpiRefunds = default,
+    Paise DuesCredited = default, Paise DuesCollected = default)
+{
+    public Paise NetSales => SalesTotal - Returns;
+}
 
 /// <summary>FR-28.</summary>
 public sealed record GetGstSummaryQuery(DateOnly From, DateOnly To) : IQuery<IReadOnlyList<TaxSplit>>;

@@ -12,4 +12,5 @@ public sealed class StockMove : Entity
     public string? Note { get; set; }
 }
 
-public enum StockMoveReason { Sale = 0, VoidRestore = 1, Purchase = 2, Damage = 3, CountCorrection = 4, Opening = 5 }
+/// <summary>Return (v2): goods brought back on a SalesReturn; BillId = the original bill, Note = the return number.</summary>
+public enum StockMoveReason { Sale = 0, VoidRestore = 1, Purchase = 2, Damage = 3, CountCorrection = 4, Opening = 5, Return = 6 }

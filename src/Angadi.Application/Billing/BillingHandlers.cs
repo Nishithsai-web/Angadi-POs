@@ -33,6 +33,7 @@ internal sealed class FinalizeBillValidator : IValidator<FinalizeBillCommand>
         if (bill.Lines.Any(l => l.UnitPrice.Value < 0)) return new Error(ErrorCodes.ValidationFailed, "negative price");
         if (bill.Tender is null || !Enum.IsDefined(bill.Tender.Value)) return new Error(ErrorCodes.BillTenderMissing);   // LOW: no cast-in tenders
         if (bill.Tender == TenderType.Udhaar && bill.CustomerId is null) return new Error(ErrorCodes.BillUdhaarNeedsCustomer);
+        if (bill.Tender == TenderType.Split && SplitError(bill) is { } splitError) return splitError;   // v2 split tender
         // Status is checked in the handler, after the idempotency check: a retry of a bill that already saved is not an error.
         // FIX(MONEY-3, 2026-10-20, FIX-2): Flaw: nothing validated CashReceived >= 0, so −₹500 on a ₹120 bill
         // reported a shortfall of ₹620 — more than the bill. Fix: reject negative cash here. Why: it failed
@@ -67,6 +68,28 @@ internal sealed class FinalizeBillValidator : IValidator<FinalizeBillCommand>
             return new Error(ErrorCodes.ValidationFailed, "free bill not confirmed");
         return null;
     }
+
+    /// <summary>
+    /// v2 split tender (docs/BILLING_RULES.md §Split tender): 2–4 parts, each cash/UPI/udhaar and more than ₹0; at most
+    /// one cash part (the only one with "received" and change) and at most one udhaar part (needs the customer).
+    /// That the parts add up to the grand total is checked by the handler, after the total is computed.
+    /// </summary>
+    internal static Error? SplitError(Bill bill)
+    {
+        var parts = bill.Payments;
+        if (parts.Count is < 2 or > MaxSplitParts) return new Error(ErrorCodes.BillSplitInvalid);
+        if (parts.Any(p => p.Tender is not (TenderType.Cash or TenderType.Upi or TenderType.Udhaar) || p.Amount.Value <= 0))
+            return new Error(ErrorCodes.BillSplitInvalid);
+        if (parts.Count(p => p.Tender == TenderType.Cash) > 1 || parts.Count(p => p.Tender == TenderType.Udhaar) > 1)
+            return new Error(ErrorCodes.BillSplitInvalid);
+        if (parts.Any(p => p.Tender == TenderType.Udhaar) && bill.CustomerId is null) return new Error(ErrorCodes.BillUdhaarNeedsCustomer);
+        if (parts.Any(p => p.CashReceived.Value < 0)) return new Error(ErrorCodes.ValidationFailed, "negative cash received");
+        if (parts.Any(p => p.Tender != TenderType.Cash && p.CashReceived.Value != 0)) return new Error(ErrorCodes.ValidationFailed, "cash received on a non-cash part");
+        if (parts.Any(p => p.Tender != TenderType.Upi && !string.IsNullOrWhiteSpace(p.UpiRef))) return new Error(ErrorCodes.ValidationFailed, "UPI reference on a non-UPI part");
+        return null;
+    }
+
+    internal const int MaxSplitParts = 4;
 
     /// <summary>L-7: the draft's grand total, computed on a copy (Compute mutates its bill). A compute
     /// failure (overflow) means "not provably zero" — the handler will report the real error.</summary>
@@ -109,7 +132,7 @@ internal sealed class AdjustStockValidator : IValidator<AdjustStockCommand>
 {
     public Error? Validate(AdjustStockCommand c) =>
         c.Delta.Milli == 0 ? new Error(ErrorCodes.BillQtyInvalid)
-        : c.Reason is StockMoveReason.Sale or StockMoveReason.VoidRestore ? new Error(ErrorCodes.ValidationFailed, "sales move stock only via bills")
+        : c.Reason is StockMoveReason.Sale or StockMoveReason.VoidRestore or StockMoveReason.Return ? new Error(ErrorCodes.ValidationFailed, "sales move stock only via bills")
         : null;
 }
 
@@ -148,8 +171,7 @@ internal sealed class FinalizeBillHandler(
             if (!SameContent(bill, saved))
                 return Result.Failure<FinalizedBill>(Error.With(ErrorCodes.BillChangedAfterSave, saved.Number, IndianFormat.Rupees(saved.GrandTotal)));
             await drafts.ClearAsync(ct);
-            return Result.Success(new FinalizedBill(saved.Id, saved.Number, saved.GrandTotal,
-                saved.Tender == TenderType.Cash ? BillCalculator.ChangeDue(saved) : Paise.Zero));
+            return Result.Success(new FinalizedBill(saved.Id, saved.Number, saved.GrandTotal, BillCalculator.ChangeDue(saved)));
         }
         if (bill.Status != BillStatus.Draft)
         {
@@ -161,6 +183,7 @@ internal sealed class FinalizeBillHandler(
             bill.FinalizedAt = null;
             // The auto-filled "exact cash" (CashReceived == total) reads the same as nothing typed: exact cash.
             if (bill.Tender == TenderType.Cash && bill.CashReceived == bill.GrandTotal) bill.CashReceived = Paise.Zero;
+            ResetParts(bill, null);
         }
 
         // FR-34 free-tier quota. Defence in depth: a status that doesn't answer at once counts as free (fail closed),
@@ -187,6 +210,7 @@ internal sealed class FinalizeBillHandler(
         catch (OverflowException) { return Result.Failure<FinalizedBill>(ErrorCodes.BillAmountTooLarge); }   // M7: checked maths
 
         var cashTyped = bill.CashReceived;
+        var partsCashTyped = bill.Payments.Select(p => p.CashReceived).ToList();
         switch (bill.Tender)
         {
             case TenderType.Cash:
@@ -195,7 +219,34 @@ internal sealed class FinalizeBillHandler(
                         IndianFormat.Rupees(new Paise(bill.GrandTotal.Value - bill.CashReceived.Value))));
                 if (bill.CashReceived.Value == 0) bill.CashReceived = bill.GrandTotal;   // exact cash, nothing typed
                 break;
+            case TenderType.Split:
+                // v2 split tender: the parts must add up to the bill exactly — never a rupee more or less.
+                var partsSum = bill.Payments.Sum(p => p.Amount.Value);
+                if (partsSum != bill.GrandTotal.Value)
+                    return Result.Failure<FinalizedBill>(Error.With(ErrorCodes.BillSplitSumMismatch,
+                        IndianFormat.Rupees(new Paise(partsSum)), IndianFormat.Rupees(bill.GrandTotal)));
+                if (bill.Payments.FirstOrDefault(p => p.Tender == TenderType.Cash) is { } cashPart)
+                {
+                    if (cashPart.CashReceived < cashPart.Amount && cashPart.CashReceived.Value != 0)
+                        return Result.Failure<FinalizedBill>(Error.With(ErrorCodes.BillCashShort,
+                            IndianFormat.Rupees(cashPart.Amount - cashPart.CashReceived)));
+                    if (cashPart.CashReceived.Value == 0) cashPart.CashReceived = cashPart.Amount;   // exact cash on its part
+                }
+                break;
         }
+        // v2: every bill finalized from schema 4 on stores its payment as parts (the source of truth). A single tender
+        // is one part for the whole bill, carrying the same UPI ref / cash received as the bill row.
+        if (bill.Tender != TenderType.Split)
+            bill.Payments =
+            [
+                new BillPayment
+                {
+                    Tender = bill.Tender!.Value, Amount = bill.GrandTotal,
+                    UpiRef = bill.Tender == TenderType.Upi ? bill.UpiRef : null,
+                    CashReceived = bill.Tender == TenderType.Cash ? bill.CashReceived : Paise.Zero,
+                },
+            ];
+        var udhaarPart = BillPayments.AmountBy(bill, TenderType.Udhaar);   // only this part goes to dues
         // Any tender may carry a customer (account history); it must exist. Udhaar requires one (validator).
         if (bill.CustomerId is { } attached && await customers.GetAsync(attached, ct) is null)
             return Result.Failure<FinalizedBill>(ErrorCodes.CustomerNotFound);
@@ -211,14 +262,14 @@ internal sealed class FinalizeBillHandler(
             foreach (var g in bill.Lines.GroupBy(l => l.ItemId))
                 await ledger.AdjustAsync(g.Key, new Qty(-g.Sum(l => l.Qty.Milli)), StockMoveReason.Sale, bill.Id, ct: ct);
 
-            if (bill.Tender == TenderType.Udhaar && bill.GrandTotal.Value > 0)
+            if (udhaarPart.Value > 0)
                 await customers.AddDuesEntryAsync(new DuesEntry
                 {
-                    CustomerId = bill.CustomerId!.Value, Kind = DuesEntryKind.Charge, Amount = bill.GrandTotal, BillId = bill.Id,
+                    CustomerId = bill.CustomerId!.Value, Kind = DuesEntryKind.Charge, Amount = udhaarPart, BillId = bill.Id,
                 }, ct);
 
-            if (bill.Tender == TenderType.Udhaar && bill.GrandTotal.Value > 0)   // M6: sync seam sees the dues side too
-                await outbox.AppendAsync("Customer", new DuesCharged(bill.CustomerId!.Value, now, bill.GrandTotal.Value, bill.Id), ct);
+            if (udhaarPart.Value > 0)   // M6: sync seam sees the dues side too
+                await outbox.AppendAsync("Customer", new DuesCharged(bill.CustomerId!.Value, now, udhaarPart.Value, bill.Id), ct);
             await outbox.AppendAsync("Bill", new BillFinalized(bill.Id, now, bill.GrandTotal.Value), ct);
             await quota.IncrementAsync(now, ct);   // B2: same transaction as the check above
             await drafts.ClearAsync(ct);           // same transaction: a paid bill's draft can never come back
@@ -230,12 +281,28 @@ internal sealed class FinalizeBillHandler(
             bill.Status = BillStatus.Draft;
             bill.FinalizedAt = null;
             bill.CashReceived = cashTyped;   // the auto-filled "exact cash" must not survive into a retry
+            ResetParts(bill, partsCashTyped);
             throw;
         }
 
-        // Change is only ever due on cash; for UPI/udhaar ChangeDue(bill) would be −GrandTotal.
-        var change = bill.Tender == TenderType.Cash ? BillCalculator.ChangeDue(bill) : Paise.Zero;
-        return Result.Success(new FinalizedBill(bill.Id, bill.Number, bill.GrandTotal, change));
+        // Change is only ever due on cash (a cash bill, or a split bill's cash part).
+        return Result.Success(new FinalizedBill(bill.Id, bill.Number, bill.GrandTotal, BillCalculator.ChangeDue(bill)));
+    }
+
+    /// <summary>
+    /// v2: after a failed attempt the parts go back to what the counter set. A single tender's one part is rebuilt on
+    /// every attempt, so it is dropped; a split bill's cash part gets back the "received" that was typed (null = not
+    /// known: an auto-filled exact cash, equal to its amount, reads as nothing typed — the A1-01 rule above).
+    /// </summary>
+    private static void ResetParts(Bill bill, List<Paise>? cashTyped)
+    {
+        if (bill.Tender != TenderType.Split) { bill.Payments = []; return; }
+        for (var i = 0; i < bill.Payments.Count; i++)
+        {
+            var part = bill.Payments[i];
+            if (cashTyped is not null && i < cashTyped.Count) part.CashReceived = cashTyped[i];
+            else if (part.Tender == TenderType.Cash && part.CashReceived == part.Amount) part.CashReceived = Paise.Zero;
+        }
     }
 
     /// <summary>T1-01: is this retry the bill that already saved (a double tap / watchdog retry), not an edited one?</summary>
@@ -243,6 +310,9 @@ internal sealed class FinalizeBillHandler(
     {
         if (retry.Tender != saved.Tender || retry.CustomerId != saved.CustomerId || retry.BillDiscount != saved.BillDiscount
             || retry.Lines.Count != saved.Lines.Count) return false;
+        // v2 split tender: a retry that moved money between parts is a different payment.
+        if (retry.Tender == TenderType.Split && !retry.Payments.Select(p => (p.Tender, p.Amount.Value)).Order()
+                .SequenceEqual(saved.Payments.Select(p => (p.Tender, p.Amount.Value)).Order())) return false;
         static IEnumerable<(Guid, long, long, Discount)> Key(Bill b) => b.Lines
             .Select(l => (l.ItemId, l.Qty.Milli, l.UnitPrice.Value, l.LineDiscount))
             .OrderBy(k => k.ItemId).ThenBy(k => k.Milli).ThenBy(k => k.Value);
@@ -252,7 +322,7 @@ internal sealed class FinalizeBillHandler(
 
 /// <summary>FR-16. Stock back, dues reversed, bill kept and marked VOID.</summary>
 internal sealed class VoidBillHandler(
-    IBillRepository bills, ICustomerRepository customers, IStockLedger ledger, IOutbox outbox, IClock clock)
+    IBillRepository bills, ICustomerRepository customers, IStockLedger ledger, IOutbox outbox, IClock clock, IReturnRepository returns)
     : IRequestHandler<VoidBillCommand, Result>
 {
     public async Task<Result> Handle(VoidBillCommand command, CancellationToken ct)
@@ -272,15 +342,21 @@ internal sealed class VoidBillHandler(
                 return Result.Failure(ErrorCodes.BillVoidPastMonth);
         }
 
+        // v2 returns: goods already came back on a return document — a void would restore that stock and money twice.
+        // The rest of the bill can still be returned.
+        if ((await returns.ListByBillAsync(bill.Id, ct)).Count > 0) return Result.Failure(ErrorCodes.BillHasReturns);
+
         // H1 (approved as specified): if any part of an udhaar bill has been paid, a full reversal would push dues
-        // negative and lock the account. Fail closed before mutating anything; real refunds are v2.
-        if (bill.Tender == TenderType.Udhaar && bill.CustomerId is { } owingId && bill.GrandTotal.Value > 0)
+        // negative and lock the account. Fail closed before mutating anything. v2 split tender: only the bill's udhaar
+        // part was charged to dues, so only that part is checked and reversed (an old udhaar bill is one whole part).
+        var udhaar = BillPayments.AmountBy(bill, TenderType.Udhaar);
+        if (udhaar.Value > 0 && bill.CustomerId is { } owingId)
         {
             var owing = await customers.GetAsync(owingId, ct);
             if (owing is null) return Result.Failure(ErrorCodes.CustomerNotFound);
-            if (owing.DuesBalance < bill.GrandTotal)
+            if (owing.DuesBalance < udhaar)
                 return Result.Failure(ErrorCodes.BillVoidBlockedByPayments,
-                    string.Create(System.Globalization.CultureInfo.InvariantCulture, $"dues {owing.DuesBalance.Value} < bill {bill.GrandTotal.Value}"));
+                    string.Create(System.Globalization.CultureInfo.InvariantCulture, $"dues {owing.DuesBalance.Value} < udhaar {udhaar.Value}"));
         }
 
         var now = clock.Now;
@@ -292,10 +368,10 @@ internal sealed class VoidBillHandler(
         foreach (var g in bill.Lines.GroupBy(l => l.ItemId))
             await ledger.AdjustAsync(g.Key, new Qty(g.Sum(l => l.Qty.Milli)), StockMoveReason.VoidRestore, bill.Id, ct: ct);
 
-        if (bill.Tender == TenderType.Udhaar && bill.CustomerId is { } customerId && bill.GrandTotal.Value > 0)
+        if (udhaar.Value > 0 && bill.CustomerId is { } customerId)
             await customers.AddDuesEntryAsync(new DuesEntry
             {
-                CustomerId = customerId, Kind = DuesEntryKind.Reversal, Amount = bill.GrandTotal, BillId = bill.Id, Note = bill.VoidReason,
+                CustomerId = customerId, Kind = DuesEntryKind.Reversal, Amount = udhaar, BillId = bill.Id, Note = bill.VoidReason,
             }, ct);
 
         await outbox.AppendAsync("Bill", new BillVoided(bill.Id, now, bill.VoidReason), ct);
@@ -351,6 +427,8 @@ internal sealed class SendBillToCustomerHandler(
         {
             TenderType.Cash => text["tender.cash"],
             TenderType.Upi => text["tender.upi"],
+            // v2 split tender: "Cash ₹50 + UPI ₹70".
+            TenderType.Split => string.Join(" + ", BillPayments.PartsOf(bill).Select(p => text["tender." + p.Tender.ToString().ToLowerInvariant()] + " " + IndianFormat.Rupees(p.Amount))),
             _ => text["tender.udhaar"],
         };
         // FIX(T3-3, 2026-10-21, S1): Flaw: a bill of more than 15 lines was cut to 15 items with no sign of the cut, so

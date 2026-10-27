@@ -68,8 +68,10 @@ internal static class Mapping
         Source = (int)l.Source,
     };
 
-    public static Bill ToDomain(BillRow r, IEnumerable<BillLineRow> lines) => new()
+    /// <param name="payments">v2 split-tender parts; none for bills finalized before schema 4 (BillPayments.PartsOf reads those as one part).</param>
+    public static Bill ToDomain(BillRow r, IEnumerable<BillLineRow> lines, IEnumerable<BillPaymentRow>? payments = null) => new()
     {
+        Payments = payments is null ? [] : PaymentMapping.ToDomain(payments),
         Id = r.Id, Number = r.Number, Status = (BillStatus)r.Status,
         BillDiscount = new Discount((DiscountKind)r.BillDiscountKind, r.BillDiscountAmount),
         Tender = r.Tender is null ? null : (TenderType)r.Tender, CustomerId = r.CustomerId, CashReceived = new Paise(r.CashReceivedPaise), UpiRef = r.UpiRef,

@@ -46,6 +46,7 @@ public static class DependencyInjection
         services.AddSingleton<IValidator<VoidBillCommand>, VoidBillValidator>();
         services.AddSingleton<IValidator<RecordDuesPaymentCommand>, RecordDuesPaymentValidator>();
         services.AddSingleton<IValidator<AdjustStockCommand>, AdjustStockValidator>();
+        services.AddSingleton<IValidator<RecordReturnCommand>, RecordReturnValidator>();   // v2 returns
         services.AddSingleton<IValidator<SaveItemCommand>, SaveItemValidator>();
         services.AddSingleton<IValidator<SaveCustomerCommand>, SaveCustomerValidator>();
         services.AddSingleton<IValidator<SaveShopProfileCommand>, SaveShopProfileValidator>();
@@ -59,6 +60,9 @@ public static class DependencyInjection
         services.AddTransient<IRequestHandler<SendDuesReminderCommand, Result>, SendDuesReminderHandler>();
         services.AddTransient<IRequestHandler<AdjustStockCommand, Result>, AdjustStockHandler>();
         services.AddTransient<IRequestHandler<GetBillQuotaQuery, BillQuota>, GetBillQuotaHandler>();
+        // v2 returns / partial refunds (split tender lives inside FinalizeBill)
+        services.AddTransient<IRequestHandler<RecordReturnCommand, Result<RecordedReturn>>, RecordReturnHandler>();
+        services.AddTransient<IRequestHandler<GetBillReturnsQuery, BillReturns?>, GetBillReturnsHandler>();
         services.AddTransient<BillDraftHandlers>();
         services.AddTransient<IRequestHandler<SaveBillDraftCommand, Result>>(sp => sp.GetRequiredService<BillDraftHandlers>());
         services.AddTransient<IRequestHandler<GetBillDraftQuery, BillDraftSnapshot?>>(sp => sp.GetRequiredService<BillDraftHandlers>());

@@ -184,13 +184,17 @@ public sealed class PosPage : PageBase
         customer.SetBinding(Button.TextProperty, nameof(PosViewModel.CustomerLabel));
         customer.SetBinding(Button.CommandProperty, nameof(PosViewModel.AttachCustomerCommand));
 
-        var tools = new Grid { ColumnDefinitions = { new(GridLength.Star), new(GridLength.Star) }, ColumnSpacing = 8 };
+        var tools = new Grid { ColumnDefinitions = { new(GridLength.Star), new(GridLength.Star), new(GridLength.Star) }, ColumnSpacing = 8 };
         var discount = Ui.Secondary(vm.Text["pos.discount.bill"]);
         discount.SetBinding(Button.CommandProperty, nameof(PosViewModel.BillDiscountCommand));
+        // v2 split tender: one bill, two ways to pay (cash + UPI / cash + udhaar / UPI + udhaar).
+        var split = Ui.Secondary(vm.Text["tender.split"]);
+        split.SetBinding(Button.CommandProperty, nameof(PosViewModel.PaySplitCommand));
         var newBill = Ui.Secondary(vm.Text["pos.newbill"]);
         newBill.SetBinding(Button.CommandProperty, nameof(PosViewModel.NewBillCommand));
         tools.Add(discount, 0, 0);
-        tools.Add(newBill, 1, 0);
+        tools.Add(split, 1, 0);
+        tools.Add(newBill, 2, 0);
 
         var tender = new Grid { ColumnDefinitions = { new(GridLength.Star), new(GridLength.Star), new(GridLength.Star) }, ColumnSpacing = 8 };
         tender.Add(TenderButton(vm.Text["tender.cash"], Theme.CashColor, nameof(PosViewModel.PayCashCommand)), 0, 0);
