@@ -85,11 +85,16 @@ public static class BatchAllocator
         return new BatchAllocation(takes, left);
     }
 
-    /// <summary>"MM/YY" or "MM/YYYY" (→ that month's last day), or "DD/MM/YYYY". Null when unreadable.</summary>
+    /// <summary>
+    /// "MM/YY" or "MM/YYYY" (→ that month's last day), or "DD/MM/YYYY"; also "MMYY" as four digits, because Android's
+    /// number keyboard (used for this prompt) has no '/' key. Null when unreadable.
+    /// </summary>
     public static DateOnly? ParseExpiry(string? text)
     {
         if (string.IsNullOrWhiteSpace(text)) return null;
-        var parts = text.Trim().Split(new[] { '/', '-', '.', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+        var trimmed = text.Trim();
+        if (trimmed.Length == 4 && trimmed.All(char.IsAsciiDigit)) trimmed = trimmed[..2] + "/" + trimmed[2..];
+        var parts = trimmed.Split(new[] { '/', '-', '.', ' ' }, StringSplitOptions.RemoveEmptyEntries);
         if (parts.Length is < 2 or > 3 || parts.Any(p => p.Length > 4 || !p.All(char.IsAsciiDigit))) return null;
         var n = parts.Select(p => int.Parse(p, NumberStyles.None, CultureInfo.InvariantCulture)).ToArray();
         static int Year(int y) => y < 100 ? 2000 + y : y;

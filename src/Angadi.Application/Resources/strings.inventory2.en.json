@@ -40,7 +40,7 @@
   "inv2.line.gst": "GST slab on the supplier's bill",
   "inv2.batch.title": "Batch",
   "inv2.batch.no": "Batch number",
-  "inv2.batch.expiry": "Expiry (MM/YY)",
+  "inv2.batch.expiry": "Expiry month/year (e.g. 12/27 or 1227)",
   "inv2.batch.exp": "Exp",
   "inv2.batch.missing": "batch & expiry needed",
   "inv2.batch.none": "No batch",

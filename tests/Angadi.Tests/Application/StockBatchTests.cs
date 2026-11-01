@@ -511,3 +511,22 @@ public sealed class StockRestoreTests
         Assert.False(ok);
     }
 }
+
+public sealed class ExpiryParsingTests
+{
+    [Theory]
+    [InlineData("12/27", 2027, 12, 31)]
+    [InlineData("1227", 2027, 12, 31)]      // Android number keyboard: no '/'
+    [InlineData("02/2028", 2028, 2, 29)]
+    [InlineData("15-06-2027", 2027, 6, 15)]
+    public void ParseExpiry_ReadsPrintedFormats(string text, int y, int m, int d) =>
+        Assert.Equal(new DateOnly(y, m, d), BatchAllocator.ParseExpiry(text));
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("13/27")]
+    [InlineData("1327")]
+    [InlineData("abc")]
+    [InlineData("31/02/2027")]
+    public void ParseExpiry_RejectsNonsense(string text) => Assert.Null(BatchAllocator.ParseExpiry(text));
+}

@@ -72,7 +72,7 @@ def purchase_with_batch():
     ok_dialog("40")                                           # cost before GST
     e.tap("GST 5%", exact=True, timeout=20)
     ok_dialog("E2EB1")                                        # batch no
-    ok_dialog("12/30")                                        # expiry MM/YY
+    ok_dialog("1230")                                         # expiry MMYY (number keyboard: no '/')
     e.wait_for("E2EB1", timeout=30)
     e.tap("Save purchase", exact=True, scroll=True, timeout=30)
     e.wait_for("New purchase", exact=True, timeout=40)        # back on the hub after the save

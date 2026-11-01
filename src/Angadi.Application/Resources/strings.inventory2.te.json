@@ -40,7 +40,7 @@
   "inv2.line.gst": "సరఫరాదారు బిల్లుపై GST",
   "inv2.batch.title": "బ్యాచ్",
   "inv2.batch.no": "బ్యాచ్ నంబర్",
-  "inv2.batch.expiry": "గడువు (నెల/సంవత్సరం)",
+  "inv2.batch.expiry": "గడువు నెల/సంవత్సరం (ఉదా. 12/27 లేదా 1227)",
   "inv2.batch.exp": "గడువు",
   "inv2.batch.missing": "బ్యాచ్ & గడువు కావాలి",
   "inv2.batch.none": "బ్యాచ్ లేదు",
