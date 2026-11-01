@@ -1,6 +1,11 @@
 # CHANGELOG.md — Angadi POS v1
 Every meaningful change: date, what, the issue it addresses, and the one-line why. Newest first.
 
+## 2026-11-01 (Claude Code, v2 shops) — several shops on one phone
+- **Settings → Shops:** add a shop (normal shop setup), open another shop, rename one in the list. Each shop has its own items, bills, bill numbers, customers, unfinished bill, owner PIN, safety copies and backups. The open shop's name shows in the top bar once there are two or more. Adding and renaming go through the owner PIN gate. Why: owners with a kirana and a pharmacy ran two phones.
+- **Free tier: one shop.** A second shop needs Pro; one subscription covers every shop on the phone. The 50 free bills a month count the bills of ALL shops (a lapsed Pro with two shops does not get 100). Backup and restore act on the open shop (Settings says so). The language stays one switch for the whole phone.
+- **Storage:** the first shop keeps `files/angadi.db` (existing installs untouched); others are `files/shops/<id>.db` with safety copies in `files/shop-snapshots/<id>/`; the list is `files/shops.json`. Android backup includes `shops.json` and `files/shops/`. No schema change (still 5).
+
 ## 2026-11-01 (Claude Code, v2 payments) — split tender + returns
 - **Split tender:** one bill paid partly in cash, partly by UPI and/or on udhaar. The *Split* button takes the cash/UPI parts on big number boxes, the rest goes to the chosen tender, the remaining amount shows live; the UPI QR is for the UPI part only; only the udhaar part goes to dues. Receipts, day-end and the customer report show each part. Why: customers often pay ₹500 in cash and the rest by UPI.
 - **Returns / partial refunds:** from the bill (*Return items*, owner PIN): pick lines and quantities, refund by cash, UPI or by cutting udhaar (never below zero; the rest in cash). Each return is its own credit note (R-000001) with a shareable return note; stock comes back through the ledger; returning a whole bill in parts refunds exactly the bill and reverses exactly its GST. Day-end shows returns, refunds and net sales; the GST summary nets a return in its own month; the customer account lists returns. A bill with returns can no longer be voided. Why: v1 could only void a whole bill.

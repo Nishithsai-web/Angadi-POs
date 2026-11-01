@@ -476,3 +476,17 @@ Development no longer runs through one implementer. Muse's own dev/fix agents no
 - **Evidence:** `AngadiDb` serialised every query, reads included, through one connection and one lock; a long report over a large inventory delayed a bill save (and the reverse) by its full duration.
 - **Fix:** a read-only second connection (`AngadiDb.ReadAsync`); 38 pure queries in Repositories/ReturnRepository/StockRepositories use it. WAL gives each read a consistent snapshot of committed data while the writer works. Reads inside a command's transaction stay on the writer (they see the command's own changes). Reader failures fall back to the writer; restore closes the reader before swapping the file.
 - **Tests:** `ConcurrentAccessTests` — a 1.5 s report does not delay a save, a 1.5 s transaction does not delay a report and stays invisible until commit, in-transaction reads see own changes, 200 parallel reads + 200 writes stay consistent.
+
+## v2 shops — 2026-11-01, branch `claude/v2-shops` (agent shops)
+
+### SHOPS-QUOTA (HIGH) — the free bill quota would multiply with several shops
+- **Status:** FIXED-AWAITING-VERIFY · **Fixed by:** Claude Code (v2-shops), 2026-11-01
+- **Evidence:** month buckets and the M-3 watermark live inside each database file; with N shop files a phone whose Pro lapsed would get N × 50 free bills.
+- **Fix:** `QuotaStore.UsedThisMonthAsync` adds every other shop's used count for the same month (bucket or its bills, plus its own unabsorbed lifetime bills), read from that file; increments stay in the open shop, so each bill counts once and each file's M-3/S1-F2 pair stays consistent.
+- **Tests:** `ShopsTests.FreeQuota_IsShared_AcrossShops_NeverMultiplied`.
+
+### SHOPS-SNAP (MEDIUM) — a shop switch could skip the new shop's safety copy
+- **Status:** FIXED-AWAITING-VERIFY · **Fixed by:** Claude Code (v2-shops), 2026-11-01
+- **Evidence:** `DataSafety` skipped a copy when `total_changes()` and the target name matched the last copy; the counter restarts per connection, so after a switch the other shop could look unchanged.
+- **Fix:** the skip also requires the same `AngadiDb.Generation` (bumped by each switch).
+- **Tests:** `ShopsTests.Shops_KeepTheirOwnBooks_Draft_AndSafetyCopies`, `ShopsTests.DamagedShopFile_IsRecovered_FromThatShopsOwnSafetyCopy`.
