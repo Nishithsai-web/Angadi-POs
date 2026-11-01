@@ -3,6 +3,7 @@ using Angadi.Application.Billing;
 using Angadi.Application.Catalog;
 using Angadi.Application.Common;
 using Angadi.Application.Platform;
+using Angadi.Application.Stock;
 using Angadi.Application.Voice;
 using Angadi.Domain.Common;
 using Angadi.Domain.Inventory;
@@ -65,8 +66,11 @@ public sealed class ItemsPage : ContentPage
         top.Add(_search, 0, 0);
         top.Add(scan, 1, 0);
         top.Add(add, 2, 0);
+        // v2-stock: purchases, orders, suppliers, expiry and the stock report live one tap away from the items list.
+        var stock = Ui.Secondary(text["inv2.hub"]);
+        stock.Clicked += SafeUi.On(async () => await Shell.Current.GoToAsync(StockRoutes.Hub));
         var grid = new Grid { Padding = 12, RowSpacing = 8, RowDefinitions = { new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Star) } };
-        grid.Add(top, 0, 0);
+        grid.Add(new VerticalStackLayout { Spacing = 8, Children = { top, stock } }, 0, 0);
         grid.Add(_legacy, 0, 1);
         grid.Add(_summary, 0, 2);
         grid.Add(list, 0, 3);
@@ -137,6 +141,10 @@ public sealed class ItemEditPage : ContentPage, IQueryAttributable
     private readonly Picker _unit = new();
     private readonly Picker _slab = new();
     private readonly Switch _quick = new() { OnColor = Theme.Primary };
+    private readonly Switch _tracks = new() { OnColor = Theme.Primary };   // v2-stock: "Track batch & expiry"
+    private readonly VerticalStackLayout _batchList = new() { Spacing = 2 };
+    private readonly IPinService _pin;
+    private IReadOnlyList<Batch> _batches = [];
     private readonly View _stockBox;
     private readonly Label _stockNow = Ui.Body();
     private readonly View _openingBox;
@@ -145,9 +153,10 @@ public sealed class ItemEditPage : ContentPage, IQueryAttributable
 
     private static readonly Unit[] Units = Enum.GetValues<Unit>();
 
-    public ItemEditPage(ISender sender, IDialogService dialogs, ILocalizer text, IBarcodeScanner scanner)
+    public ItemEditPage(ISender sender, IDialogService dialogs, ILocalizer text, IBarcodeScanner scanner, IPinService pin)
     {
         _sender = sender;
+        _pin = pin;
         _dialogs = dialogs;
         _text = text;
         _scanner = scanner;
@@ -194,7 +203,14 @@ public sealed class ItemEditPage : ContentPage, IQueryAttributable
         damage.Clicked += SafeUi.On(async () => await AdjustAsync(StockMoveReason.Damage));
         var count = Ui.Secondary(text["stock.reason.count"]);
         count.Clicked += SafeUi.On(async () => await AdjustAsync(StockMoveReason.CountCorrection));
-        _stockBox = Ui.Card(new VerticalStackLayout { Spacing = 8, Children = { Ui.Caption(text["items.stock"]), _stockNow, stockIn, damage, count } });
+        _stockBox = Ui.Card(new VerticalStackLayout { Spacing = 8, Children = { Ui.Caption(text["items.stock"]), _stockNow, _batchList, stockIn, damage, count } });
+        // v2-stock: the label toggles too (bigger target; the emulator test taps the text).
+        var tracksLabel = new Label { Text = text["inv2.item.tracks"], VerticalTextAlignment = TextAlignment.Center };
+        var tracksTap = new TapGestureRecognizer();
+        tracksTap.Tapped += (_, _) => _tracks.IsToggled = !_tracks.IsToggled;
+        tracksLabel.GestureRecognizers.Add(tracksTap);
+        SemanticProperties.SetDescription(_tracks, text["inv2.item.tracks"]);
+        var tracksRow = new HorizontalStackLayout { Spacing = 8, MinimumHeightRequest = 48, Children = { _tracks, tracksLabel } };
         _openingBox = new VerticalStackLayout { Children = { Ui.Caption(text["items.opening"]), _opening } };
 
         var save = Ui.Button(text["items.save"], big: true);
@@ -211,6 +227,7 @@ public sealed class ItemEditPage : ContentPage, IQueryAttributable
             Ui.Caption(text["items.barcode"]), barcodeRow,
             Ui.Caption(text["items.lowstock"]), _low,
             new HorizontalStackLayout { Spacing = 8, Children = { _quick, new Label { Text = text["items.quicksale"], VerticalTextAlignment = TextAlignment.Center } } },
+            tracksRow,
             _openingBox,
             _stockBox,
             save);
@@ -241,6 +258,8 @@ public sealed class ItemEditPage : ContentPage, IQueryAttributable
         _barcode.Text = item.Barcode;
         _low.Text = IndianFormat.Quantity(item.LowStockThreshold);
         _quick.IsToggled = item.IsQuickSale;
+        _tracks.IsToggled = item.TracksBatches;
+        _batches = item.TracksBatches ? await _sender.Send(new GetItemBatchesQuery(item.Id)) : [];
         Show();
     }
 
@@ -249,7 +268,14 @@ public sealed class ItemEditPage : ContentPage, IQueryAttributable
         _stockBox.IsVisible = !_isNew;
         _openingBox.IsVisible = _isNew;
         _stockNow.Text = $"{IndianFormat.Quantity(_item.Stock)} {_text.UnitLabel(_item.Unit)}";
+        _batchList.Children.Clear();
+        foreach (var b in _batches.Where(b => b.Qty.Milli != 0)) _batchList.Add(Ui.Caption(BatchLabel(b)));
     }
+
+    private string BatchLabel(Batch b) =>
+        (b.IsPlaceholder ? _text["inv2.batch.none"] : b.BatchNo)
+        + (b.Expiry is { } e ? $" · {_text["inv2.batch.exp"]} {e.ToString("MM/yy", System.Globalization.CultureInfo.InvariantCulture)}" : "")
+        + $" · {IndianFormat.Quantity(b.Qty)} {_text.UnitLabel(_item.Unit)}";
 
     private async Task SaveAsync()
     {
@@ -265,6 +291,7 @@ public sealed class ItemEditPage : ContentPage, IQueryAttributable
         _item.Barcode = string.IsNullOrWhiteSpace(_barcode.Text) ? null : _barcode.Text.Trim();
         _item.LowStockThreshold = PosInput.TryParseQty(_low.Text, out var low) ? low : Qty.Zero;
         _item.IsQuickSale = _quick.IsToggled;
+        _item.TracksBatches = _tracks.IsToggled;
         Qty? opening = _isNew && PosInput.TryParseQty(_opening.Text, out var o) && o.Milli > 0 ? o : null;
 
         var r = await _sender.Send(new SaveItemCommand(_item, opening));
@@ -274,6 +301,7 @@ public sealed class ItemEditPage : ContentPage, IQueryAttributable
 
     private async Task AdjustAsync(StockMoveReason reason)
     {
+        if (_item.TracksBatches && !_isNew) { await AdjustBatchAsync(reason); return; }
         var prompt = reason == StockMoveReason.CountCorrection ? _text["stock.count.prompt"] : _text["bill.qty"];
         var value = await _dialogs.PromptAsync(_text["stock.adjust"], prompt, _text["common.ok"], _text["common.cancel"], keyboard: Keyboard.Numeric);
         if (value is null || !PosInput.TryParseQty(value, out var qty)) return;
@@ -285,6 +313,47 @@ public sealed class ItemEditPage : ContentPage, IQueryAttributable
         };
         if (delta.Milli == 0) return;
         var r = await _sender.Send(new AdjustStockCommand(_item.Id, delta, reason, null));
+        if (r.IsFailure) { await _dialogs.ToastAsync(_text.Error(r.Error)); return; }
+        await LoadAsync(_item.Id);
+    }
+    /// <summary>
+    /// v2-stock: a batch-tracked item's stock changes on a named batch. Stock-in asks batch no + expiry; damage and
+    /// count correction pick the batch and need the owner PIN (they are the correction path for purchases too).
+    /// </summary>
+    private async Task AdjustBatchAsync(StockMoveReason reason)
+    {
+        Result r;
+        if (reason == StockMoveReason.Purchase)
+        {
+            var batchNo = await _dialogs.PromptAsync(_text["inv2.batch.title"], _text["inv2.batch.no"], _text["common.ok"], _text["common.cancel"]);
+            if (string.IsNullOrWhiteSpace(batchNo)) return;
+            var expiryText = await _dialogs.PromptAsync(_text["inv2.batch.title"], _text["inv2.batch.expiry"], _text["common.ok"], _text["common.cancel"], keyboard: Keyboard.Numeric);
+            if (BatchAllocator.ParseExpiry(expiryText) is not { } expiry)
+            {
+                await _dialogs.ToastAsync(_text.Error(Error.With(ErrorCodes.BatchDetailsRequired, _text.Name(_item))));
+                return;
+            }
+            var qtyText = await _dialogs.PromptAsync(_text["stock.adjust"], _text["bill.qty"], _text["common.ok"], _text["common.cancel"], keyboard: Keyboard.Numeric);
+            if (qtyText is null || !PosInput.TryParseQty(qtyText, out var inQty) || inQty.Milli <= 0) return;
+            r = await _sender.Send(new StockInBatchCommand(_item.Id, batchNo, expiry, inQty));
+        }
+        else
+        {
+            var stocked = _batches.Where(b => b.Qty.Milli > 0).ToList();
+            if (stocked.Count == 0) { await _dialogs.ToastAsync(_text["inv2.batch.empty"]); return; }
+            if (!await PinGate.CheckAsync(_pin, _dialogs, _text)) return;
+            var labels = ChoiceLabels.Numbered(stocked.Select(BatchLabel));
+            var pick = await _dialogs.ChooseAsync(_text["inv2.batch.pick"], _text["common.cancel"], [.. labels]);
+            var at = pick is null ? -1 : labels.IndexOf(pick);
+        if (at < 0) return;
+            var batch = stocked[at];
+            var prompt = reason == StockMoveReason.CountCorrection ? _text["inv2.batch.count"] : _text["bill.qty"];
+            var value = await _dialogs.PromptAsync(_text["stock.adjust"], prompt, _text["common.ok"], _text["common.cancel"], keyboard: Keyboard.Numeric);
+            if (value is null || !PosInput.TryParseQty(value, out var qty)) return;
+            var delta = reason == StockMoveReason.CountCorrection ? qty - batch.Qty : -qty;
+            if (delta.Milli == 0) return;
+            r = await _sender.Send(new AdjustBatchStockCommand(_item.Id, batch.Id, delta, reason));
+        }
         if (r.IsFailure) { await _dialogs.ToastAsync(_text.Error(r.Error)); return; }
         await LoadAsync(_item.Id);
     }

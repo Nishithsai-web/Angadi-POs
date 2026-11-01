@@ -81,6 +81,11 @@ public sealed class PosPage : PageBase
         dueBanner.SetBinding(Button.TextProperty, nameof(PosViewModel.DueBanner));
         dueBanner.SetBinding(Button.CommandProperty, nameof(PosViewModel.OpenDueCommand));
         dueBanner.SetBinding(VisualElement.IsVisibleProperty, new Binding(nameof(PosViewModel.DueBanner), converter: new NotEmpty()));
+        // v2-stock: expired / soon-expiring batches (pharmacies); hidden when empty, like the dues banner.
+        var expiryBanner = new Button { BackgroundColor = Color.FromArgb("#FBE9E7"), TextColor = Theme.Danger, FontSize = 15, CornerRadius = 10 };
+        expiryBanner.SetBinding(Button.TextProperty, nameof(PosViewModel.ExpiryBanner));
+        expiryBanner.SetBinding(Button.CommandProperty, nameof(PosViewModel.OpenExpiringCommand));
+        expiryBanner.SetBinding(VisualElement.IsVisibleProperty, new Binding(nameof(PosViewModel.ExpiryBanner), converter: new NotEmpty()));
         var voiceText = Ui.Caption();
         voiceText.SetBinding(Label.TextProperty, nameof(PosViewModel.VoiceText));
 
@@ -127,7 +132,7 @@ public sealed class PosPage : PageBase
             RowDefinitions = { new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Star) },
         };
         grid.Add(backupBanner, 0, 0);
-        grid.Add(dueBanner, 0, 1);
+        grid.Add(new VerticalStackLayout { Spacing = 8, Children = { dueBanner, expiryBanner } }, 0, 1);
         grid.Add(actions, 0, 2);
         grid.Add(voiceText, 0, 3);
         grid.Add(search, 0, 4);

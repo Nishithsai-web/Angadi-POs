@@ -134,6 +134,7 @@ public sealed partial class PosViewModel : ViewModelBase
         DueBanner = due.Count > 0 ? Text.Format("pos.due.banner", due.Count) : "";
         var backup = await Sender.Send(new GetBackupStatusQuery());
         BackupBanner = !backup.ShowReminder ? "" : Text[backup.IsLarge ? "backup.reminder.large" : "backup.reminder"];
+        await RefreshExpiryBannerAsync();   // v2-stock (Pos/PosExpiry.cs)
         Refresh();
         if (restored) await Dialogs.ToastAsync(Text["pos.draft.restored"]);
     }
@@ -526,7 +527,9 @@ public sealed partial class PosViewModel : ViewModelBase
                 if (!await Dialogs.ConfirmAsync(Text["pos.freebill.title"], Text["pos.freebill.confirm"], Text["common.yes"], Text["common.no"])) return;
                 freeConfirmed = true;
             }
-            var send = Sender.Send(new FinalizeBillCommand(bill) { FreeBillConfirmed = freeConfirmed });
+            // v2-stock: selling from an expired batch needs the owner's confirmation (Pos/PosExpiry.cs).
+            if (await ConfirmExpiredSaleAsync(bill) is not { } expiredConfirmed) return;
+            var send = Sender.Send(new FinalizeBillCommand(bill) { FreeBillConfirmed = freeConfirmed, ExpiredBatchConfirmed = expiredConfirmed });
             Result<FinalizedBill> result;
             try { result = await send.WaitAsync(FinalizeTimeout); }
             catch (TimeoutException)

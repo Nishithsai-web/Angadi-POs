@@ -35,7 +35,11 @@ public static class DependencyInjection
         services.AddSingleton<IBillRepository, BillRepository>();
         services.AddSingleton<IReturnRepository, ReturnRepository>();   // v2 returns
         services.AddSingleton<ICustomerRepository, CustomerRepository>();
-        services.AddSingleton<IStockLedger, StockLedger>();
+        // v2-stock: one ledger object serves both the item and the batch side.
+        services.AddSingleton<StockLedger>();
+        services.AddSingleton<IStockLedger>(sp => sp.GetRequiredService<StockLedger>());
+        services.AddSingleton<IBatchLedger>(sp => sp.GetRequiredService<StockLedger>());
+        services.AddSingleton<IPurchasingRepository, PurchasingRepository>();
         services.AddSingleton<IOutbox, Outbox>();
         services.AddSingleton<IShopProfileRepository, ShopProfileRepository>();
         services.AddSingleton<ISeedService, SeedService>();

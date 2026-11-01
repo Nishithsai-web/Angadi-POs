@@ -1,6 +1,7 @@
 # Database schema (SQLite, on device)
 
 File: `<AppData>/angadi.db`, WAL mode. Code: `src/Angadi.Infrastructure/Persistence/Rows.cs`. Schema version is kept in `Meta.schema_version` (currently **4**: 2 customer accounts + notes, 3 shop UPI QR, 4 split tender + returns).
+File: `<AppData>/angadi.db`, WAL mode. Code: `src/Angadi.Infrastructure/Persistence/Rows.cs`. Schema version is kept in `Meta.schema_version` (currently **4**; v2-stock = base 3 + 1).
 
 **Conventions:**
 - All ids are GUIDs.
@@ -21,6 +22,16 @@ File: `<AppData>/angadi.db`, WAL mode. Code: `src/Angadi.Infrastructure/Persiste
 | **BillPayment** *(v2, schema 4)* | Id, BillId, Position, Tender, AmountPaise, UpiRef, CashReceivedPaise | How a bill was paid, part by part. Σ AmountPaise = Bill.GrandTotalPaise (checked on restore). Written for every bill finalized from schema 4; older bills have none (read as one part of `Bill.Tender`). `Bill.Tender = 3` = Split. |
 | **SalesReturn** *(v2, schema 4)* | Id, Number (unique, `R-000001`), BillId, BillNumber, CustomerId, LinesTotalPaise, RoundingPaise, RefundTotalPaise, IsTaxInvoice, TaxSplitsJson, TaxTotalPaise, Method, CashRefundPaise, UpiRefundPaise, DuesCreditPaise, UpiRef, Reason, ReturnedAtMs + offset, Day | A credit note against a finalized bill; insert-only. RefundTotal = Cash + UPI + DuesCredit (checked on restore). Reported on its own `Day`. |
 | **ReturnLine** *(v2, schema 4)* | Id, ReturnId, Position, BillLineId, ItemId, name/unit/slab snapshots, QtyMilli, AmountPaise | Σ QtyMilli per BillLineId ≤ the bill line's QtyMilli. |
+| **Meta** | Key, Value | `app=angadi`, `schema_version`. |
+| **Item** (schema 4 additions) | TracksBatches, CostPaise | Nullable on old rows (NULL = off / unknown cost). CostPaise = latest purchase cost per unit before GST, owned by purchase entry (item edits never overwrite it). |
+| **StockMove** (schema 4 additions) | BatchId, PurchaseId | Every move of a batch-tracked item names its batch; Purchase moves (and purchase corrections) name their purchase. |
+| **Batch** (schema 4) | Id, ItemId, BatchNo (upper-case; "" = the "no batch" row), ExpiryDay (yyyymmdd; last day of the printed MM/YY), QtyMilli, CostPaise | **Invariants for TracksBatches items: Σ Batch.QtyMilli = Item.StockMilli, and each Batch.QtyMilli = Σ StockMove.DeltaMilli WHERE BatchId = it.** Sales split FEFO in `StockLedger`; voids go back to the batches the bill took from; shortfalls (stock going negative, legal as in v1) land on the "no batch" row. Switching tracking on writes a zero-sum pair of CountCorrection moves that puts existing stock on the "no batch" row. |
+| **Supplier** (schema 4) | Id, Name, Phone, Gstin, Notes | Phone is never logged. |
+| **Purchase** (schema 4) | Id, SupplierId, SupplierName (snapshot), SupplierBillNo, BillDay, PurchaseOrderId, TotalPaise | Insert-only (immutable). Supplier + bill no is unique (checked case-insensitively). |
+| **PurchaseLine** (schema 4) | Id, PurchaseId, Position, ItemId, name/unit snapshots, QtyMilli, CostPaise (before GST), GstBasisPoints, BatchNo, ExpiryDay, BatchId, LineTotalPaise | LineTotal = round(qty × cost × (1 + GST)), half up. |
+| **PurchaseOrder** (schema 4) | Id, SupplierId, Status (0 Draft, 1 Sent, 2 Received), LinesJson (`[["itemId","qtyMilli"],…]`), PurchaseId | Only drafts are editable; Received is set by the purchase entry made from it. |
+
+Restore sweep (`BackupService.PassesInvariants` → `BatchesReconcile`) checks both batch invariants and orphan batches; a pre-schema-4 backup has no Batch table and skips it. The backup HMAC dump includes the new tables only when they hold rows, and the new Item/StockMove columns only when set, so a pre-schema-4 backup still verifies.
 
 ## Transactions
 `AngadiDb.ExecuteAsync(work, shouldCommit)` is the unit of work. It serialises access through one gate and runs `work` in a single SQLite transaction. It commits only when `shouldCommit(result)` is true, and rolls back on a failed `Result` or any exception. Repository calls inside it join the open transaction.

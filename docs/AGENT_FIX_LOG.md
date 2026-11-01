@@ -458,3 +458,15 @@ Development no longer runs through one implementer. Muse's own dev/fix agents no
 - **PAY-2 (HIGH) — a void after a partial return would restore the returned stock and money twice.** `VoidBillHandler` refuses with `BILL_HAS_RETURNS` once any return exists. Status: FIXED-AWAITING-VERIFY. Test: `ReturnsTests.VoidIsBlockedAfterAReturn_AndReturnsNeedAFinalizedBill`.
 - **PAY-3 (MEDIUM) — restoring an older backup would rewind the return-number sequence** (duplicate R- numbers). `BackupService` restore carries forward every `seq.` Meta key like the quota keys (RESTORE-1 rule); the restore sweep also rejects payment parts that do not add up to the bill and returns whose refund does not add up. Status: FIXED-AWAITING-VERIFY. Test: covered by `ReturnsTests.Numbers_AreSequential_AndTheSameReturnIdRecordsOnce` (sequence) and the existing restore tests (sweep stays green on pre-v2 backups).
 - **PAY-4 (LOW) — insights counted returned goods as sold.** `GetDailySalesAsync` now includes `Return` moves (negative sales), so reorder forecasts are not inflated by goods that came back. Status: FIXED-AWAITING-VERIFY. Test: `PaymentsSequenceTests` (ledger) — forecast maths unchanged.
+### INV2-1 (MEDIUM) — adding any column to Item/StockMove would have broken the HMAC of every existing backup
+- **Status:** FIXED-AWAITING-VERIFY · **Fixed by:** Claude Code (v2 inventory), 2026-11-01
+- **Flaw:** `BackupService.CanonicalDump` serialises every row with System.Text.Json. Reading an old backup with the new row classes adds `"TracksBatches":false,"CostPaise":0` / `"BatchId":null` to each row, so the recomputed HMAC no longer matches and every pre-v2 backup would show as unverified.
+- **Fix:** the new properties are `[JsonIgnore(WhenWritingDefault/WhenWritingNull)]` in `Rows.cs`; the new tables are appended to the dump only when they exist and hold rows (`AppendIfAny`).
+- **Why:** backups are the shop's disaster recovery; a schema bump must not make yesterday's backup look tampered.
+- **Tests:** `StockRestoreTests.GoodBackupWithBatches_Restores_AndItsHmacVerifies`.
+
+### INV2-2 (HIGH) — restore sweep did not know about batches
+- **Status:** FIXED-AWAITING-VERIFY · **Fixed by:** Claude Code (v2 inventory), 2026-11-01
+- **Flaw:** with batch tracking, a backup could carry batch quantities that disagree with the stock ledger (hand-edited or corrupted) and still pass `PassesInvariants`, which only compared Item.Stock to Σ moves.
+- **Fix:** `BackupService.BatchesReconcile` (orphan batches; each batch == Σ moves naming it; tracked item stock == Σ its batches), called from `PassesInvariants`; skipped for pre-schema-4 files.
+- **Tests:** `StockRestoreTests.BackupWhoseBatchesDoNotReconcile_IsRejected_LiveDataUntouched`, every step of `StockBatchTests.RandomSequences_*`.

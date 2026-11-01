@@ -44,5 +44,16 @@ If export itself fails ("couldn't prepare the log file"), the phone is out of st
 | Data looks wrong after restore | `angadi.db.pre-restore` is kept next to the database | Support can swap it back via a debug build; never delete it on the phone. |
 | New phone | Same Google account and Android backup on? | Install Angadi from Play: Android restores the data by itself. Otherwise: old phone Settings → Backup → share the file; new phone: install, Settings → Restore. |
 
+## Purchases, batches & expiry (v2-stock)
+| Symptom | Check | Fix |
+|---|---|---|
+| "This supplier's bill … is already entered" | The same supplier + bill number was saved before (case-insensitive) | Correct: a second entry would double the stock. If it really is a different bill, add a suffix (e.g. `123-B`). |
+| A purchase has a wrong quantity | Saved purchases are immutable by design | Purchases → the bill → *Correct a line* (owner PIN): takes the quantity back out, linked to that purchase. Never more than the line added. |
+| "… needs a batch number and an expiry" | The item has *Track batch & expiry* on | Enter the batch no and MM/YY from the strip/box. Switch tracking off on the item if the shop doesn't want it for that item. |
+| Bill asks "sells from an expired batch" | Only expired stock is left for that item (Expiring list) | The owner confirms with the PIN, or removes the line. Expired stock should go out as *Damaged* on the item's batch. |
+| Batches show a "No batch" row | Stock that existed before tracking was switched on, or sold before its purchase was entered (negative) | Normal. Count the shelf and use *Count correction* on the right batch. |
+| Report says "batches don't match stock" | Should never happen | Escalate with the logs zip. A restore of a backup with this problem is refused ("batch(es) whose quantity does not match"). |
+| Margin looks wrong | It is an ESTIMATE from each item's latest purchase cost; sold lines without a cost are left out (count shown) | Enter purchases for the top sellers so they get a cost. Never use it for GST filing. |
+
 ## Escalate to development when
 A crash repeats, totals don't match the receipt, or stock doesn't match bills. Send the logs zip, the bill number and the time. These are bugs, not support questions.

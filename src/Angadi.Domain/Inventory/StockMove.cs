@@ -10,6 +10,10 @@ public sealed class StockMove : Entity
     public StockMoveReason Reason { get; set; }
     public Guid? BillId { get; set; }
     public string? Note { get; set; }
+    /// <summary>v2-stock: the batch this move touched (batch-tracked items only).</summary>
+    public Guid? BatchId { get; set; }
+    /// <summary>v2-stock: the purchase entry that added this stock (reason Purchase).</summary>
+    public Guid? PurchaseId { get; set; }
 }
 
 /// <summary>Return (v2): goods brought back on a SalesReturn; BillId = the original bill, Note = the return number.</summary>

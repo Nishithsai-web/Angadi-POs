@@ -127,4 +127,23 @@ public static class ErrorCodes
     /// <summary>The database lock was not released in time (something else is still saving).</summary>
     public const string DatabaseBusy = "DATABASE_BUSY";
     public const string Unexpected = "UNEXPECTED";
+
+    // v2-stock: suppliers, purchases, purchase orders, batch & expiry
+    public const string SupplierNameRequired = "SUPPLIER_NAME_REQUIRED";
+    public const string SupplierNotFound = "SUPPLIER_NOT_FOUND";
+    public const string PurchaseBillNoRequired = "PURCHASE_BILL_NO_REQUIRED";
+    public const string PurchaseEmpty = "PURCHASE_EMPTY";
+    public const string PurchaseLineInvalid = "PURCHASE_LINE_INVALID";
+    public const string PurchaseDuplicate = "PURCHASE_DUPLICATE";
+    public const string BatchDetailsRequired = "BATCH_DETAILS_REQUIRED";
+    public const string BatchNotFound = "BATCH_NOT_FOUND";
+    /// <summary>The bill would sell from an expired batch; the owner must confirm through the PIN gate.</summary>
+    public const string BatchExpired = "BATCH_EXPIRED";
+    public const string OrderNotFound = "ORDER_NOT_FOUND";
+    public const string OrderNotEditable = "ORDER_NOT_EDITABLE";
+    public const string PurchaseNotFound = "PURCHASE_NOT_FOUND";
+    /// <summary>Removing this much would take the batch below zero; arg 0 = what the batch holds.</summary>
+    public const string BatchQtyTooLow = "BATCH_QTY_TOO_LOW";
+    /// <summary>A purchase correction larger than what the line added (minus earlier corrections); arg 0 = the most allowed.</summary>
+    public const string PurchaseCorrectionTooLarge = "PURCHASE_CORRECTION_TOO_LARGE";
 }
