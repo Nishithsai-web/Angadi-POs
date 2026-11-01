@@ -407,3 +407,16 @@ Development no longer runs through one implementer. Muse's own dev/fix agents no
 - **Evidence:** emulator logcat (CI run for cca9748, debug and release): `dlopen failed: library "libc.so.6" not found: needed by .../lib/x86_64/libe_sqlite3.so` → `System.DllNotFoundException: e_sqlite3` in `AngadiDb.Open` at startup; every E2E step then saw an empty screen. Cause: DEPS-1 added `SQLitePCLRaw.lib.e_sqlite3` (the desktop native package) to Angadi.Infrastructure; it flowed into the Android app, where RID fallback packaged its linux-x64 (glibc) `.so` over the Android one.
 - **Fix:** `PrivateAssets="all"` on that reference (Infrastructure's own restore stays patched; the tests reference it directly; the app pins `SQLitePCLRaw.lib.e_sqlite3.android` 2.1.12). `tools/play_policy_check.py` now fails CI if any `.so` in the APK needs `libc.so.6`/`ld-linux`.
 - **Why:** this would have shipped as an app that opens to a blank screen for every customer. Lesson for all agents: the MAUI head and the emulator are the only proof that a dependency change works on a phone.
+
+### INV2-1 (MEDIUM) — adding any column to Item/StockMove would have broken the HMAC of every existing backup
+- **Status:** FIXED-AWAITING-VERIFY · **Fixed by:** Claude Code (v2 inventory), 2026-11-01
+- **Flaw:** `BackupService.CanonicalDump` serialises every row with System.Text.Json. Reading an old backup with the new row classes adds `"TracksBatches":false,"CostPaise":0` / `"BatchId":null` to each row, so the recomputed HMAC no longer matches and every pre-v2 backup would show as unverified.
+- **Fix:** the new properties are `[JsonIgnore(WhenWritingDefault/WhenWritingNull)]` in `Rows.cs`; the new tables are appended to the dump only when they exist and hold rows (`AppendIfAny`).
+- **Why:** backups are the shop's disaster recovery; a schema bump must not make yesterday's backup look tampered.
+- **Tests:** `StockRestoreTests.GoodBackupWithBatches_Restores_AndItsHmacVerifies`.
+
+### INV2-2 (HIGH) — restore sweep did not know about batches
+- **Status:** FIXED-AWAITING-VERIFY · **Fixed by:** Claude Code (v2 inventory), 2026-11-01
+- **Flaw:** with batch tracking, a backup could carry batch quantities that disagree with the stock ledger (hand-edited or corrupted) and still pass `PassesInvariants`, which only compared Item.Stock to Σ moves.
+- **Fix:** `BackupService.BatchesReconcile` (orphan batches; each batch == Σ moves naming it; tracked item stock == Σ its batches), called from `PassesInvariants`; skipped for pre-schema-4 files.
+- **Tests:** `StockRestoreTests.BackupWhoseBatchesDoNotReconcile_IsRejected_LiveDataUntouched`, every step of `StockBatchTests.RandomSequences_*`.

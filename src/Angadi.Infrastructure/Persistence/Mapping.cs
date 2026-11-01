@@ -29,6 +29,7 @@ internal static class Mapping
         Unit = (int)i.Unit, PricePaise = i.Price.Value, GstBasisPoints = (int)i.GstSlab, Hsn = NullIfBlank(i.Hsn),
         Barcode = NullIfBlank(i.Barcode), StockMilli = i.Stock.Milli, LowStockMilli = i.LowStockThreshold.Milli,
         IsQuickSale = i.IsQuickSale, IsActive = i.IsActive, CreatedAtMs = Ms(i.CreatedAt), UpdatedAtMs = Ms(i.UpdatedAt),
+        TracksBatches = i.TracksBatches, CostPaise = i.Cost.Value,   // v2-stock
     };
 
     public static Item ToDomain(ItemRow r) => new()
@@ -39,6 +40,7 @@ internal static class Mapping
         Category = r.Category, Unit = (Unit)r.Unit, Price = new Paise(r.PricePaise), GstSlab = (GstSlab)r.GstBasisPoints,
         Hsn = r.Hsn, Barcode = r.Barcode, Stock = new Qty(r.StockMilli), LowStockThreshold = new Qty(r.LowStockMilli),
         IsQuickSale = r.IsQuickSale, IsActive = r.IsActive, CreatedAt = At(r.CreatedAtMs), UpdatedAt = At(r.UpdatedAtMs),
+        TracksBatches = r.TracksBatches, Cost = new Paise(r.CostPaise),   // v2-stock
     };
 
     // ---- Bill
@@ -125,7 +127,7 @@ internal static class Mapping
     public static StockMove ToDomain(StockMoveRow r) => new()
     {
         Id = r.Id, ItemId = r.ItemId, Delta = new Qty(r.DeltaMilli), Reason = (StockMoveReason)r.Reason, BillId = r.BillId, Note = r.Note,
-        CreatedAt = At(r.CreatedAtMs), UpdatedAt = At(r.CreatedAtMs),
+        CreatedAt = At(r.CreatedAtMs), UpdatedAt = At(r.CreatedAtMs), BatchId = r.BatchId, PurchaseId = r.PurchaseId,
     };
 
     // ---- Note

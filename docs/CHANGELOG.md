@@ -1,6 +1,13 @@
 # CHANGELOG.md — Angadi POS v1
 Every meaningful change: date, what, the issue it addresses, and the one-line why. Newest first.
 
+## 2026-11-01 (Claude Code, v2 inventory lane — branch `claude/v2-inventory`)
+- **Suppliers and purchase entry:** enter a supplier's bill (bill no + date; lines with qty in the item's unit, cost before GST, GST slab) and the stock goes in through the stock ledger (reason Purchase, linked to the purchase) in one transaction; the latest cost is saved on the item; the same supplier bill can't be entered twice. Saved purchases are immutable; a wrong quantity is fixed with *Correct a line* behind the owner PIN. Why: kirana/pharmacy stock was only ever "stock in" with no supplier, cost or audit trail.
+- **Purchase orders:** draft (or *Suggest from low stock* from the insights forecast), share as text, Draft → Sent → Received; *Receive* pre-fills the purchase entry.
+- **Batch & expiry (pharmacies; seeded pharmacy items default on):** Σ batch qty == Item.Stock == Σ stock moves; sales allocate first-expiry-first-out inside the stock ledger; voids put stock back into the batches it came from; an expired batch is never sold silently (owner PIN); stock-in / damage / count correction pick the batch; receipts print batch + expiry; Expiring list (expired / 30 / 60 / 90 days, value + count) and a bill-screen banner. Items without tracking behave exactly as before.
+- **Purchases & stock report:** purchases this month by supplier, stock value at cost where known, estimated gross margin (labelled as an estimate).
+- **Data:** schema 4 (additive: Batch, Supplier, Purchase, PurchaseLine, PurchaseOrder; Item.TracksBatches/CostPaise; StockMove.BatchId/PurchaseId). The restore sweep now rejects a backup whose batches don't reconcile; old backups still verify (INV2-1).
+
 ## 2026-10-21 (Claude Code, S1 money lane)
 - **GST receipts landed:** composition shops print a Bill of Supply, regular shops show CGST/SGST, paid UPI receipts no longer say "scan to pay", the customer's name/address print on the receipt, voiding a filed month's bill needs confirmation, bill prefixes are validated, a failed save can be retried, quantities are capped. Why: these are legal receipt requirements and money-integrity fixes (F1, A2-01/02/05/14/15/16, A1-01/06/08, T2-01..04).
 - **Fixed: a Pro shop's first bill each month was counted twice** toward the free-bill quota. Why: a lapsed subscription lost a free bill (T1-03).

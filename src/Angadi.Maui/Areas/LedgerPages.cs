@@ -254,6 +254,10 @@ public sealed class ReportsPage : ContentPage
             (_text["inventory.low"], inventory.LowCount.ToString(System.Globalization.CultureInfo.InvariantCulture)),
             (_text["inventory.out"], inventory.OutCount.ToString(System.Globalization.CultureInfo.InvariantCulture)),
             (inventory.LedgerMatches ? _text["inventory.ledger.ok"] : _text.Format("inventory.ledger.bad", inventory.Mismatches.Count), "")));
+        // v2-stock: purchases by supplier, stock at cost, estimated margin and expiry on their own page.
+        var stockReport = Ui.Secondary(_text["inv2.report"]);
+        stockReport.Clicked += SafeUi.On(async () => await Shell.Current.GoToAsync(StockRoutes.Report));
+        _body.Add(stockReport);
         _body.Add(Card(_text["inventory.moves"], moves.Take(15).Select(m => (
             $"{m.Name} · {_text["stock.move." + m.Reason]}",
             (m.Delta.Milli > 0 ? "+" : "") + IndianFormat.Quantity(m.Delta) + " " + _text.UnitLabel(m.Unit))).ToArray()));

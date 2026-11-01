@@ -125,6 +125,7 @@ public sealed partial class PosViewModel : ViewModelBase
         QuotaText = quota.IsPro ? "" : Text.Format("sub.limit.left", Math.Max(0, quota.FreeLimit - quota.UsedThisMonth));
         var due = await Sender.Send(new Angadi.Application.Customers.GetDueRemindersQuery());
         DueBanner = due.Count > 0 ? Text.Format("pos.due.banner", due.Count) : "";
+        await RefreshExpiryBannerAsync();   // v2-stock (Pos/PosExpiry.cs)
         Refresh();
         if (recovery is not null) await ShowRecoveryNoticeAsync(recovery);
         if (restored) await Dialogs.ToastAsync(Text["pos.draft.restored"]);
@@ -450,7 +451,9 @@ public sealed partial class PosViewModel : ViewModelBase
                 if (!await Dialogs.ConfirmAsync(Text["pos.freebill.title"], Text["pos.freebill.confirm"], Text["common.yes"], Text["common.no"])) return;
                 freeConfirmed = true;
             }
-            var send = Sender.Send(new FinalizeBillCommand(bill) { FreeBillConfirmed = freeConfirmed });
+            // v2-stock: selling from an expired batch needs the owner's confirmation (Pos/PosExpiry.cs).
+            if (await ConfirmExpiredSaleAsync(bill) is not { } expiredConfirmed) return;
+            var send = Sender.Send(new FinalizeBillCommand(bill) { FreeBillConfirmed = freeConfirmed, ExpiredBatchConfirmed = expiredConfirmed });
             Result<FinalizedBill> result;
             try { result = await send.WaitAsync(FinalizeTimeout); }
             catch (TimeoutException)

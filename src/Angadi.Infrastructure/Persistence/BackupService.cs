@@ -88,10 +88,23 @@ internal sealed class BackupService(AngadiDb db, IClock clock, string exportDire
         Append<ItemRow>(c, sb); Append<BillRow>(c, sb); Append<BillLineRow>(c, sb); Append<CustomerRow>(c, sb);
         Append<DuesEntryRow>(c, sb); Append<StockMoveRow>(c, sb); Append<OutboxRow>(c, sb); Append<ShopProfileRow>(c, sb);
         Append<NoteRow>(c, sb);
+        // FIX(INV2-1, 2026-11-01, v2-inventory): Flaw: any new table/column changed the dump of an OLD backup, so
+        // its HMAC stopped verifying. Fix: new tables only when they hold rows (and new row columns are JsonIgnore'd
+        // when default, Rows.cs). Why: a schema bump must not make yesterday's backup look tampered. Logged in
+        // docs/AGENT_FIX_LOG.md.
+        AppendIfAny<BatchRow>(c, sb, "Batch"); AppendIfAny<SupplierRow>(c, sb, "Supplier"); AppendIfAny<PurchaseRow>(c, sb, "Purchase");
+        AppendIfAny<PurchaseLineRow>(c, sb, "PurchaseLine"); AppendIfAny<PurchaseOrderRow>(c, sb, "PurchaseOrder");
         sb.Append("MetaRow\n");
         foreach (var row in c.Table<MetaRow>().Where(m => m.Key != HmacMeta).ToList().OrderBy(r => JsonSerializer.Serialize(r)))
             sb.Append(JsonSerializer.Serialize(row)).Append('\n');
         return sb.ToString();
+
+        static void AppendIfAny<T>(SQLiteConnection conn, StringBuilder b, string table) where T : new()
+        {
+            if (conn.ExecuteScalar<int>("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?", table) == 0) return;
+            if (conn.ExecuteScalar<int>("SELECT COUNT(*) FROM \"" + table + "\"") == 0) return;
+            Append<T>(conn, b);
+        }
 
         static void Append<T>(SQLiteConnection conn, StringBuilder b) where T : new()
         {
@@ -343,6 +356,11 @@ internal sealed class BackupService(AngadiDb db, IClock clock, string exportDire
         var orphanDues = c.ExecuteScalar<int>("SELECT COUNT(*) FROM DuesEntry e WHERE NOT EXISTS (SELECT 1 FROM Customer cu WHERE cu.Id = e.CustomerId)");
         if (orphanDues > 0) { reason = $"{orphanDues} dues entries without a customer"; return false; }
 
+        // FIX(INV2-2, 2026-11-01, v2-inventory): Flaw: the sweep knew nothing of batches. Fix: Σ batch qty ==
+        // Item.Stock for tracked items and each batch == Σ the moves that name it (pre-schema-4 files skip this).
+        // Why: whatever a restore accepts becomes the books of record. Logged in docs/AGENT_FIX_LOG.md.
+        if (!BatchesReconcile(c, out reason)) return false;
+
         // FIX(RESTORE-2, 2026-10-20, FIX-2): Flaw: the sweep reconciled the ledgers but never recomputed
         // a single bill — a backup with hand-edited bill totals restored silently, and a rewound
         // NextBillSequence restored with it (duplicate numbers on the next sales). Fix: recompute every
@@ -374,6 +392,22 @@ internal sealed class BackupService(AngadiDb db, IClock clock, string exportDire
                 && suffix >= nextSequence)
             { reason = $"bill {billRow.Number} is at or beyond the next bill number"; return false; }
         }
+        return true;
+    }
+
+    /// <summary>v2-stock invariant sweep for batches (also used by tests on a live database file).</summary>
+    internal static bool BatchesReconcile(SQLiteConnection c, out string reason)
+    {
+        reason = "";
+        if (c.ExecuteScalar<int>("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'Batch'") == 0) return true;
+        var orphanBatches = c.ExecuteScalar<int>("SELECT COUNT(*) FROM Batch b WHERE NOT EXISTS (SELECT 1 FROM Item i WHERE i.Id = b.ItemId)");
+        if (orphanBatches > 0) { reason = $"{orphanBatches} batch(es) without an item"; return false; }
+        var batchVsMoves = c.ExecuteScalar<int>(
+            "SELECT COUNT(*) FROM Batch b WHERE b.QtyMilli <> (SELECT COALESCE(SUM(m.DeltaMilli), 0) FROM StockMove m WHERE m.BatchId = b.Id)");
+        if (batchVsMoves > 0) { reason = $"{batchVsMoves} batch(es) whose quantity does not match the stock ledger"; return false; }
+        var itemVsBatches = c.ExecuteScalar<int>(
+            "SELECT COUNT(*) FROM Item i WHERE COALESCE(i.TracksBatches, 0) = 1 AND i.StockMilli <> (SELECT COALESCE(SUM(b.QtyMilli), 0) FROM Batch b WHERE b.ItemId = i.Id)");
+        if (itemVsBatches > 0) { reason = $"{itemVsBatches} batch-tracked item(s) whose stock does not match their batches"; return false; }
         return true;
     }
 

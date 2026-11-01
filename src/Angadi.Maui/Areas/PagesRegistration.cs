@@ -24,10 +24,12 @@ public static class PagesRegistration
         Route<ShopSetupPage>(s, Routes.ShopSetup);
         Route<SubscriptionPage>(s, Routes.Subscription);
         Route<NotesPage>(s, Routes.Notes);
+        StockRoutes.Register(s);   // v2-stock
         return s;
     }
 
-    private static void Route<TPage>(IServiceCollection s, string route) where TPage : Page
+    // v2-stock: internal so StockRoutes.Register (Areas/StockPages.cs) registers its pages the same DI-safe way.
+    internal static void Route<TPage>(IServiceCollection s, string route) where TPage : Page
     {
         s.AddTransient<TPage>();
         // Not RegisterRoute(route, typeof(TPage)): that path builds the page with Activator when Shell can't reach the

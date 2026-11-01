@@ -54,6 +54,8 @@ public sealed class BillLine
     public Paise BillDiscountShare { get; set; }   // this line's part of the bill discount
     public Paise Net => LineTotal - BillDiscountShare;
     public LineSource Source { get; set; }   // analytics + voice accuracy tracking
+    /// <summary>v2-stock: batches this line was sold from (filled when one saved bill is loaded; printed on the receipt).</summary>
+    public List<LineBatch> Batches { get; set; } = [];
 }
 
 /// <summary>
@@ -69,6 +71,9 @@ public sealed record TaxSplit(GstSlab Slab, Paise Taxable, Paise Tax)
     /// <summary>The CGST (= SGST) rate in basis points: half the slab.</summary>
     public int HalfRateBasisPoints => (int)Slab / 2;
 }
+
+/// <summary>v2-stock: one batch a bill line was sold from.</summary>
+public sealed record LineBatch(string BatchNo, DateOnly? Expiry);
 
 public enum BillStatus { Draft = 0, Finalized = 1, Void = 2 }
 public enum TenderType { Cash = 0, Upi = 1, Udhaar = 2 }
