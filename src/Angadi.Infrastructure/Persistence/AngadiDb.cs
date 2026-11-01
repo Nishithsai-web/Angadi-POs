@@ -22,6 +22,14 @@ public sealed class AngadiDb : IUnitOfWork, IDisposable
     private readonly AsyncLocal<bool> _inTransaction = new();
     private SQLiteConnection _conn;
 
+    // FIX(PERF-1, 2026-11-01, Claude Code): Flaw: every query, reads included, went through the one connection and its
+    // one lock, so a big report (a year of bills, thousands of items) made a bill being saved wait, and vice versa.
+    // Fix: a second, read-only connection for pure queries (ReadAsync). WAL mode lets it read a consistent committed
+    // snapshot while the writer works; reads inside a command's transaction still use the writer so they see their
+    // own changes. Why: large inventories must never make the counter wait on a report. Logged in AGENT_FIX_LOG.md.
+    private readonly SemaphoreSlim _readGate = new(1, 1);
+    private SQLiteConnection? _reader;
+
     /// <param name="snapshotDirectory">Where the automatic safety copies live (default: "snapshots" beside the file).</param>
     public AngadiDb(string databasePath, string? snapshotDirectory = null)
     {
@@ -184,6 +192,54 @@ public sealed class AngadiDb : IUnitOfWork, IDisposable
     public Task RunAsync(Action<SQLiteConnection> action, CancellationToken ct = default)
         => RunAsync(c => { action(c); return true; }, ct);
 
+    /// <summary>
+    /// PERF-1: a pure query on the read-only connection, concurrent with writes (WAL snapshot of committed data).
+    /// Inside a command's transaction it runs on the writer instead, so it sees the command's own changes. Any
+    /// reader-side failure falls back to the writer once, so a read never fails just because the reader did.
+    /// </summary>
+    public async Task<T> ReadAsync<T>(Func<SQLiteConnection, T> query, CancellationToken ct = default)
+    {
+        if (_inTransaction.Value) return Guarded(query);
+        if (!await _readGate.WaitAsync(LockTimeout, ct).ConfigureAwait(false))
+            throw new DatabaseBusyException("Database busy: read lock not released within " + LockTimeout.TotalSeconds + " s");
+        try
+        {
+            await OffTheUiThread();
+            var reader = _reader ??= OpenReader(DatabasePath);
+            if (reader is not null)
+            {
+                try { return query(reader); }
+                catch (SQLiteException)
+                {
+                    // Schema just changed under the reader, or the file was swapped: drop it and use the writer.
+                    CloseReader();
+                }
+            }
+        }
+        finally { _readGate.Release(); }
+        return await RunAsync(query, ct).ConfigureAwait(false);
+    }
+
+    private static SQLiteConnection? OpenReader(string path)
+    {
+        try
+        {
+            var reader = new SQLiteConnection(path, SQLiteOpenFlags.ReadOnly | SQLiteOpenFlags.FullMutex);
+            reader.BusyTimeout = TimeSpan.FromSeconds(5);
+            return reader;
+        }
+        catch (SQLiteException)
+        {
+            return null;   // no reader (e.g. read-only open refused): every read uses the writer, as before
+        }
+    }
+
+    private void CloseReader()
+    {
+        try { _reader?.Close(); } catch (SQLiteException) { }
+        _reader = null;
+    }
+
     public async Task<T> ExecuteAsync<T>(Func<Task<T>> work, Func<T, bool> shouldCommit, CancellationToken ct = default)
     {
         if (_inTransaction.Value) return await work().ConfigureAwait(false);   // nested command: join outer
@@ -259,6 +315,13 @@ public sealed class AngadiDb : IUnitOfWork, IDisposable
     public async Task ReplaceWithAsync(string validatedPath, CancellationToken ct = default)
     {
         await EnterAsync(ct).ConfigureAwait(false);
+        // PERF-1: no reader may hold the old file across the swap; it reopens lazily on the next read.
+        if (!await _readGate.WaitAsync(LockTimeout, ct).ConfigureAwait(false))
+        {
+            _gate.Release();
+            throw new DatabaseBusyException("Database busy: read lock not released within " + LockTimeout.TotalSeconds + " s");
+        }
+        CloseReader();
         var safety = DatabasePath + ".pre-restore";
         try
         {
@@ -294,13 +357,19 @@ public sealed class AngadiDb : IUnitOfWork, IDisposable
                     _conn = OpenVerified(DatabasePath);
                 }
             }
-            finally { _gate.Release(); }
+            finally
+            {
+                _readGate.Release();
+                _gate.Release();
+            }
         }
     }
 
     public void Dispose()
     {
+        CloseReader();
         _conn.Close();
         _gate.Dispose();
+        _readGate.Dispose();
     }
 }

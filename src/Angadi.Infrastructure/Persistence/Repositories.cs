@@ -15,13 +15,13 @@ namespace Angadi.Infrastructure.Persistence;
 internal sealed class ItemRepository(AngadiDb db, IClock clock) : IItemRepository
 {
     public Task<Item?> GetAsync(Guid id, CancellationToken ct = default)
-        => db.RunAsync(c => c.Find<ItemRow>(id) is { } r ? ToDomain(r) : null, ct);
+        => db.ReadAsync(c => c.Find<ItemRow>(id) is { } r ? ToDomain(r) : null, ct);
 
     public Task<Item?> GetByBarcodeAsync(string barcode, CancellationToken ct = default)
     {
         if (Barcodes.Normalize(barcode) is not { } code) return Task.FromResult<Item?>(null);
         var alt = Barcodes.Alternate(code) ?? code;   // rows saved before normalization may hold the 12-digit UPC-A form
-        return db.RunAsync(c => c.Query<ItemRow>("SELECT * FROM Item WHERE Barcode IN (?, ?) LIMIT 1", code, alt).FirstOrDefault() is { } r ? ToDomain(r) : null, ct);
+        return db.ReadAsync(c => c.Query<ItemRow>("SELECT * FROM Item WHERE Barcode IN (?, ?) LIMIT 1", code, alt).FirstOrDefault() is { } r ? ToDomain(r) : null, ct);
     }
 
     public Task<IReadOnlyList<Item>> SearchAsync(string text, int limit = 20, CancellationToken ct = default)
@@ -29,21 +29,21 @@ internal sealed class ItemRepository(AngadiDb db, IClock clock) : IItemRepositor
         var q = text.Trim();
         if (q.Length == 0) return Task.FromResult<IReadOnlyList<Item>>([]);
         var like = "%" + q.Replace("%", "", StringComparison.Ordinal).Replace("_", "", StringComparison.Ordinal) + "%";
-        return db.RunAsync<IReadOnlyList<Item>>(c => c.Query<ItemRow>(
+        return db.ReadAsync<IReadOnlyList<Item>>(c => c.Query<ItemRow>(
                 "SELECT * FROM Item WHERE IsActive = 1 AND (TeluguName LIKE ? OR EnglishName LIKE ? OR AliasesJson LIKE ? OR Barcode LIKE ?) " +
                 "ORDER BY TeluguName LIMIT ?", like, like, like, q + "%", limit)
             .Select(ToDomain).ToList(), ct);
     }
 
     public Task<IReadOnlyList<Item>> GetActiveAsync(CancellationToken ct = default)
-        => db.RunAsync<IReadOnlyList<Item>>(c => c.Query<ItemRow>("SELECT * FROM Item WHERE IsActive = 1").Select(ToDomain).ToList(), ct);
+        => db.ReadAsync<IReadOnlyList<Item>>(c => c.Query<ItemRow>("SELECT * FROM Item WHERE IsActive = 1").Select(ToDomain).ToList(), ct);
 
     public Task<IReadOnlyList<Item>> GetQuickSaleAsync(CancellationToken ct = default)
-        => db.RunAsync<IReadOnlyList<Item>>(c => c.Query<ItemRow>("SELECT * FROM Item WHERE IsActive = 1 AND IsQuickSale = 1")
+        => db.ReadAsync<IReadOnlyList<Item>>(c => c.Query<ItemRow>("SELECT * FROM Item WHERE IsActive = 1 AND IsQuickSale = 1")
             .Select(ToDomain).OrderBy(i => i.TeluguName, StringComparer.Ordinal).ToList(), ct);
 
     public Task<IReadOnlyList<Item>> GetLowStockAsync(CancellationToken ct = default)
-        => db.RunAsync<IReadOnlyList<Item>>(c => c.Query<ItemRow>(
+        => db.ReadAsync<IReadOnlyList<Item>>(c => c.Query<ItemRow>(
                 "SELECT * FROM Item WHERE IsActive = 1 AND StockMilli <= LowStockMilli ORDER BY StockMilli")
             .Select(ToDomain).ToList(), ct);
 
@@ -90,13 +90,13 @@ internal sealed class ItemRepository(AngadiDb db, IClock clock) : IItemRepositor
     }
 
     public Task<bool> AnyAsync(CancellationToken ct = default)
-        => db.RunAsync(c => c.ExecuteScalar<int>("SELECT COUNT(*) FROM Item") > 0, ct);
+        => db.ReadAsync(c => c.ExecuteScalar<int>("SELECT COUNT(*) FROM Item") > 0, ct);
 }
 
 internal sealed class BillRepository(AngadiDb db, IClock clock) : IBillRepository
 {
     public Task<Bill?> GetAsync(Guid id, CancellationToken ct = default)
-        => db.RunAsync<Bill?>(c =>
+        => db.ReadAsync<Bill?>(c =>
         {
             var row = c.Find<BillRow>(id);
             if (row is null) return null;
@@ -129,7 +129,7 @@ internal sealed class BillRepository(AngadiDb db, IClock clock) : IBillRepositor
     {
         var a = Ms(from);
         var b = Ms(to);
-        return db.RunAsync<IReadOnlyList<Bill>>(c =>
+        return db.ReadAsync<IReadOnlyList<Bill>>(c =>
         {
             var rows = c.Query<BillRow>("SELECT * FROM Bill WHERE FinalizedAtMs >= ? AND FinalizedAtMs < ? ORDER BY FinalizedAtMs DESC", a, b);
             return Load(c, rows);
@@ -138,11 +138,11 @@ internal sealed class BillRepository(AngadiDb db, IClock clock) : IBillRepositor
 
     /// <summary>Bills finalized on local days [from, to] inclusive — what reports use.</summary>
     public Task<IReadOnlyList<Bill>> ListByDayAsync(DateOnly from, DateOnly to, CancellationToken ct = default)
-        => db.RunAsync<IReadOnlyList<Bill>>(c => Load(c,
+        => db.ReadAsync<IReadOnlyList<Bill>>(c => Load(c,
             c.Query<BillRow>("SELECT * FROM Bill WHERE Day >= ? AND Day <= ? AND Status <> 0 ORDER BY FinalizedAtMs DESC", Day(from), Day(to))), ct);
 
     public Task<IReadOnlyList<Bill>> ListByCustomerAsync(Guid customerId, int limit, CancellationToken ct = default)
-        => db.RunAsync<IReadOnlyList<Bill>>(c => Load(c,
+        => db.ReadAsync<IReadOnlyList<Bill>>(c => Load(c,
             c.Query<BillRow>("SELECT * FROM Bill WHERE CustomerId = ? AND Status <> 0 ORDER BY FinalizedAtMs DESC LIMIT ?", customerId, limit)), ct);
 
     internal const int LineQueryChunk = 500;
@@ -176,7 +176,7 @@ internal sealed class BillRepository(AngadiDb db, IClock clock) : IBillRepositor
     {
         var a = Ms(from);
         var b = Ms(to);
-        return db.RunAsync(c => c.ExecuteScalar<int>("SELECT COUNT(*) FROM Bill WHERE Status = 2 AND VoidedAtMs >= ? AND VoidedAtMs < ?", a, b), ct);
+        return db.ReadAsync(c => c.ExecuteScalar<int>("SELECT COUNT(*) FROM Bill WHERE Status = 2 AND VoidedAtMs >= ? AND VoidedAtMs < ?", a, b), ct);
     }
 
     public Task<long> SumRefundsAsync(DateTimeOffset from, DateTimeOffset to, DateOnly soldBefore, CancellationToken ct = default)
@@ -185,7 +185,7 @@ internal sealed class BillRepository(AngadiDb db, IClock clock) : IBillRepositor
         var b = Ms(to);
         var day = Day(soldBefore);
         // v2 split tender: a voided split bill (Tender 3) hands back only its cash + UPI parts (its udhaar part is reversed).
-        return db.RunAsync(c => c.ExecuteScalar<long>(
+        return db.ReadAsync(c => c.ExecuteScalar<long>(
             "SELECT COALESCE(SUM(GrandTotalPaise), 0) FROM Bill WHERE Status = 2 AND VoidedAtMs >= ? AND VoidedAtMs < ? AND Day < ? AND Tender IN (0, 1)",
             a, b, day)
             + c.ExecuteScalar<long>(
@@ -199,7 +199,7 @@ internal sealed class BillRepository(AngadiDb db, IClock clock) : IBillRepositor
         var from = year * 10000 + month * 100 + 1;
         var to = year * 10000 + month * 100 + 31;
         // Voided bills still count: the quota is for bills made, so void + re-bill can't dodge it.
-        return db.RunAsync(c => c.ExecuteScalar<int>("SELECT COUNT(*) FROM Bill WHERE Day >= ? AND Day <= ? AND Status <> 0", from, to), ct);
+        return db.ReadAsync(c => c.ExecuteScalar<int>("SELECT COUNT(*) FROM Bill WHERE Day >= ? AND Day <= ? AND Status <> 0", from, to), ct);
     }
 
     public Task SaveAsync(Bill bill, CancellationToken ct = default)
@@ -230,7 +230,7 @@ internal sealed class CustomerRepository(AngadiDb db, IClock clock) : ICustomerR
     internal const int CustomerSearchLimit = 50;
 
     public Task<Customer?> GetAsync(Guid id, CancellationToken ct = default)
-        => db.RunAsync(c => c.Find<CustomerRow>(id) is { } r ? ToDomain(r) : null, ct);
+        => db.ReadAsync(c => c.Find<CustomerRow>(id) is { } r ? ToDomain(r) : null, ct);
 
     public Task<IReadOnlyList<Customer>> SearchAsync(string text, CancellationToken ct = default)
     {
@@ -247,24 +247,24 @@ internal sealed class CustomerRepository(AngadiDb db, IClock clock) : ICustomerR
             phoneLike = "%" + new string(text.Where(char.IsAsciiDigit).ToArray()) + "%";
             phoneExact = Angadi.Application.Billing.PhoneNumbers.Normalize(text);
         }
-        return db.RunAsync<IReadOnlyList<Customer>>(c => c.Query<CustomerRow>(
+        return db.ReadAsync<IReadOnlyList<Customer>>(c => c.Query<CustomerRow>(
                 "SELECT * FROM Customer WHERE Name LIKE ? OR Phone LIKE ? OR Phone = ? ORDER BY Name LIMIT ?",
                 like, phoneLike, phoneExact, CustomerSearchLimit)
             .Select(ToDomain).ToList(), ct);
     }
 
     public Task<IReadOnlyList<Customer>> GetWithDuesAsync(CancellationToken ct = default)
-        => db.RunAsync<IReadOnlyList<Customer>>(c => c.Query<CustomerRow>(
+        => db.ReadAsync<IReadOnlyList<Customer>>(c => c.Query<CustomerRow>(
                 "SELECT * FROM Customer WHERE DuesBalancePaise <> 0 ORDER BY DuesBalancePaise DESC")
             .Select(ToDomain).ToList(), ct);
 
     public Task<Paise> SumEntriesAsync(DuesEntryKind kind, DateTimeOffset from, DateTimeOffset to, CancellationToken ct = default)
-        => db.RunAsync(c => new Paise(c.ExecuteScalar<long>(
+        => db.ReadAsync(c => new Paise(c.ExecuteScalar<long>(
             "SELECT COALESCE(SUM(AmountPaise), 0) FROM DuesEntry WHERE Kind = ? AND CreatedAtMs >= ? AND CreatedAtMs < ?",
             (int)kind, Ms(from), Ms(to))), ct);
 
     public Task<IReadOnlyList<DuesEntry>> GetLedgerAsync(Guid customerId, CancellationToken ct = default)
-        => db.RunAsync<IReadOnlyList<DuesEntry>>(c => c.Query<DuesEntryRow>(
+        => db.ReadAsync<IReadOnlyList<DuesEntry>>(c => c.Query<DuesEntryRow>(
                 "SELECT * FROM DuesEntry WHERE CustomerId = ? ORDER BY CreatedAtMs DESC", customerId)
             .Select(ToDomain).ToList(), ct);
 
@@ -338,25 +338,25 @@ internal sealed partial class StockLedger(AngadiDb db, IClock clock) : IStockLed
     }
 
     public Task<IReadOnlyList<StockMove>> GetHistoryAsync(Guid itemId, CancellationToken ct = default)
-        => db.RunAsync<IReadOnlyList<StockMove>>(c => c.Query<StockMoveRow>(
+        => db.ReadAsync<IReadOnlyList<StockMove>>(c => c.Query<StockMoveRow>(
                 "SELECT * FROM StockMove WHERE ItemId = ? ORDER BY CreatedAtMs DESC", itemId)
             .Select(ToDomain).ToList(), ct);
 
     // FIX(PAY-4, 2026-11-01, billing): Flaw: returned goods still counted as sold in insights. Fix: Return moves are
     // negative sales here. Why: reorder forecasts must not be inflated. Logged in docs/AGENT_FIX_LOG.md.
     public Task<IReadOnlyList<DailySales>> GetDailySalesAsync(DateOnly from, DateOnly to, CancellationToken ct = default)
-        => db.RunAsync<IReadOnlyList<DailySales>>(c => c.Query<DailySalesRow>(
+        => db.ReadAsync<IReadOnlyList<DailySales>>(c => c.Query<DailySalesRow>(
                 "SELECT ItemId, Day, -SUM(DeltaMilli) AS SoldMilli FROM StockMove WHERE Reason IN (?, ?, ?) AND Day >= ? AND Day <= ? GROUP BY ItemId, Day",
                 (int)StockMoveReason.Sale, (int)StockMoveReason.VoidRestore, (int)StockMoveReason.Return, Day(from), Day(to))
             .Select(r => new DailySales(r.ItemId, FromDay(r.Day), new Qty(r.SoldMilli))).ToList(), ct);
 
     public Task<IReadOnlyList<StockMove>> ListMovesAsync(DateOnly from, DateOnly to, CancellationToken ct = default)
-        => db.RunAsync<IReadOnlyList<StockMove>>(c => c.Query<StockMoveRow>(
+        => db.ReadAsync<IReadOnlyList<StockMove>>(c => c.Query<StockMoveRow>(
                 "SELECT * FROM StockMove WHERE Day >= ? AND Day <= ? ORDER BY CreatedAtMs DESC", Day(from), Day(to))
             .Select(ToDomain).ToList(), ct);
 
     public Task<IReadOnlyDictionary<Guid, long>> LedgerTotalsAsync(CancellationToken ct = default)
-        => db.RunAsync<IReadOnlyDictionary<Guid, long>>(c => c.Query<LedgerTotalRow>(
+        => db.ReadAsync<IReadOnlyDictionary<Guid, long>>(c => c.Query<LedgerTotalRow>(
                 "SELECT ItemId, SUM(DeltaMilli) AS TotalMilli FROM StockMove GROUP BY ItemId")
             .ToDictionary(r => r.ItemId, r => r.TotalMilli), ct);
 
@@ -377,11 +377,11 @@ internal sealed partial class StockLedger(AngadiDb db, IClock clock) : IStockLed
 internal sealed class NoteRepository(AngadiDb db, IClock clock) : INoteRepository
 {
     public Task<IReadOnlyList<Angadi.Domain.Notes.Note>> ListAsync(CancellationToken ct = default)
-        => db.RunAsync<IReadOnlyList<Angadi.Domain.Notes.Note>>(c => c.Query<NoteRow>(
+        => db.ReadAsync<IReadOnlyList<Angadi.Domain.Notes.Note>>(c => c.Query<NoteRow>(
                 "SELECT * FROM Note ORDER BY UpdatedAtMs DESC").Select(ToDomain).ToList(), ct);
 
     public Task<Angadi.Domain.Notes.Note?> GetAsync(Guid id, CancellationToken ct = default)
-        => db.RunAsync(c => c.Find<NoteRow>(id) is { } r ? ToDomain(r) : null, ct);
+        => db.ReadAsync(c => c.Find<NoteRow>(id) is { } r ? ToDomain(r) : null, ct);
 
     public Task SaveAsync(Angadi.Domain.Notes.Note note, CancellationToken ct = default)
     {
@@ -419,7 +419,7 @@ internal sealed class Outbox(AngadiDb db, IClock clock) : IOutbox
 internal sealed class ShopProfileRepository(AngadiDb db, IClock clock) : IShopProfileRepository
 {
     public Task<ShopProfile?> GetAsync(CancellationToken ct = default)
-        => db.RunAsync(c => c.Table<ShopProfileRow>().FirstOrDefault() is { } r ? ToDomain(r) : null, ct);
+        => db.ReadAsync(c => c.Table<ShopProfileRow>().FirstOrDefault() is { } r ? ToDomain(r) : null, ct);
 
     public Task SaveAsync(ShopProfile profile, CancellationToken ct = default)
     {

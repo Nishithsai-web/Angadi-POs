@@ -470,3 +470,9 @@ Development no longer runs through one implementer. Muse's own dev/fix agents no
 - **Flaw:** with batch tracking, a backup could carry batch quantities that disagree with the stock ledger (hand-edited or corrupted) and still pass `PassesInvariants`, which only compared Item.Stock to Σ moves.
 - **Fix:** `BackupService.BatchesReconcile` (orphan batches; each batch == Σ moves naming it; tracked item stock == Σ its batches), called from `PassesInvariants`; skipped for pre-schema-4 files.
 - **Tests:** `StockRestoreTests.BackupWhoseBatchesDoNotReconcile_IsRejected_LiveDataUntouched`, every step of `StockBatchTests.RandomSequences_*`.
+
+### PERF-1 (HIGH for large shops) — reports and bill saves waited for each other on one database connection
+- **Status:** FIXED-AWAITING-VERIFY · **Fixed by:** Claude Code, 2026-11-01 · **Requested by:** owner ("manage large inventory data with no conflict retrieving data while working")
+- **Evidence:** `AngadiDb` serialised every query, reads included, through one connection and one lock; a long report over a large inventory delayed a bill save (and the reverse) by its full duration.
+- **Fix:** a read-only second connection (`AngadiDb.ReadAsync`); 38 pure queries in Repositories/ReturnRepository/StockRepositories use it. WAL gives each read a consistent snapshot of committed data while the writer works. Reads inside a command's transaction stay on the writer (they see the command's own changes). Reader failures fall back to the writer; restore closes the reader before swapping the file.
+- **Tests:** `ConcurrentAccessTests` — a 1.5 s report does not delay a save, a 1.5 s transaction does not delay a report and stays invisible until commit, in-transaction reads see own changes, 200 parallel reads + 200 writes stay consistent.

@@ -128,10 +128,10 @@ internal sealed class PurchasingRepository(AngadiDb db, IClock clock) : IPurchas
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
     public Task<Supplier?> GetSupplierAsync(Guid id, CancellationToken ct = default)
-        => db.RunAsync(c => c.Find<SupplierRow>(id) is { } r ? ToDomain(r) : null, ct);
+        => db.ReadAsync(c => c.Find<SupplierRow>(id) is { } r ? ToDomain(r) : null, ct);
 
     public Task<IReadOnlyList<Supplier>> ListSuppliersAsync(CancellationToken ct = default)
-        => db.RunAsync<IReadOnlyList<Supplier>>(c => c.Query<SupplierRow>("SELECT * FROM Supplier ORDER BY Name").Select(ToDomain).ToList(), ct);
+        => db.ReadAsync<IReadOnlyList<Supplier>>(c => c.Query<SupplierRow>("SELECT * FROM Supplier ORDER BY Name").Select(ToDomain).ToList(), ct);
 
     public Task SaveSupplierAsync(Supplier supplier, CancellationToken ct = default)
     {
@@ -171,12 +171,12 @@ internal sealed class PurchasingRepository(AngadiDb db, IClock clock) : IPurchas
     }
 
     public Task<Purchase?> GetPurchaseAsync(Guid id, CancellationToken ct = default)
-        => db.RunAsync(c => c.Find<PurchaseRow>(id) is { } r
+        => db.ReadAsync(c => c.Find<PurchaseRow>(id) is { } r
             ? ToDomain(r, c.Query<PurchaseLineRow>("SELECT * FROM PurchaseLine WHERE PurchaseId = ?", id))
             : null, ct);
 
     public Task<IReadOnlyList<Purchase>> ListPurchasesAsync(DateOnly from, DateOnly to, CancellationToken ct = default)
-        => db.RunAsync<IReadOnlyList<Purchase>>(c =>
+        => db.ReadAsync<IReadOnlyList<Purchase>>(c =>
         {
             var rows = c.Query<PurchaseRow>("SELECT * FROM Purchase WHERE BillDay >= ? AND BillDay <= ? ORDER BY BillDay DESC, CreatedAtMs DESC", Day(from), Day(to));
             var lines = new Dictionary<Guid, List<PurchaseLineRow>>();
@@ -192,14 +192,14 @@ internal sealed class PurchasingRepository(AngadiDb db, IClock clock) : IPurchas
         }, ct);
 
     public Task<bool> PurchaseBillExistsAsync(Guid supplierId, string supplierBillNo, CancellationToken ct = default)
-        => db.RunAsync(c => c.ExecuteScalar<int>(
+        => db.ReadAsync(c => c.ExecuteScalar<int>(
             "SELECT COUNT(*) FROM Purchase WHERE SupplierId = ? AND SupplierBillNo = ? COLLATE NOCASE", supplierId, supplierBillNo.Trim()) > 0, ct);
 
     public Task<PurchaseOrder?> GetOrderAsync(Guid id, CancellationToken ct = default)
-        => db.RunAsync(c => c.Find<PurchaseOrderRow>(id) is { } r ? ToDomain(r) : null, ct);
+        => db.ReadAsync(c => c.Find<PurchaseOrderRow>(id) is { } r ? ToDomain(r) : null, ct);
 
     public Task<IReadOnlyList<PurchaseOrder>> ListOrdersAsync(CancellationToken ct = default)
-        => db.RunAsync<IReadOnlyList<PurchaseOrder>>(c => c.Query<PurchaseOrderRow>(
+        => db.ReadAsync<IReadOnlyList<PurchaseOrder>>(c => c.Query<PurchaseOrderRow>(
             "SELECT * FROM PurchaseOrder ORDER BY Status, UpdatedAtMs DESC").Select(ToDomain).ToList(), ct);
 
     public Task SaveOrderAsync(PurchaseOrder order, CancellationToken ct = default)
@@ -217,7 +217,7 @@ internal sealed class PurchasingRepository(AngadiDb db, IClock clock) : IPurchas
     }
 
     public Task<long> CorrectedMilliAsync(Guid purchaseId, Guid itemId, Guid? batchId, CancellationToken ct = default)
-        => db.RunAsync(c => -c.ExecuteScalar<long>(
+        => db.ReadAsync(c => -c.ExecuteScalar<long>(
             "SELECT COALESCE(SUM(DeltaMilli), 0) FROM StockMove WHERE PurchaseId = ? AND ItemId = ? AND Reason = ? AND BatchId IS ?",
             purchaseId, itemId, (int)StockMoveReason.CountCorrection, batchId), ct);
 

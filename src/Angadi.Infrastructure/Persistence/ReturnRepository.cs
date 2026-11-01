@@ -16,20 +16,20 @@ internal sealed class ReturnRepository(AngadiDb db, IClock clock) : IReturnRepos
     internal const string SequenceKey = "seq.return";
 
     public Task<SalesReturn?> GetAsync(Guid id, CancellationToken ct = default)
-        => db.RunAsync(c => c.Find<SalesReturnRow>(id) is { } r
+        => db.ReadAsync(c => c.Find<SalesReturnRow>(id) is { } r
             ? PaymentMapping.ToDomain(r, c.Query<ReturnLineRow>("SELECT * FROM ReturnLine WHERE ReturnId = ?", id))
             : null, ct);
 
     public Task<IReadOnlyList<SalesReturn>> ListByBillAsync(Guid billId, CancellationToken ct = default)
-        => db.RunAsync<IReadOnlyList<SalesReturn>>(c => Load(c,
+        => db.ReadAsync<IReadOnlyList<SalesReturn>>(c => Load(c,
             c.Query<SalesReturnRow>("SELECT * FROM SalesReturn WHERE BillId = ? ORDER BY ReturnedAtMs, Number", billId)), ct);
 
     public Task<IReadOnlyList<SalesReturn>> ListByDayAsync(DateOnly from, DateOnly to, CancellationToken ct = default)
-        => db.RunAsync<IReadOnlyList<SalesReturn>>(c => Load(c,
+        => db.ReadAsync<IReadOnlyList<SalesReturn>>(c => Load(c,
             c.Query<SalesReturnRow>("SELECT * FROM SalesReturn WHERE Day >= ? AND Day <= ? ORDER BY ReturnedAtMs, Number", Day(from), Day(to))), ct);
 
     public Task<IReadOnlyList<SalesReturn>> ListByCustomerAsync(Guid customerId, int limit, CancellationToken ct = default)
-        => db.RunAsync<IReadOnlyList<SalesReturn>>(c => Load(c,
+        => db.ReadAsync<IReadOnlyList<SalesReturn>>(c => Load(c,
             c.Query<SalesReturnRow>("SELECT * FROM SalesReturn WHERE CustomerId = ? ORDER BY ReturnedAtMs DESC, Number DESC LIMIT ?", customerId, limit)), ct);
 
     public Task<string> NextReturnNumberAsync(CancellationToken ct = default)
