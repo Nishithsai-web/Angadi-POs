@@ -21,7 +21,12 @@ If export itself fails ("couldn't prepare the log file"), the phone is out of st
 | "Phone storage is full" | Android Settings → Storage | Delete photos/videos/WhatsApp media. Nothing was lost; the action that failed was not saved, so repeat it. |
 | "₹X short" | Cash typed is less than the bill | Re-enter cash, or switch tender to UPI/udhaar. |
 | "Amount too large" | A typo like 1,00,000 kg | Fix the quantity. Limits: 1,00,000 units per line, ₹1 crore per item price. |
-| Void refused: "payments already recorded" | The udhaar bill's customer has paid part | By design (H1): no refunds in v1. Record a correcting entry instead. |
+| Void refused: "payments already recorded" | The udhaar bill's customer has paid part | By design (H1). Use **Return items** on the bill instead (v2): refund cash/UPI or cut udhaar. |
+| Void refused: "this bill has returns" | Bills → the bill shows R- rows | By design: goods already came back on a return. Return the rest with **Return items**. |
+| "The parts add up to ₹X but the bill is ₹Y" | Split screen: the remaining amount must be ₹0 after "Rest goes to" | Re-open **Split**; type the parts again (the bill changed after the split was entered). |
+| Return refused: "only N can come back" | Bill detail lists earlier returns | Everything up to the sold quantity can be returned in total, never more. |
+| Return refund came partly as cash although "Cut udhaar" was chosen | Customer page → dues ledger | By design: udhaar is never cut below zero; the rest is cash in hand. |
+| Day-end "Net sales" lower than "Sales" | Reports → Returns (n) | Returns count on the day they happen, whatever day the bill was. GST summary does the same. |
 
 ## Voice
 | Symptom | Check | Fix |

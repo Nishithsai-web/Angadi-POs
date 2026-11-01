@@ -218,6 +218,79 @@ public static class ReceiptLayout
         return rows;
     }
 
+    /// <summary>
+    /// v2 returns: the return note (credit note) for <paramref name="ret"/>, in the receipt's own layout — shop header,
+    /// the return and original bill numbers and dates, the returned lines at the value refunded, the GST reversed per
+    /// slab (Tax Invoice only), the refund and how it went back (cash / UPI / udhaar reduced). No QR: nothing is owed.
+    /// </summary>
+    public static IReadOnlyList<ReceiptRow> BuildReturn(SalesReturn ret, Bill bill, ShopProfile shop, ILocalizer text, Customer? customer = null)
+    {
+        ArgumentNullException.ThrowIfNull(ret);
+        ArgumentNullException.ThrowIfNull(bill);
+        ArgumentNullException.ThrowIfNull(shop);
+        ArgumentNullException.ThrowIfNull(text);
+
+        var rows = new List<ReceiptRow> { new(ReceiptRowKind.Title) { Text = shop.Name.Trim() } };
+        if (!string.IsNullOrWhiteSpace(shop.Address)) rows.Add(new(ReceiptRowKind.Text) { Text = shop.Address.Trim() });
+        if (!string.IsNullOrWhiteSpace(shop.Phone)) rows.Add(new(ReceiptRowKind.Text) { Text = shop.Phone.Trim() });
+        if (!string.IsNullOrWhiteSpace(shop.Gstin))
+            rows.Add(new(ReceiptRowKind.Text) { Text = $"{text["receipt.gstin"]}: {shop.Gstin.Trim().ToUpperInvariant()}" });
+        rows.Add(new(ReceiptRowKind.Heading) { Text = text["return.note.title"] });
+
+        rows.Add(new(ReceiptRowKind.Separator));
+        rows.Add(new(ReceiptRowKind.Field) { Text = text["return.number"], Value = ret.Number });
+        rows.Add(new(ReceiptRowKind.Field) { Text = text["receipt.date"], Value = FormatDate(ret.ReturnedAt) });
+        rows.Add(new(ReceiptRowKind.Field) { Text = text["return.against"], Value = ret.BillNumber });
+        rows.Add(new(ReceiptRowKind.Field) { Text = text["return.billdate"], Value = FormatDate(bill.FinalizedAt ?? bill.CreatedAt) });
+        if (customer is not null && !string.IsNullOrWhiteSpace(customer.Name))
+            rows.Add(new(ReceiptRowKind.Field) { Text = text["receipt.customer"], Value = customer.Name.Trim() });
+
+        rows.Add(new(ReceiptRowKind.Separator));
+        rows.Add(new(ReceiptRowKind.Columns) { Text = text["receipt.item"], Value = text["receipt.amount"] });
+        foreach (var line in ret.Lines)
+        {
+            var telugu = line.TeluguName.Trim();
+            var english = line.EnglishName.Trim();
+            var primary = telugu.Length > 0 ? telugu : english;
+            rows.Add(new(ReceiptRowKind.Item)
+            {
+                Text = primary,
+                Secondary = telugu.Length > 0 && !string.Equals(telugu, english, StringComparison.Ordinal) ? english : "",
+                Middle = $"{IndianFormat.Quantity(line.Qty)} {text.UnitLabel(line.Unit)}" + (ret.IsTaxInvoice ? $" · {text["bill.tax"]} {SlabLabel(line.GstSlab)}" : ""),
+                Value = IndianFormat.Rupees(line.Amount),
+            });
+        }
+
+        rows.Add(new(ReceiptRowKind.Separator));
+        if (ret.IsTaxInvoice && ret.TaxSplits.Count > 0)
+        {
+            rows.Add(new(ReceiptRowKind.TaxHeader) { Text = text["bill.tax"], Middle = text["receipt.taxable"], Value = text["bill.tax"] });
+            foreach (var split in ret.TaxSplits)
+            {
+                rows.Add(new(ReceiptRowKind.Tax) { Text = SlabLabel(split.Slab), Middle = IndianFormat.Rupees(split.Taxable), Value = IndianFormat.Rupees(split.Tax) });
+                if (split.Tax == Paise.Zero) continue;
+                var half = RateLabel(split.HalfRateBasisPoints);
+                rows.Add(new(ReceiptRowKind.Tax) { Text = $"  {text["receipt.cgst"]} {half}", Value = IndianFormat.Rupees(split.Cgst) });
+                rows.Add(new(ReceiptRowKind.Tax) { Text = $"  {text["receipt.sgst"]} {half}", Value = IndianFormat.Rupees(split.Sgst) });
+            }
+            rows.Add(new(ReceiptRowKind.Total) { Text = text["bill.tax"], Value = IndianFormat.Rupees(ret.TaxTotal) });
+        }
+        if (ret.RoundingAdjustment != Paise.Zero)
+            rows.Add(new(ReceiptRowKind.Total) { Text = text["bill.rounding"], Value = Signed(ret.RoundingAdjustment) });
+        rows.Add(new(ReceiptRowKind.GrandTotal) { Text = text["return.refund"], Value = IndianFormat.Rupees(ret.RefundTotal) });
+
+        rows.Add(new(ReceiptRowKind.Separator));
+        if (ret.CashRefund > Paise.Zero) rows.Add(new(ReceiptRowKind.Field) { Text = text["return.method.cash"], Value = IndianFormat.Rupees(ret.CashRefund) });
+        if (ret.UpiRefund > Paise.Zero) rows.Add(new(ReceiptRowKind.Field) { Text = text["return.method.upi"], Value = IndianFormat.Rupees(ret.UpiRefund) });
+        if (!string.IsNullOrWhiteSpace(ret.UpiRef)) rows.Add(new(ReceiptRowKind.Field) { Text = text["receipt.upiref"], Value = ret.UpiRef });
+        if (ret.DuesCredit > Paise.Zero) rows.Add(new(ReceiptRowKind.Field) { Text = text["return.method.dues"], Value = IndianFormat.Rupees(ret.DuesCredit) });
+        if (!string.IsNullOrWhiteSpace(ret.Reason)) rows.Add(new(ReceiptRowKind.Text) { Text = $"{text["return.reason"]}: {ret.Reason.Trim()}" });
+
+        rows.Add(new(ReceiptRowKind.Separator));
+        rows.Add(new(ReceiptRowKind.Footer) { Text = text["receipt.thanks"] });
+        return rows;
+    }
+
     /// <summary>The QR rule from the class summary.</summary>
     public static bool ShowsQr(Bill bill, ShopProfile shop) =>
         bill.Status != BillStatus.Void

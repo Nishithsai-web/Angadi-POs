@@ -304,6 +304,8 @@ internal sealed class StockLedger(AngadiDb db, IClock clock) : IStockLedger
                 "SELECT * FROM StockMove WHERE ItemId = ? ORDER BY CreatedAtMs DESC", itemId)
             .Select(ToDomain).ToList(), ct);
 
+    // FIX(PAY-4, 2026-11-01, billing): Flaw: returned goods still counted as sold in insights. Fix: Return moves are
+    // negative sales here. Why: reorder forecasts must not be inflated. Logged in docs/AGENT_FIX_LOG.md.
     public Task<IReadOnlyList<DailySales>> GetDailySalesAsync(DateOnly from, DateOnly to, CancellationToken ct = default)
         => db.RunAsync<IReadOnlyList<DailySales>>(c => c.Query<DailySalesRow>(
                 "SELECT ItemId, Day, -SUM(DeltaMilli) AS SoldMilli FROM StockMove WHERE Reason IN (?, ?, ?) AND Day >= ? AND Day <= ? GROUP BY ItemId, Day",

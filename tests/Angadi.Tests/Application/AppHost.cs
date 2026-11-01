@@ -130,4 +130,8 @@ public sealed class FakeRenderer : IReceiptRenderer
 {
     public Task<Result<string>> RenderAsync(Bill bill, ShopProfile shop, CancellationToken ct = default) =>
         Task.FromResult(Result.Success(Path.Combine(Path.GetTempPath(), bill.Number + ".pdf")));
+
+    /// <summary>v2 returns: the return note "renders" to its own number.</summary>
+    public Task<Result<string>> RenderReturnAsync(SalesReturn ret, Bill bill, ShopProfile shop, Angadi.Domain.Customers.Customer? customer, CancellationToken ct = default) =>
+        Task.FromResult(Result.Success(Path.Combine(Path.GetTempPath(), ret.Number + ".pdf")));
 }

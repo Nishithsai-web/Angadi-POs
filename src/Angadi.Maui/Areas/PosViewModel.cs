@@ -416,9 +416,9 @@ public sealed partial class PosViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// v2 split tender: one bill paid in two parts — cash + UPI, cash + udhaar, or UPI + udhaar. The shopkeeper types
-    /// the first part on the big number pad; the rest goes to the second tender. Cash may take "received" for change,
-    /// UPI shows the QR for its part only, udhaar needs the customer. Finalize checks the parts add up exactly.
+    /// v2 split tender (docs/BILLING_RULES.md §Split tender): one bill paid in parts. The split screen takes the cash
+    /// and UPI parts on big number boxes and puts the rest on the chosen tender; then the UPI part's QR (for that part
+    /// only) and, for an udhaar part, the customer. Finalize checks the parts add up to the bill exactly.
     /// </summary>
     [RelayCommand]
     private Task PaySplit() => SafeAsync(PaySplitCore);
@@ -427,40 +427,23 @@ public sealed partial class PosViewModel : ViewModelBase
     {
         if (_draft.IsEmpty) { await Dialogs.ToastAsync(Text.Error(new Error(ErrorCodes.BillEmpty))); return; }
         var total = _draft.Bill.GrandTotal;
-        string cashUpi = Text["split.cash_upi"], cashUdhaar = Text["split.cash_udhaar"], upiUdhaar = Text["split.upi_udhaar"];
-        var pick = await Dialogs.ChooseAsync(Text.Format("split.title", IndianFormat.Rupees(total)), Text["common.cancel"], cashUpi, cashUdhaar, upiUdhaar);
-        if (pick is null || (pick != cashUpi && pick != cashUdhaar && pick != upiUdhaar)) return;
-        var (first, second) = pick == cashUpi ? (TenderType.Cash, TenderType.Upi)
-            : pick == cashUdhaar ? (TenderType.Cash, TenderType.Udhaar)
-            : (TenderType.Upi, TenderType.Udhaar);
-
-        var typed = await Dialogs.PromptAsync(TenderName(first),
-            Text.Format("split.amount", TenderName(first), IndianFormat.Rupees(total), TenderName(second)),
-            Text["common.ok"], Text["common.cancel"], "", Keyboard.Numeric);
-        if (typed is null) return;
-        if (!PosInput.TryParseRupees(typed, out var firstAmount) || firstAmount.Value <= 0 || firstAmount >= total)
+        var plan = await Nav.GoForResultAsync<SplitPlan>(Routes.SplitPay, new Dictionary<string, object>
         {
-            await Dialogs.ToastAsync(Text.Error(new Error(ErrorCodes.BillSplitInvalid)));
-            return;
-        }
-        var parts = new List<BillPayment>
-        {
-            new() { Tender = first, Amount = firstAmount },
-            new() { Tender = second, Amount = total - firstAmount },
-        };
+            ["total"] = total.Value.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        });
+        if (plan is null) return;
+        if (plan.Cash.Value + plan.Upi.Value + plan.Udhaar.Value != total.Value) return;   // the bill changed meanwhile
 
-        if (second == TenderType.Udhaar)
+        var parts = new List<BillPayment>();
+        if (plan.Cash.Value > 0) parts.Add(new BillPayment { Tender = TenderType.Cash, Amount = plan.Cash, CashReceived = plan.CashReceived });
+        if (plan.Upi.Value > 0) parts.Add(new BillPayment { Tender = TenderType.Upi, Amount = plan.Upi });
+        if (plan.Udhaar.Value > 0) parts.Add(new BillPayment { Tender = TenderType.Udhaar, Amount = plan.Udhaar });
+
+        if (plan.Udhaar.Value > 0)
         {
             var customer = _customer ?? await PickCustomerAsync();
             if (customer is null) return;
             SetCustomer(customer);
-        }
-        if (parts.FirstOrDefault(p => p.Tender == TenderType.Cash) is { } cash)
-        {
-            var received = await Dialogs.PromptAsync(TenderName(TenderType.Cash) + " " + IndianFormat.Rupees(cash.Amount),
-                Text["tender.received"] + " (" + Text["pos.optional"] + ")", Text["tender.pay"], Text["common.cancel"], "", Keyboard.Numeric);
-            if (received is null) return;
-            if (PosInput.TryParseRupees(received, out var r) && r.Value > 0) cash.CashReceived = r;
         }
         if (parts.FirstOrDefault(p => p.Tender == TenderType.Upi) is { } upi)
         {
@@ -477,13 +460,6 @@ public sealed partial class PosViewModel : ViewModelBase
         _draft.SetSplit(parts, _customer?.Id);
         await FinalizeAsync();
     }
-
-    private string TenderName(TenderType tender) => tender switch
-    {
-        TenderType.Cash => Text["tender.cash"],
-        TenderType.Upi => Text["tender.upi"],
-        _ => Text["tender.udhaar"],
-    };
 
     [RelayCommand]
     private Task OpenDue() => SafeAsync(() => Nav.GoToAsync("//" + Routes.Customers));

@@ -308,6 +308,18 @@ public sealed class CustomerDetailPage : ContentPage, IQueryAttributable
             });
         }
 
+        // v2 returns: the customer's returns, each as its own (negative) row; tap = the bill it came from.
+        foreach (var ret in await _sender.Send(new GetCustomerReturnsQuery(c.Id)))
+        {
+            var row = Row(_receipts, $"{ret.Number} · {ret.BillNumber} · {ret.ReturnedAt.ToLocalTime():dd MMM, h:mm tt} · {_text["return.badge"]}",
+                IndianFormat.Rupees(-ret.RefundTotal));
+            var fromBill = ret.BillId.ToString("D");
+            row.GestureRecognizers.Add(new TapGestureRecognizer
+            {
+                Command = new Command(SafeUi.Fire(() => Shell.Current.GoToAsync(Routes.BillDetail, new Dictionary<string, object> { ["billId"] = fromBill }))),
+            });
+        }
+
         _ledger.Children.Clear();
         var ledger = await _sender.Send(new GetCustomerLedgerQuery(c.Id));
         if (ledger.Count == 0) _ledger.Add(Ui.Caption(_text["customers.ledger.empty"]));

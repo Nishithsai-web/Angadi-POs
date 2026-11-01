@@ -27,6 +27,8 @@ public static class Routes
     public const string ShopSetup = "shop-setup";        // first run + settings edit
     public const string Subscription = "subscription";
     public const string UpiPay = "upi-pay";              // ?payload=&amount= → returns "paid"
+    public const string SplitPay = "split-pay";          // v2: ?total= (paise) → returns SplitPlan
+    public const string BillReturn = "bill-return";      // v2: ?billId= → return items from a bill
 }
 
 /// <summary>Testable navigation over Shell (implemented in Core/Services.cs by the shell agent).</summary>

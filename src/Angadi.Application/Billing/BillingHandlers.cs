@@ -342,10 +342,14 @@ internal sealed class VoidBillHandler(
                 return Result.Failure(ErrorCodes.BillVoidPastMonth);
         }
 
+        // FIX(PAY-2, 2026-11-01, billing): Flaw: a void after a partial return restored the returned stock and money
+        // twice. Fix: refuse with BILL_HAS_RETURNS. Why: stock = ledger and the drawer must stay exact. Logged in docs/AGENT_FIX_LOG.md.
         // v2 returns: goods already came back on a return document — a void would restore that stock and money twice.
         // The rest of the bill can still be returned.
         if ((await returns.ListByBillAsync(bill.Id, ct)).Count > 0) return Result.Failure(ErrorCodes.BillHasReturns);
 
+        // FIX(PAY-1, 2026-11-01, billing): Flaw: void treated the whole bill as udhaar. Fix: only the udhaar part
+        // (BillPayments.AmountBy). Why: a split bill's cash/UPI parts never went to dues. Logged in docs/AGENT_FIX_LOG.md.
         // H1 (approved as specified): if any part of an udhaar bill has been paid, a full reversal would push dues
         // negative and lock the account. Fail closed before mutating anything. v2 split tender: only the bill's udhaar
         // part was charged to dues, so only that part is checked and reversed (an old udhaar bill is one whole part).

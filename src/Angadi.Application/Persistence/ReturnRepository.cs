@@ -10,6 +10,8 @@ public interface IReturnRepository
     Task<IReadOnlyList<SalesReturn>> ListByBillAsync(Guid billId, CancellationToken ct = default);
     /// <summary>Returns recorded on local days [from, to] (the return's own day — reports net them there).</summary>
     Task<IReadOnlyList<SalesReturn>> ListByDayAsync(DateOnly from, DateOnly to, CancellationToken ct = default);
+    /// <summary>A customer's returns (their bills' returns), newest first — the customer account lists them.</summary>
+    Task<IReadOnlyList<SalesReturn>> ListByCustomerAsync(Guid customerId, int limit, CancellationToken ct = default);
     /// <summary>Atomically returns the next return number ("R-000001") and advances the sequence.</summary>
     Task<string> NextReturnNumberAsync(CancellationToken ct = default);
     Task SaveAsync(SalesReturn ret, CancellationToken ct = default);

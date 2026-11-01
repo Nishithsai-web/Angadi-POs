@@ -28,6 +28,10 @@ internal sealed class ReturnRepository(AngadiDb db, IClock clock) : IReturnRepos
         => db.RunAsync<IReadOnlyList<SalesReturn>>(c => Load(c,
             c.Query<SalesReturnRow>("SELECT * FROM SalesReturn WHERE Day >= ? AND Day <= ? ORDER BY ReturnedAtMs, Number", Day(from), Day(to))), ct);
 
+    public Task<IReadOnlyList<SalesReturn>> ListByCustomerAsync(Guid customerId, int limit, CancellationToken ct = default)
+        => db.RunAsync<IReadOnlyList<SalesReturn>>(c => Load(c,
+            c.Query<SalesReturnRow>("SELECT * FROM SalesReturn WHERE CustomerId = ? ORDER BY ReturnedAtMs DESC, Number DESC LIMIT ?", customerId, limit)), ct);
+
     public Task<string> NextReturnNumberAsync(CancellationToken ct = default)
         => db.RunAsync(c =>
         {

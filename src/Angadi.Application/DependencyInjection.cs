@@ -63,6 +63,8 @@ public static class DependencyInjection
         // v2 returns / partial refunds (split tender lives inside FinalizeBill)
         services.AddTransient<IRequestHandler<RecordReturnCommand, Result<RecordedReturn>>, RecordReturnHandler>();
         services.AddTransient<IRequestHandler<GetBillReturnsQuery, BillReturns?>, GetBillReturnsHandler>();
+        services.AddTransient<IRequestHandler<GetCustomerReturnsQuery, IReadOnlyList<Angadi.Domain.Billing.SalesReturn>>, GetCustomerReturnsHandler>();
+        services.AddTransient<IRequestHandler<ShareReturnNoteCommand, Result>, ShareReturnNoteHandler>();
         services.AddTransient<BillDraftHandlers>();
         services.AddTransient<IRequestHandler<SaveBillDraftCommand, Result>>(sp => sp.GetRequiredService<BillDraftHandlers>());
         services.AddTransient<IRequestHandler<GetBillDraftQuery, BillDraftSnapshot?>>(sp => sp.GetRequiredService<BillDraftHandlers>());

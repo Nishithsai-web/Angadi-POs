@@ -280,7 +280,9 @@ internal sealed class BackupService(AngadiDb db, IClock clock, string exportDire
             {
                 liveSequence = c.Table<ShopProfileRow>().FirstOrDefault()?.NextBillSequence ?? 1;
                 foreach (var m in c.Table<MetaRow>())
-                    // v2 returns: "seq." document sequences (the return number) carry forward like the bill sequence.
+                    // FIX(PAY-3, 2026-11-01, billing): Flaw: restoring an older backup rewound the return sequence
+                    // (duplicate R- numbers). Fix: "seq." keys carry forward like the quota keys. Why: document numbers
+                    // are never reused (D6). Logged in docs/AGENT_FIX_LOG.md.
                     if ((m.Key.StartsWith("quota.", StringComparison.Ordinal) || m.Key.StartsWith("seq.", StringComparison.Ordinal))
                         && long.TryParse(m.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var v))
                         liveQuota[m.Key] = v;

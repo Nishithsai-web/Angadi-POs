@@ -79,12 +79,35 @@ public sealed class ReceiptRenderer : IReceiptRenderer, IDisposable
         }
     }
 
+    /// <summary>v2 returns: the return note, drawn by the same two-pass code as a receipt.</summary>
+    public async Task<Result<string>> RenderReturnAsync(SalesReturn ret, Bill bill, ShopProfile shop, Customer? customer, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(ret);
+        ArgumentNullException.ThrowIfNull(bill);
+        ArgumentNullException.ThrowIfNull(shop);
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        await _gate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            ct.ThrowIfCancellationRequested();
+            return await Task.Run(() => RenderRows(() => ReceiptLayout.BuildReturn(ret, bill, shop, _text, customer), ret.Number, ret.Id), ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
     private Result<string> RenderCore(Bill bill, ShopProfile shop, Customer? customer)
+        => RenderRows(() => ReceiptLayout.Build(bill, shop, _text, customer), bill.Number, bill.Id);
+
+    private Result<string> RenderRows(Func<IReadOnlyList<ReceiptRow>> build, string number, Guid id)
     {
         try
         {
             EnsureFaces();
-            var rows = ReceiptLayout.Build(bill, shop, _text, customer);
+            var rows = build();
 
             // Pass 1: measure. Pass 2: draw with the same code.
             var measure = new Pass(null);
@@ -92,7 +115,7 @@ public sealed class ReceiptRenderer : IReceiptRenderer, IDisposable
             var height = (float)Math.Ceiling(measure.Y + Margin);
 
             Directory.CreateDirectory(_outputDirectory);
-            var path = Path.Combine(_outputDirectory, SafeFileName(bill.Number) + ".pdf");
+            var path = Path.Combine(_outputDirectory, SafeFileName(number) + ".pdf");
             var temp = path + ".tmp";
 
             using (var file = File.Create(temp))
@@ -107,13 +130,13 @@ public sealed class ReceiptRenderer : IReceiptRenderer, IDisposable
             }
 
             File.Move(temp, path, overwrite: true);
-            _log.LogInformation("Receipt rendered for bill {BillId} ({Rows} rows, {Height} pt)", bill.Id, rows.Count, height);
+            _log.LogInformation("Receipt rendered for bill {BillId} ({Rows} rows, {Height} pt)", id, rows.Count, height);
             return Result.Success(path);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // Bill id only: no customer name, phone or line items in logs.
-            _log.LogError(ex, "Receipt render failed for bill {BillId}", bill.Id);
+            _log.LogError(ex, "Receipt render failed for bill {BillId}", id);
             return Result.Failure<string>(ErrorCodes.ReceiptRenderFailed, ex.GetType().Name);
         }
     }

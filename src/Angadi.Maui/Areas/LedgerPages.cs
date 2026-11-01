@@ -117,6 +117,13 @@ public sealed class BillDetailPage : ContentPage, IQueryAttributable
         if (query.TryGetValue("billId", out var id) && Guid.TryParse(id?.ToString(), out var billId)) { _billId = billId; _ = SafeUi.Run(LoadAsync); }   // A1-03: a failed receipt load is logged and toasted, not lost
     }
 
+    /// <summary>v2 returns: back from the return screen, the page shows the new return (and what is left).</summary>
+    protected override void OnNavigatedTo(NavigatedToEventArgs args)
+    {
+        base.OnNavigatedTo(args);
+        if (_billId != Guid.Empty && _body.Children.Count > 0) _ = SafeUi.Run(LoadAsync);
+    }
+
     private async Task LoadAsync()
     {
         var bill = await _sender.Send(new GetBillQuery(_billId));
@@ -147,6 +154,25 @@ public sealed class BillDetailPage : ContentPage, IQueryAttributable
             if (r.IsFailure) await _dialogs.ToastAsync(_text.Error(r.Error));
         });
         _body.Add(share);
+
+        // v2 split tender: each part of a split bill on its own line.
+        if (bill.Tender == TenderType.Split)
+            foreach (var part in BillPayments.PartsOf(bill))
+                _body.Add(Line("  " + SplitPayPage.TenderName(_text, part.Tender), IndianFormat.Rupees(part.Amount)));
+
+        // v2 returns: what came back on this bill, and the way to return more (owner PIN on the return screen).
+        var returns = await _sender.Send(new GetBillReturnsQuery(_billId));
+        if (returns is not null)
+        {
+            foreach (var r in returns.Returns)
+                _body.Add(Line($"{r.Number} · {r.ReturnedAt:dd MMM HH:mm} · {_text["return.badge"]}", IndianFormat.Rupees(-r.RefundTotal)));
+            if (returns.CanReturn)
+            {
+                var returnBtn = Ui.Button(_text["return.items"], Theme.Warning);
+                returnBtn.Clicked += SafeUi.On(() => Shell.Current.GoToAsync(Routes.BillReturn, new Dictionary<string, object> { ["billId"] = _billId.ToString("D") }));
+                _body.Add(returnBtn);
+            }
+        }
 
         if (bill.Status == BillStatus.Finalized)
         {
@@ -247,7 +273,14 @@ public sealed class ReportsPage : ContentPage
             (_text["bill.discount"], IndianFormat.Rupees(r.Discounts)),
             (_text["bill.tax"], IndianFormat.Rupees(r.Tax)),
             (_text["reports.voids"], r.VoidCount.ToString(System.Globalization.CultureInfo.InvariantCulture)),
-            (_text["reports.refunds"], IndianFormat.Rupees(r.Refunds))));   // S1-F1
+            (_text["reports.refunds"], IndianFormat.Rupees(r.Refunds)),   // S1-F1
+            // v2 returns: on the day they happen; net sales = sales − returns.
+            (_text.Format("reports.returns", r.ReturnCount), IndianFormat.Rupees(r.Returns)),
+            (r.CashRefunds.Value > 0 ? _text["reports.returns.cash"] : "", IndianFormat.Rupees(r.CashRefunds)),
+            (r.UpiRefunds.Value > 0 ? _text["reports.returns.upi"] : "", IndianFormat.Rupees(r.UpiRefunds)),
+            (r.DuesCredited.Value > 0 ? _text["reports.returns.dues"] : "", IndianFormat.Rupees(r.DuesCredited)),
+            (_text["reports.netsales"], IndianFormat.Rupees(r.NetSales)),
+            (_text["reports.duescollected"], IndianFormat.Rupees(r.DuesCollected))));
         // Inventory: what is on the shelf, what it is worth, and whether every change was recorded.
         _body.Add(Card(_text["inventory.title"],
             (_text["inventory.value"], IndianFormat.Rupees(inventory.StockValue)),

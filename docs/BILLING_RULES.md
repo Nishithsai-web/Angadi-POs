@@ -36,3 +36,43 @@ Discount comes before tax extraction. With inclusive prices, a discount lowers w
 
 ## Change due
 Cash tender: ChangeDue = CashReceived − GrandTotal. Finalize is rejected with `BILL_CASH_SHORT` if it's negative.
+
+## Split tender (v2)
+Code: `FinalizeBillValidator.SplitError`, `FinalizeBillHandler`, `Domain/Billing/BillPayment.cs`.
+1. A split bill has `Tender = Split` and 2–4 `BillPayment` parts, each Cash, UPI or Udhaar, each more than ₹0.
+2. The parts add up to the GrandTotal **exactly** — not a paisa more or less (`BILL_SPLIT_SUM_MISMATCH`). The check runs
+   after the total is computed, so a changed bill can never be paid with stale parts.
+3. At most **one cash part** (the only one with "received" and change: change = received − cash part; received below
+   the cash part is `BILL_CASH_SHORT`; nothing typed = exact) and at most **one udhaar part** (needs a customer,
+   `BILL_UDHAAR_NEEDS_CUSTOMER`). Only the udhaar part is charged to dues; void reverses only that part.
+4. Every bill finalized from schema 4 on stores its payment as parts (a single tender = one part for the whole bill).
+   Bills from before have no parts and read as one part of their tender (`BillPayments.PartsOf`), so old reports stay
+   identical. Reports, the customer report and receipts read tenders only through `PartsOf` / `AmountBy`.
+5. A retry of an already-saved split bill is the same bill only if the parts are the same (tender + amount);
+   otherwise `BILL_CHANGED_AFTER_SAVE`. Stock, dues and the free-bill quota move once.
+6. Counter: **Split** → type the cash and/or UPI parts → "Rest goes to" Cash / UPI / Udhaar takes the remainder → the
+   UPI QR is for the UPI part only → the udhaar part asks for the customer.
+
+## Returns / partial refunds (v2)
+Code: `Application/Billing/Returns.cs`, `Domain/Billing/SalesReturn.cs` (`ReturnCalculator`).
+1. A finalized bill never changes. Goods brought back become a **SalesReturn** (credit note) with its own number
+   (`R-000001`; `R<prefix>-…` when the bill prefix is not the default `A`), linked to the bill. Owner-only: the return
+   screen asks for the owner PIN (the same gate as void).
+2. Quantity per line ≤ sold − already returned (`RETURN_QTY_TOO_LARGE`); empty returns are refused (`RETURN_EMPTY`);
+   only finalized bills (`RETURN_BILL_NOT_FINALIZED`).
+3. Value: each returned quantity is worth its share of the line's **Net** (after the line and bill discounts),
+   computed cumulatively so the parts can never exceed what was paid:
+   `amount = round(Net × returnedSoFar / sold) − round(Net × returnedBefore / sold)`.
+   Refund = `rupee(Σ all returns so far) − rupee(Σ earlier returns)` (the bill's own whole-rupee rounding).
+   GST reversed per slab = `split(Σ slab amounts so far) − split(Σ before)`. Returning a whole bill in any number of
+   parts therefore refunds exactly the GrandTotal and reverses exactly the bill's taxable value and tax per slab.
+   A Bill of Supply's return carries no GST.
+4. Refund method: **cash**, **UPI** (optional reference) or **cut udhaar** (bill's customer only,
+   `RETURN_NEEDS_CUSTOMER`): dues go down at most to zero; any excess is handed back as cash.
+5. Stock comes back through the ledger (`StockMove` reason `Return`, note = return number). Dues credit is a
+   `Reversal` dues entry against the bill. Outbox: `ReturnRecorded`, `DuesCreditedByReturn`.
+6. A bill with any return can no longer be voided (`BILL_HAS_RETURNS`) — the rest of it can still be returned.
+7. Idempotent: the screen mints the return id once; the same id records once (a different bill → refused).
+8. Reports: returns count on the day they happen (day-end: Returns, refunded in cash / by UPI / udhaar reduced, Net
+   sales = Sales − Returns); the GST summary subtracts a return's GST in the period of the return, never the bill's
+   (a filed month never moves). The customer account lists the customer's returns.

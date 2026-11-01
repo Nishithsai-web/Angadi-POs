@@ -29,6 +29,14 @@ public interface IReceiptRenderer
     /// <summary>A2-15: as above, with the attached customer's name and address printed (Rule 46(e)/(f)).</summary>
     Task<Result<string>> RenderAsync(Bill bill, ShopProfile shop, Angadi.Domain.Customers.Customer? customer, CancellationToken ct = default)
         => RenderAsync(bill, shop, ct);
+
+    /// <summary>
+    /// v2 returns: the return note (credit note) PDF for <paramref name="ret"/> against <paramref name="bill"/>, laid
+    /// out by the same receipt code. Renderers that cannot draw one say so instead of sharing the wrong document.
+    /// </summary>
+    Task<Result<string>> RenderReturnAsync(Angadi.Domain.Billing.SalesReturn ret, Bill bill, ShopProfile shop,
+        Angadi.Domain.Customers.Customer? customer, CancellationToken ct = default)
+        => Task.FromResult(Result.Failure<string>(ErrorCodes.ReceiptRenderFailed, "return notes not supported"));
 }
 
 /// <summary>OS share sheet + wa.me links. Never the paid WhatsApp Business API (ADR-4).</summary>

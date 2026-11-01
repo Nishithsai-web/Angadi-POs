@@ -1,6 +1,6 @@
 # Database schema (SQLite, on device)
 
-File: `<AppData>/angadi.db`, WAL mode. Code: `src/Angadi.Infrastructure/Persistence/Rows.cs`. Schema version is kept in `Meta.schema_version` (currently **1**).
+File: `<AppData>/angadi.db`, WAL mode. Code: `src/Angadi.Infrastructure/Persistence/Rows.cs`. Schema version is kept in `Meta.schema_version` (currently **4**: 2 customer accounts + notes, 3 shop UPI QR, 4 split tender + returns).
 
 **Conventions:**
 - All ids are GUIDs.
@@ -14,10 +14,13 @@ File: `<AppData>/angadi.db`, WAL mode. Code: `src/Angadi.Infrastructure/Persiste
 | **BillLine** | Id, BillId, Position, ItemId, name/price/slab snapshots, QtyMilli, discounts, Gross/LineTotal/BillDiscountShare | Snapshots mean later item edits never change old bills. |
 | **Customer** | Id, Name, Phone, DuesBalancePaise | Balance changes **only** via `AddDuesEntryAsync`. |
 | **DuesEntry** | Id, CustomerId, Kind (Charge/Payment/Reversal), AmountPaise, BillId | The udhaar ledger (FR-22). |
-| **StockMove** | Id, ItemId, DeltaMilli, Reason, BillId, Day | Every stock change. Σ DeltaMilli = Item.StockMilli. Daily sales for insights come from Sale + VoidRestore rows. |
+| **StockMove** | Id, ItemId, DeltaMilli, Reason, BillId, Day | Every stock change. Σ DeltaMilli = Item.StockMilli. Daily sales for insights come from Sale + VoidRestore + Return rows. Reason 6 = Return (v2). |
 | **Outbox** | Id, AggregateType, AggregateId, EventType, PayloadJson, SyncState | v2 sync seam. v1 only appends. |
 | **ShopProfile** | one row: Name, Address, Phone, UpiId, Gstin, BillPrefix, NextBillSequence, Language | NextBillSequence is incremented atomically by `NextBillNumberAsync`. |
-| **Meta** | Key, Value | `app=angadi`, `schema_version`. |
+| **Meta** | Key, Value | `app=angadi`, `schema_version`, `seq.return` (next return number; carried forward on restore like the bill sequence). |
+| **BillPayment** *(v2, schema 4)* | Id, BillId, Position, Tender, AmountPaise, UpiRef, CashReceivedPaise | How a bill was paid, part by part. Σ AmountPaise = Bill.GrandTotalPaise (checked on restore). Written for every bill finalized from schema 4; older bills have none (read as one part of `Bill.Tender`). `Bill.Tender = 3` = Split. |
+| **SalesReturn** *(v2, schema 4)* | Id, Number (unique, `R-000001`), BillId, BillNumber, CustomerId, LinesTotalPaise, RoundingPaise, RefundTotalPaise, IsTaxInvoice, TaxSplitsJson, TaxTotalPaise, Method, CashRefundPaise, UpiRefundPaise, DuesCreditPaise, UpiRef, Reason, ReturnedAtMs + offset, Day | A credit note against a finalized bill; insert-only. RefundTotal = Cash + UPI + DuesCredit (checked on restore). Reported on its own `Day`. |
+| **ReturnLine** *(v2, schema 4)* | Id, ReturnId, Position, BillLineId, ItemId, name/unit/slab snapshots, QtyMilli, AmountPaise | Σ QtyMilli per BillLineId ≤ the bill line's QtyMilli. |
 
 ## Transactions
 `AngadiDb.ExecuteAsync(work, shouldCommit)` is the unit of work. It serialises access through one gate and runs `work` in a single SQLite transaction. It commits only when `shouldCommit(result)` is true, and rolls back on a failed `Result` or any exception. Repository calls inside it join the open transaction.

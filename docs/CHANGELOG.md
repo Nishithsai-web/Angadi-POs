@@ -1,6 +1,11 @@
 # CHANGELOG.md — Angadi POS v1
 Every meaningful change: date, what, the issue it addresses, and the one-line why. Newest first.
 
+## 2026-11-01 (Claude Code, v2 payments) — split tender + returns
+- **Split tender:** one bill paid partly in cash, partly by UPI and/or on udhaar. The *Split* button takes the cash/UPI parts on big number boxes, the rest goes to the chosen tender, the remaining amount shows live; the UPI QR is for the UPI part only; only the udhaar part goes to dues. Receipts, day-end and the customer report show each part. Why: customers often pay ₹500 in cash and the rest by UPI.
+- **Returns / partial refunds:** from the bill (*Return items*, owner PIN): pick lines and quantities, refund by cash, UPI or by cutting udhaar (never below zero; the rest in cash). Each return is its own credit note (R-000001) with a shareable return note; stock comes back through the ledger; returning a whole bill in parts refunds exactly the bill and reverses exactly its GST. Day-end shows returns, refunds and net sales; the GST summary nets a return in its own month; the customer account lists returns. A bill with returns can no longer be voided. Why: v1 could only void a whole bill.
+- **Database schema 4** (additive): BillPayment, SalesReturn, ReturnLine; backups verify and restore them.
+
 ## 2026-10-22 (Claude Code, S1 money lane, round 2)
 - **Fixed: paying again for an edited bill no longer reports the old bill as paid.** If a bill already saved and the shopkeeper added an item and paid again, the app now says which bill saved and for how much, and opens a new empty bill for the extra items. Why: "paid" must always mean the total on screen (T1-01).
 - **Day-end shows refunds:** cash/UPI handed back today for bills sold on an earlier day. Why: the drawer count must match the report (S1-F1).

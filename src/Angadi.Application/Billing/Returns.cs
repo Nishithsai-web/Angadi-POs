@@ -157,3 +157,33 @@ internal sealed class GetBillReturnsHandler(IBillRepository bills, IReturnReposi
             made);
     }
 }
+
+/// <summary>A customer's returns, newest first (the customer account lists them under the bills).</summary>
+public sealed record GetCustomerReturnsQuery(Guid CustomerId, int Limit = 50) : IQuery<IReadOnlyList<SalesReturn>>;
+
+/// <summary>Shares the return note (credit note) PDF through the receipt share sheet. No transaction: the sheet waits on the user.</summary>
+public sealed record ShareReturnNoteCommand(Guid ReturnId) : ICommand<Result>, INoTransaction;
+
+internal sealed class GetCustomerReturnsHandler(IReturnRepository returns) : IRequestHandler<GetCustomerReturnsQuery, IReadOnlyList<SalesReturn>>
+{
+    public Task<IReadOnlyList<SalesReturn>> Handle(GetCustomerReturnsQuery q, CancellationToken ct) =>
+        returns.ListByCustomerAsync(q.CustomerId, Math.Clamp(q.Limit, 1, 1000), ct);
+}
+
+internal sealed class ShareReturnNoteHandler(
+    IReturnRepository returns, IBillRepository bills, IShopProfileRepository shop, ICustomerRepository customers,
+    IReceiptRenderer renderer, IReceiptShare share, ILocalizer text)
+    : IRequestHandler<ShareReturnNoteCommand, Result>
+{
+    public async Task<Result> Handle(ShareReturnNoteCommand command, CancellationToken ct)
+    {
+        if (await returns.GetAsync(command.ReturnId, ct) is not { } ret) return Result.Failure(ErrorCodes.ValidationFailed, "return not found");
+        if (await bills.GetAsync(ret.BillId, ct) is not { } bill) return Result.Failure(ErrorCodes.BillNotFound);
+        if (await shop.GetAsync(ct) is not { } profile) return Result.Failure(ErrorCodes.ValidationFailed, "shop profile missing");
+        var customer = ret.CustomerId is { } customerId ? await customers.GetAsync(customerId, ct) : null;
+        var pdf = await renderer.RenderReturnAsync(ret, bill, profile, customer, ct);
+        if (pdf.IsFailure) return Result.Failure(pdf.Error);
+        var title = text.Format("return.share.text", profile.Name, ret.Number, bill.Number, IndianFormat.Rupees(ret.RefundTotal));
+        return await share.ShareFileAsync(pdf.Value, title, ct);
+    }
+}
