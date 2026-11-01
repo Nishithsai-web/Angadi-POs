@@ -40,6 +40,18 @@ public sealed class ShellNavigationService : INavigationService
         await GoBackAsync();
     }
 
+    /// <summary>
+    /// v2 split tender: like <see cref="ReturnAsync{T}"/>, but the result is handed over only AFTER the page has been
+    /// popped. For a caller that navigates again at once (split screen → UPI QR): completing first let the caller push
+    /// the next page while ".." was still running, and the pop took the new page with it (E2E: no UPI screen).
+    /// </summary>
+    public async Task ReturnAfterBackAsync<T>(T? result) where T : class
+    {
+        var pending = _pending.Count > 0 ? _pending.Pop() : null;
+        try { await GoBackAsync(); }
+        finally { pending?.TrySetResult(result); }
+    }
+
     /// <summary>Called when a result page disappears without returning (back gesture) — completes with null.</summary>
     public void CancelPending()
     {

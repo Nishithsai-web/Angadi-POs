@@ -160,7 +160,7 @@ public sealed class SplitPayPage : ContentPage, IQueryAttributable
             return;
         }
         _answered = true;
-        await _nav.ReturnAsync(plan);
+        await _nav.ReturnAfterBackAsync(plan);   // the counter goes on to the UPI screen: pop first, then hand over
     }
 
     /// <summary>Back = cancelled (same rule as the UPI screen).</summary>

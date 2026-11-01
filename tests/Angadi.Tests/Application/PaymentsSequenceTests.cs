@@ -48,6 +48,7 @@ public sealed class PaymentsSequenceTests : IDisposable
         var returnsByDay = new Dictionary<DateOnly, long>();
         var hasReturn = new HashSet<Guid>();
         var days = new HashSet<DateOnly>();
+        var laterVoided = new List<Sold>();   // T2-01: a bill voided on a later day stays in its own day's sales
 
         for (var step = 0; step < 160; step++)
         {
@@ -135,6 +136,7 @@ public sealed class PaymentsSequenceTests : IDisposable
                 if (hasReturn.Contains(pick.Bill.Id)) { Assert.Equal(ErrorCodes.BillHasReturns, r.Error.Code); continue; }
                 if (r.IsFailure) { Assert.Equal(ErrorCodes.BillVoidBlockedByPayments, r.Error.Code); continue; }
                 sold.Remove(pick);
+                if (pick.Day != today) laterVoided.Add(pick);
                 foreach (var l in pick.Bill.Lines) stock[l.ItemId] += l.Qty.Milli;
                 var udhaar = BillPayments.AmountBy(pick.Bill, TenderType.Udhaar).Value;
                 if (udhaar > 0) dues[pick.Bill.CustomerId!.Value] -= udhaar;
@@ -159,7 +161,7 @@ public sealed class PaymentsSequenceTests : IDisposable
         foreach (var day in days)
         {
             var report = await _h.Sender.Send(new GetDayEndReportQuery(day));
-            var bills = sold.Where(s => s.Day == day).Select(s => s.Bill).ToList();
+            var bills = sold.Concat(laterVoided).Where(s => s.Day == day).Select(s => s.Bill).ToList();
             Assert.Equal(bills.Sum(b => b.GrandTotal.Value), report.SalesTotal.Value);
             Assert.Equal(report.SalesTotal.Value, report.Cash.Value + report.Upi.Value + report.Udhaar.Value);
             Assert.Equal(bills.Sum(b => BillPayments.AmountBy(b, TenderType.Cash).Value), report.Cash.Value);
