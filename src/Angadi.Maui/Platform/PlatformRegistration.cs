@@ -1,5 +1,6 @@
 using Angadi.Application.Common;
 using Angadi.Application.Platform;
+using Angadi.Application.Printing;
 using Angadi.Maui.Core;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -22,6 +23,8 @@ public static class PlatformRegistration
         s.AddSingleton<IBarcodeScanner, CameraBarcodeScanner>();
         // Registered after AddAngadiInfrastructure, so it replaces the C2 stub (last registration wins).
         s.AddSingleton<ISubscriptionService, PlaySubscriptionService>();
+        // v2 printing: replaces Infrastructure's no-Bluetooth stub (last registration wins).
+        s.AddSingleton<IBluetoothPrinterTransport, AndroidBluetoothPrinterTransport>();
         return s;
     }
 }

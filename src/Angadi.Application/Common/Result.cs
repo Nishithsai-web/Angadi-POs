@@ -146,4 +146,18 @@ public static class ErrorCodes
     public const string BatchQtyTooLow = "BATCH_QTY_TOO_LOW";
     /// <summary>A purchase correction larger than what the line added (minus earlier corrections); arg 0 = the most allowed.</summary>
     public const string PurchaseCorrectionTooLarge = "PURCHASE_CORRECTION_TOO_LARGE";
+
+    // v2 printing (Bluetooth thermal receipts)
+    public const string PrinterNotSet = "PRINTER_NOT_SET";
+    public const string PrinterNoBluetooth = "PRINTER_NO_BLUETOOTH";
+    public const string PrinterBluetoothOff = "PRINTER_BLUETOOTH_OFF";
+    public const string PrinterPermissionDenied = "PRINTER_PERMISSION_DENIED";
+    public const string PrinterNonePaired = "PRINTER_NONE_PAIRED";
+    /// <summary>Could not open the Bluetooth link: printer off, out of range, or paired to another phone.</summary>
+    public const string PrinterConnectFailed = "PRINTER_CONNECT_FAILED";
+    /// <summary>The printer reported "paper end" before the job was sent.</summary>
+    public const string PrinterNoPaper = "PRINTER_NO_PAPER";
+    /// <summary>The link dropped while the job was being written.</summary>
+    public const string PrinterDisconnected = "PRINTER_DISCONNECTED";
+    public const string PrinterTimeout = "PRINTER_TIMEOUT";
 }

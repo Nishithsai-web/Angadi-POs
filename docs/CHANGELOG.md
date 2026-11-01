@@ -1,6 +1,12 @@
 # CHANGELOG.md — Angadi POS v1
 Every meaningful change: date, what, the issue it addresses, and the one-line why. Newest first.
 
+## 2026-11-01 (Claude Code, v2 printing) — Bluetooth thermal receipts
+- **Bluetooth receipt printer (58/80 mm ESC/POS):** Settings → *Receipt printer* (owner PIN): choose a printer already paired in the phone's Bluetooth settings, the paper width, *Print test page*, and *Print after every bill*. *Print receipt* on the receipt screen and *Print return note* after a return. Why: many shops hand over a paper bill, and most own a cheap Bluetooth printer.
+- The slip is drawn by the PDF receipt's own code and fonts (Telugu shaped with HarfBuzz) at the printer's width, turned into a 1-bit raster and sent as ESC/POS (reset, GS v 0 bands, feed, partial cut). Bills with split parts and batch/expiry lines, and return notes, print exactly like their PDFs.
+- Every failure is a clear Telugu/English message (Bluetooth off, permission, not paired, printer off, out of paper, disconnected, timeout) and never touches the bill; printing runs off the screen thread with bounded timeouts. Permissions: BLUETOOTH_CONNECT (Android 12+, asked only in printer setup); BLUETOOTH/BLUETOOTH_ADMIN capped at Android 11. No location, no scanning.
+- No database change: the printer choice is phone hardware, kept in its own small file (not in backups).
+
 ## 2026-11-01 (Claude Code, v2 payments) — split tender + returns
 - **Split tender:** one bill paid partly in cash, partly by UPI and/or on udhaar. The *Split* button takes the cash/UPI parts on big number boxes, the rest goes to the chosen tender, the remaining amount shows live; the UPI QR is for the UPI part only; only the udhaar part goes to dues. Receipts, day-end and the customer report show each part. Why: customers often pay ₹500 in cash and the rest by UPI.
 - **Returns / partial refunds:** from the bill (*Return items*, owner PIN): pick lines and quantities, refund by cash, UPI or by cutting udhaar (never below zero; the rest in cash). Each return is its own credit note (R-000001) with a shareable return note; stock comes back through the ledger; returning a whole bill in parts refunds exactly the bill and reverses exactly its GST. Day-end shows returns, refunds and net sales; the GST summary nets a return in its own month; the customer account lists returns. A bill with returns can no longer be voided. Why: v1 could only void a whole bill.

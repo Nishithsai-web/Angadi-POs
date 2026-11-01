@@ -360,10 +360,14 @@ public sealed class ReturnPage : ContentPage, IQueryAttributable
             var s = await _sender.Send(new ShareReturnNoteCommand(id));
             if (s.IsFailure) await _dialogs.ToastAsync(_text.Error(s.Error));
         });
+        // v2 printing: the return note on the Bluetooth thermal printer.
+        var print = Ui.Button(_text["return.print"], Theme.Primary, big: true);
+        print.Clicked += SafeUi.On(() => PrintActions.PrintAsync(_sender, _dialogs, _text, new Angadi.Application.Printing.PrintReturnNoteCommand(id)));
         var close = Ui.Secondary(_text["return.close"]);
         close.MinimumHeightRequest = Theme.BigTouch;
         close.Clicked += SafeUi.On(() => Shell.Current.GoToAsync(".."));
         _body.Add(share);
+        _body.Add(print);
         _body.Add(close);
     }
 }
