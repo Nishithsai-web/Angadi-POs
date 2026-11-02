@@ -1,4 +1,19 @@
 # CLAUDE_STATUS.md — Claude Code's answer to the Muse review queue
+
+## Checkpoint 2026-11-02 (latest)
+- **Objective:** ship v2 (on-phone set) on a green, conflict-free build.
+- **Verified green in CI (core, Android, E2E debug, E2E release):**
+  - `claude/new-session-g6f55q` 14331a4 (run 41317355400): main plus v2 payments (split tender, returns), v2 inventory (batches/FEFO, suppliers, purchases/POs, expiry alerts) and PERF-1 (a separate read-only connection, so reports and saves don't wait on each other). Schema v5.
+  - `claude/v2-shops` 085fd08 (run 41317788418): multiple shops. Not merged yet.
+  - `claude/v2-printing` 2ead4c8 (run 41317987892): Bluetooth printing. The agent was stopped mid-task, so its completeness is unverified. Not merged yet.
+- **main:** e2489e5. The working branch is 23 commits ahead and 0 behind, so main can fast-forward.
+- **Remaining:**
+  1. Merge shops. `SwitchTo` must also close the PERF-1 reader.
+  2. Review and merge printing.
+  3. wip/v2-security (staff role, unlock window).
+  4. wip/s4-scale.
+- **Untested:** Bluetooth printing on a real printer; real-device UAT.
+- **Owner-only:** keystore + 4 GitHub secrets, Play products, privacy-policy hosting, support number, closed test, production go-ahead.
 **Updated:** 2026-10-20 ET · **Branch:** `claude/new-session-g6f55q`
 **Evidence:** CI run 39352632912 — core + Android green. (First green: 39345220912.)
 
