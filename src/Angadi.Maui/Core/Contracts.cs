@@ -31,6 +31,8 @@ public static class Routes
     public const string BillReturn = "bill-return";      // v2: ?billId= → return items from a bill
     public const string Shops = "shops";                 // v2: several shops on one phone (Settings → Shops)
     public const string Printer = "printer";             // v2: Settings → Receipt printer
+    public const string Staff = "staff";                 // RBAC-1: Settings → Staff & roles (owner)
+    public const string Activity = "activity";           // RBAC-1: Settings → Activity log (owner)
 }
 
 /// <summary>Testable navigation over Shell (implemented in Core/Services.cs by the shell agent).</summary>

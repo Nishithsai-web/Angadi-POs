@@ -17,9 +17,9 @@ namespace Angadi.Infrastructure.Persistence;
 /// </summary>
 internal sealed class PinService(AngadiDb db, IClock clock) : IPinService
 {
-    private const string HashKey = "pin.hash";
+    internal const string HashKey = "pin.hash";
     private const string FailsKey = "pin.fails";
-    private const string LockKey = "pin.lock_until_ms";
+    internal const string LockKey = "pin.lock_until_ms";
     private const int MaxFails = 5;
     private const int LockSeconds = 60;
     private const int Iterations = 100_000;
@@ -68,6 +68,22 @@ internal sealed class PinService(AngadiDb db, IClock clock) : IPinService
             Put(c, FailsKey, fails.ToString(CultureInfo.InvariantCulture));
             return new PinVerification(PinCheck.Wrong);
         }, ct);
+
+    /// <summary>RBAC-1: staff PINs use exactly the owner PIN's scheme ("salt:hash", base64).</summary>
+    internal static string HashToString(string pin)
+    {
+        var salt = RandomNumberGenerator.GetBytes(16);
+        return Convert.ToBase64String(salt) + ":" + Convert.ToBase64String(Hash(pin, salt));
+    }
+
+    /// <summary>Constant-time check of a PIN against a stored "salt:hash"; a damaged record never matches.</summary>
+    internal static bool Matches(string pin, string? stored)
+    {
+        var parts = stored?.Split(':', 2);
+        if (parts is not { Length: 2 }) return false;
+        try { return CryptographicOperations.FixedTimeEquals(Hash(pin, Convert.FromBase64String(parts[0])), Convert.FromBase64String(parts[1])); }
+        catch (FormatException) { return false; }
+    }
 
     private static byte[] Hash(string pin, byte[] salt) =>
         Rfc2898DeriveBytes.Pbkdf2(pin, salt, Iterations, HashAlgorithmName.SHA256, 32);

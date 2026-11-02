@@ -166,4 +166,23 @@ public static class ErrorCodes
     /// <summary>The link dropped while the job was being written.</summary>
     public const string PrinterDisconnected = "PRINTER_DISCONNECTED";
     public const string PrinterTimeout = "PRINTER_TIMEOUT";
+
+    // RBAC-1 roles and staff
+    /// <summary>A manager or the owner must approve this (their PIN on this phone).</summary>
+    public const string NotAllowedManager = "NOT_ALLOWED_MANAGER";
+    /// <summary>Only the shop owner may do this.</summary>
+    public const string NotAllowedOwner = "NOT_ALLOWED_OWNER";
+    public const string PinWrong = "PIN_WRONG";
+    /// <summary>Too many wrong PINs; arg 0 = seconds to wait.</summary>
+    public const string PinLocked = "PIN_LOCKED";
+    /// <summary>The PIN is right but that person may not approve this; arg 0 = their name.</summary>
+    public const string PinRoleTooLow = "PIN_ROLE_TOO_LOW";
+    public const string OwnerPinFirst = "OWNER_PIN_FIRST";
+    public const string StaffNameRequired = "STAFF_NAME_REQUIRED";
+    public const string StaffPinInvalid = "STAFF_PIN_INVALID";
+    public const string StaffPinTaken = "STAFF_PIN_TAKEN";
+    public const string StaffRoleInvalid = "STAFF_ROLE_INVALID";
+    public const string StaffNotFound = "STAFF_NOT_FOUND";
+    /// <summary>arg 0 = the most staff a shop may have.</summary>
+    public const string StaffLimitReached = "STAFF_LIMIT_REACHED";
 }

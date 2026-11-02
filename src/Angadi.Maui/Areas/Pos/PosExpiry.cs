@@ -38,8 +38,7 @@ public sealed partial class PosViewModel
         var what = string.Join(", ", expired.Select(e => e.BatchNo.Length == 0 ? e.Name : $"{e.Name} ({e.BatchNo})").Distinct(StringComparer.Ordinal));
         if (!await Dialogs.ConfirmAsync(Text["inv2.expired.sale.title"], Text.Format("inv2.expired.sale.confirm", what), Text["common.yes"], Text["common.no"]))
             return null;
-        var pin = SafeUi.Services?.GetService<IPinService>();
-        if (pin is not null && !await PinGate.CheckAsync(pin, Dialogs, Text)) return null;
+        if (!await PinGate.CheckAsync(Angadi.Application.Security.Permission.SellExpired, Dialogs, Text)) return null;
         return true;
     }
 }

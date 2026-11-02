@@ -77,6 +77,27 @@ internal sealed class Sender(IServiceProvider services) : ISender
             var sw = Stopwatch.StartNew();
             try
             {
+                // RBAC-1: the permission check lives here, not only on the screens, so a screen that forgets to
+                // ask still cannot let a cashier void a bill. No owner PIN set → everyone is the owner (unchanged).
+                var needed = Security.AccessPolicy.Required(typeof(TRequest));
+                var access = needed is null ? null : sp.GetService<Security.IAccessControl>();
+                if (access is not null && !await access.AllowsAsync(needed!.Value, ct))
+                {
+                    var code = Security.AccessPolicy.OwnerOnly.Contains(needed.Value) ? ErrorCodes.NotAllowedOwner : ErrorCodes.NotAllowedManager;
+                    Error? refused = new(code, needed.Value.ToString());
+                    // On the phone: ask right there for the PIN of a manager or the owner, then carry on.
+                    if (sp.GetService<Security.IApprovalPrompt>() is { } prompt && await prompt.AskPinAsync(needed.Value, ct) is { } pin)
+                    {
+                        var approved = await access.ApproveAsync(pin, needed.Value, ct);
+                        refused = approved.IsSuccess ? null : approved.Error;
+                    }
+                    if (refused is not null)
+                    {
+                        log.LogWarning("{Request} rejected: {Code} ({Permission})", name, refused.Code, needed.Value);
+                        return ResultFactory.Failure<TResult>(refused);
+                    }
+                }
+
                 var handler = sp.GetRequiredService<IRequestHandler<TRequest, TResult>>();
                 TResult result;
 
@@ -94,7 +115,11 @@ internal sealed class Sender(IServiceProvider services) : ISender
                 if (result is Result { IsFailure: true } failed)
                     log.LogWarning("{Request} failed {Code} in {Ms} ms", name, failed.Error.Code, sw.ElapsedMilliseconds);
                 else
+                {
                     log.LogInformation("{Request} ok in {Ms} ms", name, sw.ElapsedMilliseconds);
+                    // RBAC-1 activity log: who did each protected action (after it committed; never fails the action).
+                    if (access is not null && typed is ICommand<TResult>) await access.RecordAsync(name, ct);
+                }
                 return result;
             }
             catch (Exception ex) when (ex is not OperationCanceledException)

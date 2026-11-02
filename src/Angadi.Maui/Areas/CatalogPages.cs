@@ -143,7 +143,6 @@ public sealed class ItemEditPage : ContentPage, IQueryAttributable
     private readonly Switch _quick = new() { OnColor = Theme.Primary };
     private readonly Switch _tracks = new() { OnColor = Theme.Primary };   // v2-stock: "Track batch & expiry"
     private readonly VerticalStackLayout _batchList = new() { Spacing = 2 };
-    private readonly IPinService _pin;
     private IReadOnlyList<Batch> _batches = [];
     private readonly View _stockBox;
     private readonly Label _stockNow = Ui.Body();
@@ -153,10 +152,9 @@ public sealed class ItemEditPage : ContentPage, IQueryAttributable
 
     private static readonly Unit[] Units = Enum.GetValues<Unit>();
 
-    public ItemEditPage(ISender sender, IDialogService dialogs, ILocalizer text, IBarcodeScanner scanner, IPinService pin)
+    public ItemEditPage(ISender sender, IDialogService dialogs, ILocalizer text, IBarcodeScanner scanner)
     {
         _sender = sender;
-        _pin = pin;
         _dialogs = dialogs;
         _text = text;
         _scanner = scanner;
@@ -341,7 +339,7 @@ public sealed class ItemEditPage : ContentPage, IQueryAttributable
         {
             var stocked = _batches.Where(b => b.Qty.Milli > 0).ToList();
             if (stocked.Count == 0) { await _dialogs.ToastAsync(_text["inv2.batch.empty"]); return; }
-            if (!await PinGate.CheckAsync(_pin, _dialogs, _text)) return;
+            if (!await PinGate.CheckAsync(Angadi.Application.Security.Permission.AdjustStock, _dialogs, _text)) return;
             var labels = ChoiceLabels.Numbered(stocked.Select(BatchLabel));
             var pick = await _dialogs.ChooseAsync(_text["inv2.batch.pick"], _text["common.cancel"], [.. labels]);
             var at = pick is null ? -1 : labels.IndexOf(pick);

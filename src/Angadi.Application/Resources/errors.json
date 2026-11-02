@@ -350,5 +350,53 @@
   "PRINTER_TIMEOUT": {
     "te": "ప్రింటర్ సమయానికి స్పందించలేదు. ఆన్‌లో ఉందో చూసి మళ్ళీ ప్రింట్ చేయండి",
     "en": "The printer did not answer in time. Check it is on and print again"
+  },
+  "NOT_ALLOWED_MANAGER": {
+    "te": "ఈ పని మేనేజర్ లేదా యజమాని అనుమతితోనే చేయాలి. వారిని పిలిచి, వారి PIN ఈ ఫోన్‌లో వేయమనండి",
+    "en": "This needs a manager or the owner. Ask them to enter their PIN on this phone"
+  },
+  "NOT_ALLOWED_OWNER": {
+    "te": "ఈ పని దుకాణం యజమాని మాత్రమే చేయగలరు. యజమానిని వారి PIN వేయమనండి",
+    "en": "Only the shop owner can do this. Ask the owner to enter their PIN"
+  },
+  "PIN_WRONG": {
+    "te": "PIN తప్పు. మళ్ళీ సరిగ్గా వేయండి",
+    "en": "Wrong PIN. Please type it again"
+  },
+  "PIN_LOCKED": {
+    "te": "చాలాసార్లు తప్పు PIN వేశారు. {0} సెకన్ల తర్వాత మళ్ళీ ప్రయత్నించండి",
+    "en": "Too many wrong PINs. Try again in {0} seconds"
+  },
+  "PIN_ROLE_TOO_LOW": {
+    "te": "{0} గారు ఈ పనికి అనుమతి ఇవ్వలేరు. మేనేజర్ లేదా యజమాని PIN వేయాలి",
+    "en": "{0} can't approve this. A manager or the owner must enter their PIN"
+  },
+  "OWNER_PIN_FIRST": {
+    "te": "ముందు యజమాని PIN పెట్టండి (సెట్టింగ్స్ → యజమాని PIN). తర్వాత సిబ్బందిని చేర్చవచ్చు",
+    "en": "Set the owner PIN first (Settings → Owner PIN), then add staff"
+  },
+  "STAFF_NAME_REQUIRED": {
+    "te": "సిబ్బంది పేరు రాయండి",
+    "en": "Type the staff member's name"
+  },
+  "STAFF_PIN_INVALID": {
+    "te": "PIN 4 నుండి 6 అంకెలు ఉండాలి",
+    "en": "The PIN must be 4 to 6 digits"
+  },
+  "STAFF_PIN_TAKEN": {
+    "te": "ఈ PIN ఇంకొకరికి ఉంది. వేరే PIN ఎంచుకోండి",
+    "en": "Someone already uses this PIN. Choose a different one"
+  },
+  "STAFF_ROLE_INVALID": {
+    "te": "సిబ్బందికి మేనేజర్ లేదా క్యాషియర్ పాత్ర మాత్రమే ఇవ్వగలరు",
+    "en": "Staff can only be a manager or a cashier"
+  },
+  "STAFF_NOT_FOUND": {
+    "te": "ఆ సిబ్బంది కనబడలేదు. జాబితా మళ్ళీ తెరవండి",
+    "en": "That staff member was not found. Open the list again"
+  },
+  "STAFF_LIMIT_REACHED": {
+    "te": "ఒక దుకాణానికి గరిష్ఠంగా {0} మంది సిబ్బంది. పనిచేయని వారిని తీసివేసి కొత్తవారిని చేర్చండి",
+    "en": "A shop can have at most {0} staff. Turn off someone who has left, then add the new person"
   }
 }

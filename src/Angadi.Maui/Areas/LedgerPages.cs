@@ -98,16 +98,14 @@ public sealed class BillDetailPage : ContentPage, IQueryAttributable
     private readonly ISender _sender;
     private readonly IDialogService _dialogs;
     private readonly ILocalizer _text;
-    private readonly IPinService _pin;
     private readonly VerticalStackLayout _body = new() { Spacing = 6, Padding = 16 };
     private Guid _billId;
 
-    public BillDetailPage(ISender sender, IDialogService dialogs, ILocalizer text, IPinService pin)
+    public BillDetailPage(ISender sender, IDialogService dialogs, ILocalizer text)
     {
         _sender = sender;
         _dialogs = dialogs;
         _text = text;
-        _pin = pin;
         Title = text["nav.bills"];
         Content = new ScrollView { Content = _body };
     }
@@ -200,7 +198,7 @@ public sealed class BillDetailPage : ContentPage, IQueryAttributable
         // PIN, it must be entered first (no PIN set = proceeds, per the approved design). Why: a void
         // quietly reverses a sale and its stock; it is the classic counter fraud. Logged in
         // docs/AGENT_FIX_LOG.md.
-        if (!await PinGate.CheckAsync(_pin, _dialogs, _text)) return;
+        if (!await PinGate.CheckAsync(Angadi.Application.Security.Permission.VoidBill, _dialogs, _text)) return;
         var reason = await _dialogs.PromptAsync(_text["bill.void"], _text["bill.void.reason"], _text["common.ok"], _text["common.cancel"]);
         if (string.IsNullOrWhiteSpace(reason)) return;
         var r = await _sender.Send(new VoidBillCommand(_billId, reason));
@@ -223,12 +221,14 @@ public sealed class ReportsPage : ContentPage
     private readonly IInsightsService _insights;
     private readonly ILocalizer _text;
     private readonly IClock _clock;
+    private readonly IDialogService _dialogs;
     private readonly VerticalStackLayout _body = new() { Spacing = 10, Padding = 16 };
     private readonly DatePicker _day = new() { Format = "dd MMM yyyy" };
 
-    public ReportsPage(ISender sender, IInsightsService insights, ILocalizer text, IClock clock)
+    public ReportsPage(ISender sender, IInsightsService insights, ILocalizer text, IClock clock, IDialogService dialogs)
     {
         _sender = sender;
+        _dialogs = dialogs;
         _insights = insights;
         _text = text;
         _clock = clock;
@@ -290,7 +290,7 @@ public sealed class ReportsPage : ContentPage
             (inventory.LedgerMatches ? _text["inventory.ledger.ok"] : _text.Format("inventory.ledger.bad", inventory.Mismatches.Count), "")));
         // v2-stock: purchases by supplier, stock at cost, estimated margin and expiry on their own page.
         var stockReport = Ui.Secondary(_text["inv2.report"]);
-        stockReport.Clicked += SafeUi.On(async () => await Shell.Current.GoToAsync(StockRoutes.Report));
+        stockReport.Clicked += SafeUi.On(async () => { if (await PinGate.CheckAsync(Angadi.Application.Security.Permission.ViewCosts, _dialogs, _text)) await Shell.Current.GoToAsync(StockRoutes.Report); });   // RBAC-1
         _body.Add(stockReport);
         _body.Add(Card(_text["inventory.moves"], moves.Take(15).Select(m => (
             $"{m.Name} · {_text["stock.move." + m.Reason]}",

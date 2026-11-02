@@ -246,3 +246,28 @@ internal sealed class PurchaseOrderRow
     public long CreatedAtMs { get; set; }
     public long UpdatedAtMs { get; set; }
 }
+
+/// <summary>RBAC-1: a manager or cashier of THIS shop (each shop's file has its own staff). PIN stored only as a PBKDF2 hash.</summary>
+[Table("Staff")]
+internal sealed class StaffRow
+{
+    [PrimaryKey] public Guid Id { get; set; }
+    public string Name { get; set; } = "";
+    public int Role { get; set; }
+    public string PinHash { get; set; } = "";
+    public bool IsActive { get; set; } = true;
+    public long CreatedAtMs { get; set; }
+}
+
+/// <summary>RBAC-1 activity log: one row per protected action that succeeded (no customer data, never a PIN).</summary>
+[Table("Activity")]
+internal sealed class ActivityRow
+{
+    [PrimaryKey] public Guid Id { get; set; }
+    [Indexed] public long AtMs { get; set; }
+    public string Action { get; set; } = "";
+    public string Who { get; set; } = "";
+    public int Role { get; set; }
+    public string? ApprovedBy { get; set; }
+    public int? ApprovedByRole { get; set; }
+}

@@ -181,7 +181,6 @@ public sealed class ReturnPage : ContentPage, IQueryAttributable
     private readonly ISender _sender;
     private readonly IDialogService _dialogs;
     private readonly ILocalizer _text;
-    private readonly IPinService _pin;
     private readonly VerticalStackLayout _body = new() { Spacing = 10, Padding = 16 };
     private readonly List<(ReturnableLine Line, Entry Qty)> _rows = [];
     private readonly Dictionary<RefundMethod, Button> _methodButtons = [];
@@ -193,12 +192,11 @@ public sealed class ReturnPage : ContentPage, IQueryAttributable
     private Guid _returnId = Guid.NewGuid();   // minted once per return: a double tap or retry records it once
     private bool _recorded;
 
-    public ReturnPage(ISender sender, IDialogService dialogs, ILocalizer text, IPinService pin)
+    public ReturnPage(ISender sender, IDialogService dialogs, ILocalizer text)
     {
         _sender = sender;
         _dialogs = dialogs;
         _text = text;
-        _pin = pin;
         Title = text["return.items"];
         _reason = Ui.Entry(text["return.reason.hint"]);
         Content = new ScrollView { Content = _body };
@@ -330,7 +328,7 @@ public sealed class ReturnPage : ContentPage, IQueryAttributable
         if (asked is null) { await _dialogs.ToastAsync(problem ?? ""); return; }
         if (asked.Count == 0) { await _dialogs.ToastAsync(_text.Error(new Error(ErrorCodes.ReturnEmpty))); return; }
         // Owner-only, through the same PIN gate as void (SEC-4): a refund hands money out of the drawer.
-        if (!await PinGate.CheckAsync(_pin, _dialogs, _text)) return;
+        if (!await PinGate.CheckAsync(Angadi.Application.Security.Permission.Refund, _dialogs, _text)) return;
         string? upiRef = null;
         if (_method == RefundMethod.Upi)
             upiRef = await _dialogs.PromptAsync(_text["tender.upi"], _text["pos.upi.ref"], _text["common.ok"], _text["common.cancel"], keyboard: Keyboard.Numeric);

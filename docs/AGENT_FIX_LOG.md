@@ -490,3 +490,15 @@ Development no longer runs through one implementer. Muse's own dev/fix agents no
 - **Evidence:** `DataSafety` skipped a copy when `total_changes()` and the target name matched the last copy; the counter restarts per connection, so after a switch the other shop could look unchanged.
 - **Fix:** the skip also requires the same `AngadiDb.Generation` (bumped by each switch).
 - **Tests:** `ShopsTests.Shops_KeepTheirOwnBooks_Draft_AndSafetyCopies`, `ShopsTests.DamagedShopFile_IsRecovered_FromThatShopsOwnSafetyCopy`.
+
+### RBAC-1 (HIGH) — no roles: one owner PIN checked only by screens, nobody's name on a void
+- **Status:** FIXED-AWAITING-VERIFY · **Fixed by:** Claude Code, 2026-11-02
+- **Evidence:** a shop with staff could not tell a cashier from a manager. A screen that forgot `PinGate` let anyone run the command, and no record said who voided, refunded or wrote off.
+- **Fix:**
+  - `Application/Security/Access.cs`: roles, permissions, and the `AccessPolicy` table mapping each protected request to its permission.
+  - `Sender` checks the permission before the handler. On the phone it asks for an allowed person's PIN through `IApprovalPrompt`, and records a successful protected command in `Activity`.
+  - `Infrastructure/Persistence/AccessControl.cs`: staff rows per shop file, PBKDF2 PINs (same scheme as the owner's), lockout shared with the owner PIN, 2-minute approvals, reset when `AngadiDb.Generation` changes.
+  - `SetShopLanguageCommand` keeps language switching open now that `SaveShopProfileCommand` is owner-only.
+  - Schema 6.
+- **Why:** counter fraud (fake voids, UPI swaps, write-offs) is the real threat for shops with staff, and a check in one place can't be skipped by one forgotten screen.
+- **Tests:** `AccessControlTests` (policy matrix; every protected request returns a Result and has an activity label; counter, manager, approval expiry, cashier grants, lockout across staff PINs, PIN uniqueness, turned-off staff, pipeline prompt, language, shop-switch isolation).

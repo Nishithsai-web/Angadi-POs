@@ -98,6 +98,8 @@ internal sealed class BackupService(AngadiDb db, IClock clock, string exportDire
         // docs/AGENT_FIX_LOG.md.
         AppendIfAny<BatchRow>(c, sb, "Batch"); AppendIfAny<SupplierRow>(c, sb, "Supplier"); AppendIfAny<PurchaseRow>(c, sb, "Purchase");
         AppendIfAny<PurchaseLineRow>(c, sb, "PurchaseLine"); AppendIfAny<PurchaseOrderRow>(c, sb, "PurchaseOrder");
+        // RBAC-1 (schema 6): staff PIN hashes are covered by the MAC, so a backup cannot be edited to plant a PIN.
+        AppendIfAny<StaffRow>(c, sb, "Staff"); AppendIfAny<ActivityRow>(c, sb, "Activity");
         sb.Append("MetaRow\n");
         foreach (var row in c.Table<MetaRow>().Where(m => m.Key != HmacMeta).ToList().OrderBy(r => JsonSerializer.Serialize(r)))
             sb.Append(JsonSerializer.Serialize(row)).Append('\n');

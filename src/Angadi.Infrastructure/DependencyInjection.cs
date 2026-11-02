@@ -67,6 +67,7 @@ public static class DependencyInjection
         // FIX(SEC-4, 2026-10-20, FIX-3): owner PIN service (salted PBKDF2 hash + lockout in the Meta table;
         // the gate itself lives in the MAUI head). Logged in docs/AGENT_FIX_LOG.md.
         services.AddSingleton<IPinService, PinService>();
+        services.AddSingleton<Angadi.Application.Security.IAccessControl, AccessControl>();   // RBAC-1
 
         services.AddSingleton(sp => new ReceiptRenderer(
             options.ReceiptFonts, Path.Combine(options.CacheDirectory, "receipts"),

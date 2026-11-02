@@ -15,16 +15,14 @@ public sealed class ShopsPage : ContentPage
     private readonly IDialogService _dialogs;
     private readonly ILocalizer _text;
     private readonly IAppRestart _restart;
-    private readonly IPinService _pin;
     private readonly VerticalStackLayout _list = new() { Spacing = 8 };
 
-    public ShopsPage(ISender sender, IDialogService dialogs, ILocalizer text, IAppRestart restart, IPinService pin)
+    public ShopsPage(ISender sender, IDialogService dialogs, ILocalizer text, IAppRestart restart)
     {
         _sender = sender;
         _dialogs = dialogs;
         _text = text;
         _restart = restart;
-        _pin = pin;
         Title = text["settings.shops"];
         var add = Ui.Button(text["shops.add"], big: true);
         add.Clicked += SafeUi.On(AddAsync);
@@ -71,7 +69,7 @@ public sealed class ShopsPage : ContentPage
 
     private async Task RenameAsync(string id, string current)
     {
-        if (!await PinGate.CheckAsync(_pin, _dialogs, _text)) return;
+        if (!await PinGate.CheckAsync(Angadi.Application.Security.Permission.ManageShops, _dialogs, _text)) return;
         var name = await _dialogs.PromptAsync(_text["shops.rename"], _text["shops.rename.title"], _text["common.ok"], _text["common.cancel"], current);
         if (name is null) return;
         var r = await _sender.Send(new RenameShopCommand(id, name));
@@ -81,7 +79,7 @@ public sealed class ShopsPage : ContentPage
 
     private async Task AddAsync()
     {
-        if (!await PinGate.CheckAsync(_pin, _dialogs, _text)) return;
+        if (!await PinGate.CheckAsync(Angadi.Application.Security.Permission.ManageShops, _dialogs, _text)) return;
         if (!await _dialogs.ConfirmAsync(_text["shops.add"], _text["shops.add.confirm"], _text["common.yes"], _text["common.no"])) return;
         var r = await _sender.Send(new AddShopCommand());
         if (r.IsFailure)

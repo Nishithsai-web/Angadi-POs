@@ -15,7 +15,7 @@ public sealed class AngadiDb : IUnitOfWork, IDisposable
     /// <summary>2: customer account columns + Note table. 3: shop's own UPI QR. 4: split tender (BillPayment) +
     /// returns (SalesReturn, ReturnLine). 5: v2-stock — Batch, Supplier, Purchase, PurchaseLine, PurchaseOrder tables;
     /// Item.TracksBatches/CostPaise; StockMove.BatchId/PurchaseId. Bump on every schema change.</summary>
-    public const int SchemaVersion = 5;
+    public const int SchemaVersion = 6;   // 6 = RBAC-1 Staff + Activity
     public const string AppMarker = "angadi";
 
     private readonly SemaphoreSlim _gate = new(1, 1);
@@ -158,6 +158,8 @@ public sealed class AngadiDb : IUnitOfWork, IDisposable
         c.CreateTable<PurchaseRow>();
         c.CreateTable<PurchaseLineRow>();
         c.CreateTable<PurchaseOrderRow>();
+        c.CreateTable<StaffRow>();          // RBAC-1 (schema 6)
+        c.CreateTable<ActivityRow>();
 
         c.InsertOrReplace(new MetaRow { Key = "app", Value = AppMarker });
         var current = c.Find<MetaRow>("schema_version");

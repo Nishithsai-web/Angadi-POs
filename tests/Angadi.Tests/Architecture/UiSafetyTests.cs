@@ -98,7 +98,7 @@ public class UiSafetyTests
     public void PinGate_CoversEverySensitiveAction()
     {
         var gate = MauiFile(Path.Combine("Core", "PinGate.cs"));
-        Assert.Contains("HasPinAsync", gate, StringComparison.Ordinal);   // no PIN set → proceed
+        Assert.Contains("AllowsAsync", gate, StringComparison.Ordinal);   // RBAC-1: no PIN set → owner → proceed (AccessControl)
 
         var ledger = MauiFile(Path.Combine("Areas", "LedgerPages.cs"));
         Assert.Contains("PinGate.CheckAsync", ledger, StringComparison.Ordinal);   // void bill

@@ -1,4 +1,6 @@
 using Angadi.Application.Platform;
+using Angadi.Application.Security;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Angadi.Maui.Core;
 
@@ -12,25 +14,29 @@ namespace Angadi.Maui.Core;
 /// </summary>
 public static class PinGate
 {
-    /// <summary>True = the action may proceed (no PIN set, or the correct PIN was entered).</summary>
-    public static async Task<bool> CheckAsync(IPinService pin, IDialogService dialogs, ILocalizer text)
+    /// <summary>
+    /// RBAC-1: true = the action may proceed. Allowed for the person using the app (no PIN set = everyone is the
+    /// owner), or someone allowed typed their PIN just now. The request pipeline checks the same rule again, so this is
+    /// only the friendly early ask (e.g. before a file is picked for restore).
+    /// </summary>
+    public static async Task<bool> CheckAsync(Permission permission, IDialogService dialogs, ILocalizer text)
     {
-        if (!await pin.HasPinAsync()) return true;
-        var entered = await dialogs.PromptAsync(text["pin.title"], text["pin.enter"], text["common.ok"], text["common.cancel"], keyboard: Keyboard.Numeric);
-        if (entered is null) return false;
-        var check = await pin.VerifyAsync(entered.Trim());
-        switch (check.Result)
-        {
-            case PinCheck.Ok:
-            case PinCheck.NoPin:
-                return true;
-            case PinCheck.Locked:
-                await dialogs.ToastAsync(text.Format("pin.locked", check.LockedSecondsRemaining));
-                return false;
-            default:
-                await dialogs.ToastAsync(text["pin.wrong"]);
-                return false;
-        }
+        var access = SafeUi.Services?.GetService<IAccessControl>();
+        if (access is null || await access.AllowsAsync(permission)) return true;
+        var pin = await AskAsync(permission, dialogs, text);
+        if (pin is null) return false;
+        var approved = await access.ApproveAsync(pin, permission);
+        if (approved.IsSuccess) return true;
+        await dialogs.ToastAsync(text.Error(approved.Error));
+        return false;
+    }
+
+    /// <summary>"A manager or the owner must allow this: type your PIN". Null = cancelled.</summary>
+    public static async Task<string?> AskAsync(Permission permission, IDialogService dialogs, ILocalizer text)
+    {
+        var ask = AccessPolicy.OwnerOnly.Contains(permission) ? "access.ask.owner" : "access.ask.manager";
+        var entered = await dialogs.PromptAsync(text["access.title"], text[ask], text["common.ok"], text["common.cancel"], keyboard: Keyboard.Numeric);
+        return entered?.Trim();
     }
 
     /// <summary>The set/change-PIN flow: 4–6 digits, entered twice, stored only as a hash by IPinService.</summary>
@@ -53,4 +59,10 @@ public static class PinGate
         await pin.SetPinAsync(first);
         await dialogs.ToastAsync(text["pin.set.done"]);
     }
+}
+
+/// <summary>RBAC-1: the pipeline's PIN prompt on the phone (see IApprovalPrompt).</summary>
+internal sealed class ApprovalPrompt(IDialogService dialogs, ILocalizer text) : IApprovalPrompt
+{
+    public Task<string?> AskPinAsync(Permission permission, CancellationToken ct = default) => PinGate.AskAsync(permission, dialogs, text);
 }

@@ -154,6 +154,16 @@ public static class DependencyInjection
         // v2 several shops on one phone (Settings → Shops)
         Angadi.Application.Shops.ShopsRegistration.AddShops(services);
 
+        // RBAC-1 roles, staff and activity log (IAccessControl itself is registered by Infrastructure).
+        services.AddTransient<Security.AccessHandlers>();
+        services.AddTransient<IRequestHandler<Security.GetCurrentUserQuery, Security.AccessUser>>(sp => sp.GetRequiredService<Security.AccessHandlers>());
+        services.AddTransient<IRequestHandler<Security.ListStaffQuery, IReadOnlyList<Security.StaffMember>>>(sp => sp.GetRequiredService<Security.AccessHandlers>());
+        services.AddTransient<IRequestHandler<Security.GetCashierGrantsQuery, IReadOnlySet<Security.Permission>>>(sp => sp.GetRequiredService<Security.AccessHandlers>());
+        services.AddTransient<IRequestHandler<Security.SaveStaffCommand, Result<Security.StaffMember>>>(sp => sp.GetRequiredService<Security.AccessHandlers>());
+        services.AddTransient<IRequestHandler<Security.SetStaffActiveCommand, Result>>(sp => sp.GetRequiredService<Security.AccessHandlers>());
+        services.AddTransient<IRequestHandler<Security.SaveCashierGrantsCommand, Result>>(sp => sp.GetRequiredService<Security.AccessHandlers>());
+        services.AddTransient<IRequestHandler<Security.ListActivityQuery, Result<IReadOnlyList<Security.ActivityEntry>>>>(sp => sp.GetRequiredService<Security.AccessHandlers>());
+        services.AddTransient<IRequestHandler<Security.SetShopLanguageCommand, Result>>(sp => sp.GetRequiredService<Security.AccessHandlers>());
         return services;
     }
 }

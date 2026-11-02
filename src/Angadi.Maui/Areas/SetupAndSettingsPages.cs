@@ -3,6 +3,7 @@ using Angadi.Application.Catalog;
 using Angadi.Application.Common;
 using Angadi.Application.Persistence;
 using Angadi.Application.Platform;
+using Angadi.Application.Security;
 using Angadi.Domain.Shop;
 using Angadi.Maui.Core;
 using Microsoft.Extensions.Options;
@@ -149,9 +150,8 @@ public sealed class ShopSetupPage : ContentPage
         // can exist yet, and setup must stay friction-free). Logged in docs/AGENT_FIX_LOG.md.
         if (!firstRun)
         {
-            var upiChanged = !string.Equals((_upi.Text ?? "").Trim(), _existing!.UpiId ?? "", StringComparison.OrdinalIgnoreCase);
-            var gstinChanged = !string.Equals(string.IsNullOrWhiteSpace(_gstin.Text) ? "" : _gstin.Text.Trim().ToUpperInvariant(), _existing.Gstin ?? "", StringComparison.Ordinal);
-            if ((upiChanged || gstinChanged) && !await PinGate.CheckAsync(_pin, _dialogs, _text)) return;
+            // RBAC-1: editing shop details (UPI ID, GSTIN, name) is owner-only; the pipeline refuses it otherwise.
+            if (!await PinGate.CheckAsync(Angadi.Application.Security.Permission.ShopSettings, _dialogs, _text)) return;
         }
         var profile = _existing ?? new ShopProfile();
         var oldLanguage = profile.Language;
@@ -257,13 +257,18 @@ public sealed class SettingsPage : ContentPage
     private readonly IAppRestart _restart;
     private readonly IBackupInspector _inspector;
     private readonly IPinService _pinService;
+    private readonly IAccessControl _access;
     private readonly Label _pinNudge = Ui.Caption();
+    /// <summary>RBAC-1: "Using the app: Ravi (cashier)" — hidden while no PIN is set (everyone is the owner).</summary>
+    private readonly Label _whoLine = Ui.Caption();
+    private readonly Button _signIn;
     private readonly Label _backupStatus = Ui.Caption();
     /// <summary>v2 several shops: "Backup and restore act on this shop only: X" (hidden with one shop).</summary>
     private readonly Label _shopScope = Ui.Caption();
 
-    public SettingsPage(ISender sender, IReceiptShare share, IDialogService dialogs, ILocalizer text, IAppRestart restart, IBackupInspector inspector, IPinService pinService)
+    public SettingsPage(ISender sender, IReceiptShare share, IDialogService dialogs, ILocalizer text, IAppRestart restart, IBackupInspector inspector, IPinService pinService, IAccessControl access)
     {
+        _access = access;
         _sender = sender;
         _share = share;
         _dialogs = dialogs;
@@ -280,6 +285,7 @@ public sealed class SettingsPage : ContentPage
             return b;
         }
 
+        _signIn = Item("settings.signin", SignInOrOutAsync);
         _pinNudge.Text = text["settings.pin.nudge"];
         _pinNudge.IsVisible = false;
         _shopScope.IsVisible = false;
@@ -293,13 +299,24 @@ public sealed class SettingsPage : ContentPage
             // v2 printing: an owner setting, behind the owner PIN like the others (no PIN set → opens straight away).
             Item("settings.printer", async () =>
             {
-                if (await PinGate.CheckAsync(_pinService, _dialogs, _text)) await Shell.Current.GoToAsync(Routes.Printer);
+                if (await PinGate.CheckAsync(Angadi.Application.Security.Permission.PrinterSetup, _dialogs, _text)) await Shell.Current.GoToAsync(Routes.Printer);
             }),
             Item("settings.backup", BackupAsync),
             _backupStatus,
             Item("settings.restore", RestoreAsync, danger: true),
             Item("settings.pin", async () => await PinGate.SetPinAsync(_pinService, _dialogs, _text)),
             _pinNudge,
+            // RBAC-1 roles: staff with their own PINs, who did what, and who is using the app now.
+            Item("settings.staff", async () =>
+            {
+                if (await PinGate.CheckAsync(Permission.ManageStaff, _dialogs, _text)) await Shell.Current.GoToAsync(Routes.Staff);
+            }),
+            Item("settings.activity", async () =>
+            {
+                if (await PinGate.CheckAsync(Permission.ViewActivity, _dialogs, _text)) await Shell.Current.GoToAsync(Routes.Activity);
+            }),
+            _signIn,
+            _whoLine,
             Item("settings.logs", ExportLogsAsync),
             Ui.Caption(text["settings.backup.tip"]),
             Ui.Caption("v" + AppInfo.Current.VersionString));
@@ -312,11 +329,41 @@ public sealed class SettingsPage : ContentPage
         await SafeUi.Run(async () =>
         {
             _pinNudge.IsVisible = !await _pinService.HasPinAsync();
+            await RefreshWhoAsync();
             await RefreshBackupStatusAsync();
             var shops = await _sender.Send(new Angadi.Application.Shops.ListShopsQuery());
             _shopScope.IsVisible = shops.HasSeveral;
             _shopScope.Text = _text.Format("shops.scope", shops.Current.Name.Length > 0 ? shops.Current.Name : _text["shops.unnamed"]);
         });
+    }
+
+    private async Task RefreshWhoAsync()
+    {
+        var hasPin = await _pinService.HasPinAsync();
+        var who = await _access.CurrentAsync();
+        _whoLine.IsVisible = hasPin;
+        _signIn.IsVisible = hasPin;
+        _whoLine.Text = _text.Format("access.using", AccessText.Who(_text, who.Name, who.Role));
+        _signIn.Text = who.StaffId is null && who.Role != Role.Owner ? _text["settings.signin"] : _text["settings.signout"];
+    }
+
+    /// <summary>RBAC-1: a staff member types their PIN so their name goes on what they do; sign out returns to the counter.</summary>
+    private async Task SignInOrOutAsync()
+    {
+        var who = await _access.CurrentAsync();
+        if (who.StaffId is not null || who.Role == Role.Owner)
+        {
+            _access.SignOut();
+            await _dialogs.ToastAsync(_text["access.signedout"]);
+        }
+        else
+        {
+            var pin = await _dialogs.PromptAsync(_text["settings.signin"], _text["access.signin.prompt"], _text["common.ok"], _text["common.cancel"], keyboard: Keyboard.Numeric);
+            if (pin is null) return;
+            var r = await _access.SignInAsync(pin);
+            await _dialogs.ToastAsync(r.IsSuccess ? _text.Format("access.signedin", AccessText.Who(_text, r.Value.Name, r.Value.Role)) : _text.Error(r.Error));
+        }
+        await RefreshWhoAsync();
     }
 
     /// <summary>A2-03: "Data size: 3.4 MB · Last backup: 12 Oct" — Android's own backup stops past 25 MB.</summary>
@@ -333,7 +380,7 @@ public sealed class SettingsPage : ContentPage
         // FIX(SEC-4, 2026-10-20, FIX-3): exporting the whole shop book is a sensitive action — PIN-gated
         // when a PIN is set. Why: the export file IS the business (every customer, phone and due).
         // Logged in docs/AGENT_FIX_LOG.md.
-        if (!await PinGate.CheckAsync(_pinService, _dialogs, _text)) return;
+        if (!await PinGate.CheckAsync(Angadi.Application.Security.Permission.ExportData, _dialogs, _text)) return;
         var r = await _sender.Send(new ExportBackupCommand());
         if (r.IsFailure) { await _dialogs.ToastAsync(_text.Error(r.Error)); return; }
         await RefreshBackupStatusAsync();
@@ -345,7 +392,7 @@ public sealed class SettingsPage : ContentPage
     {
         // FIX(SEC-4, 2026-10-20, FIX-3): restoring a backup replaces the shop's books — PIN-gated when a
         // PIN is set, before the file is even picked. Logged in docs/AGENT_FIX_LOG.md.
-        if (!await PinGate.CheckAsync(_pinService, _dialogs, _text)) return;
+        if (!await PinGate.CheckAsync(Angadi.Application.Security.Permission.RestoreData, _dialogs, _text)) return;
         var picked = await FilePicker.Default.PickAsync();
         if (picked is null) return;
 

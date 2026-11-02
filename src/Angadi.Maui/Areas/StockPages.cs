@@ -174,7 +174,8 @@ public sealed class StockHubPage(ISender sender, ILocalizer text, IDialogService
         Body.Add(Btn("inv2.orders", () => Shell.Current.GoToAsync(StockRoutes.Orders), primary: false));
         Body.Add(Btn("inv2.suppliers", () => Shell.Current.GoToAsync(StockRoutes.Suppliers), primary: false));
         Body.Add(Btn("inv2.expiring", () => Shell.Current.GoToAsync(StockRoutes.Expiring), primary: false));
-        Body.Add(Btn("inv2.report", () => Shell.Current.GoToAsync(StockRoutes.Report), primary: false));
+        // RBAC-1: cost, stock value and margin are for a manager or the owner, not the counter.
+        Body.Add(Btn("inv2.report", async () => { if (await PinGate.CheckAsync(Angadi.Application.Security.Permission.ViewCosts, Dialogs, Text)) await Shell.Current.GoToAsync(StockRoutes.Report); }, primary: false));
     }
 }
 
@@ -352,7 +353,7 @@ public sealed class PurchasesPage(ISender sender, ILocalizer text, IDialogServic
 }
 
 /// <summary>One saved purchase. It cannot be edited; the owner corrects a wrong quantity with a linked stock correction.</summary>
-public sealed class PurchaseDetailPage(ISender sender, ILocalizer text, IDialogService dialogs, IPinService pin)
+public sealed class PurchaseDetailPage(ISender sender, ILocalizer text, IDialogService dialogs)
     : StockPageBase(sender, text, dialogs, "inv2.purchase"), IQueryAttributable
 {
     private Guid _id;
@@ -383,7 +384,7 @@ public sealed class PurchaseDetailPage(ISender sender, ILocalizer text, IDialogS
 
     private async Task CorrectAsync(Purchase p)
     {
-        if (!await PinGate.CheckAsync(pin, Dialogs, Text)) return;
+        if (!await PinGate.CheckAsync(Angadi.Application.Security.Permission.Purchases, Dialogs, Text)) return;
         var labels = ChoiceLabels.Numbered(p.Lines.Select(LineText));
         var pick = await Dialogs.ChooseAsync(Text["inv2.purchase.correct"], Text["common.cancel"], [.. labels]);
         var at = pick is null ? -1 : labels.IndexOf(pick);

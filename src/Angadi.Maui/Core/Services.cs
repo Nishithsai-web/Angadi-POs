@@ -112,6 +112,7 @@ public static class ShellServicesRegistration
         s.AddSingleton<ShellNavigationService>();
         s.AddSingleton<INavigationService>(sp => sp.GetRequiredService<ShellNavigationService>());
         s.AddSingleton<IDialogService, DialogService>();
+        s.AddSingleton<Angadi.Application.Security.IApprovalPrompt, ApprovalPrompt>();   // RBAC-1
         s.AddSingleton<IAppRestart, AppRestart>();
         s.AddTransient<AppShell>();
         return s;
