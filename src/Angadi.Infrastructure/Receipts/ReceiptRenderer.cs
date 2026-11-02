@@ -2,9 +2,11 @@ using System.Collections;
 using System.Text;
 using Angadi.Application.Common;
 using Angadi.Application.Platform;
+using Angadi.Application.Printing;
 using Angadi.Domain.Billing;
 using Angadi.Domain.Customers;
 using Angadi.Domain.Shop;
+using Angadi.Infrastructure.Printing;
 using Microsoft.Extensions.Logging;
 using QRCoder;
 using SkiaSharp;
@@ -18,13 +20,15 @@ namespace Angadi.Infrastructure.Receipts;
 /// Each run is shaped with HarfBuzz, so conjuncts and vowel signs render correctly.
 /// The page height comes from a measuring pass that runs the same code as the drawing pass with no canvas.
 /// Thread-safety: HarfBuzz shapers are not thread-safe, so a gate serialises all renders.
+/// v2 printing: the same rows and the same drawing code also go to a 1-bit raster for 58/80 mm ESC/POS printers
+/// (<see cref="IThermalReceiptRenderer"/>). Only the page width changes (48/72 mm printable instead of 80 mm), so text
+/// keeps the PDF's physical size and wraps to the roll; nothing is scaled down to an unreadable size.
 /// </summary>
-public sealed class ReceiptRenderer : IReceiptRenderer, IDisposable
+public sealed class ReceiptRenderer : IReceiptRenderer, IThermalReceiptRenderer, IDisposable
 {
     /// <summary>80 mm in PDF points (72 per inch).</summary>
     internal const float PageWidth = 80f / 25.4f * 72f;
     private const float Margin = 10f;
-    private const float ContentWidth = PageWidth - 2 * Margin;
     private const float Gap = 6f;
     private const float Indent = 8f;
 
@@ -204,10 +208,10 @@ public sealed class ReceiptRenderer : IReceiptRenderer, IDisposable
 
     private void Centered(Pass p, string text, bool bold, float size)
     {
-        foreach (var line in Wrap(text, bold, size, ContentWidth))
+        foreach (var line in Wrap(text, bold, size, p.Content))
         {
             var width = Measure(line, bold, size);
-            DrawLine(p, line, bold, size, (PageWidth - width) / 2);
+            DrawLine(p, line, bold, size, (p.Width - width) / 2);
             p.Y += LineHeight(size);
         }
     }
@@ -216,12 +220,12 @@ public sealed class ReceiptRenderer : IReceiptRenderer, IDisposable
     private void LeftRight(Pass p, string left, string right, bool bold, float size, float indent)
     {
         var rightWidth = right.Length > 0 ? Measure(right, bold, size) : 0f;
-        var available = ContentWidth - indent - (rightWidth > 0 ? rightWidth + Gap : 0);
+        var available = p.Content - indent - (rightWidth > 0 ? rightWidth + Gap : 0);
         var lines = Wrap(left, bold, size, available);
         for (var i = 0; i < lines.Count; i++)
         {
-            DrawLine(p, lines[i], bold, size, Margin + indent);
-            if (i == 0 && rightWidth > 0) DrawLine(p, right, bold, size, PageWidth - Margin - rightWidth);
+            DrawLine(p, lines[i], bold, size, p.Edge + indent);
+            if (i == 0 && rightWidth > 0) DrawLine(p, right, bold, size, p.Width - p.Edge - rightWidth);
             p.Y += LineHeight(size);
         }
     }
@@ -230,10 +234,10 @@ public sealed class ReceiptRenderer : IReceiptRenderer, IDisposable
     private void ThreeColumns(Pass p, string a, string b, string c, bool bold)
     {
         const float size = SmallSize;
-        var middleRight = Margin + ContentWidth * 0.68f;
-        DrawLine(p, a, bold, size, Margin);
+        var middleRight = p.Edge + p.Content * 0.68f;
+        DrawLine(p, a, bold, size, p.Edge);
         DrawLine(p, b, bold, size, middleRight - Measure(b, bold, size));
-        DrawLine(p, c, bold, size, PageWidth - Margin - Measure(c, bold, size));
+        DrawLine(p, c, bold, size, p.Width - p.Edge - Measure(c, bold, size));
         p.Y += LineHeight(size);
     }
 
@@ -241,15 +245,15 @@ public sealed class ReceiptRenderer : IReceiptRenderer, IDisposable
     {
         p.Y += 4;
         var width = Measure(text, true, VoidSize);
-        var boxWidth = Math.Min(ContentWidth, width + 20);
+        var boxWidth = Math.Min(p.Content, width + 20);
         var boxHeight = LineHeight(VoidSize) + 6;
         if (p.Canvas is { } canvas)
         {
             using var stroke = new SKPaint { Color = SKColors.Black, IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = 1.5f };
-            canvas.DrawRect((PageWidth - boxWidth) / 2, p.Y, boxWidth, boxHeight, stroke);
+            canvas.DrawRect((p.Width - boxWidth) / 2, p.Y, boxWidth, boxHeight, stroke);
         }
         p.Y += 3;
-        DrawLine(p, text, true, VoidSize, (PageWidth - width) / 2);
+        DrawLine(p, text, true, VoidSize, (p.Width - width) / 2);
         p.Y += boxHeight - 3 + 4;
     }
 
@@ -260,7 +264,7 @@ public sealed class ReceiptRenderer : IReceiptRenderer, IDisposable
         {
             using var dash = SKPathEffect.CreateDash([2f, 2f], 0f);
             using var paint = new SKPaint { Color = SKColors.Black, StrokeWidth = 0.5f, Style = SKPaintStyle.Stroke, PathEffect = dash };
-            canvas.DrawLine(Margin, p.Y, PageWidth - Margin, p.Y, paint);
+            canvas.DrawLine(p.Edge, p.Y, p.Width - p.Edge, p.Y, paint);
         }
         p.Y += 3;
     }
@@ -272,10 +276,17 @@ public sealed class ReceiptRenderer : IReceiptRenderer, IDisposable
         using var data = generator.CreateQrCode(payload, QRCodeGenerator.ECCLevel.M);
         List<BitArray> matrix = data.ModuleMatrix;
         var n = matrix.Count;
-        var module = (float)Math.Floor(Math.Min(ContentWidth, QrMaxSize) / n * 4) / 4;   // quarter-point grid
+        var unit = p.Snap > 0 ? p.Snap : 4f;   // PDF: quarter-point grid
+        var module = (float)Math.Floor(Math.Min(p.Content, QrMaxSize) / n * unit) / unit;
         var size = module * n;
-        var x0 = (PageWidth - size) / 2;
+        var x0 = (p.Width - size) / 2;
         var y0 = p.Y;
+        if (p.Snap > 0)
+        {
+            // Thermal: every module is a whole number of dots on the dot grid, so the code still scans.
+            x0 = (float)Math.Floor(x0 * p.Snap) / p.Snap;
+            y0 = (float)Math.Ceiling(y0 * p.Snap) / p.Snap;
+        }
 
         if (p.Canvas is { } canvas)
         {
@@ -294,7 +305,7 @@ public sealed class ReceiptRenderer : IReceiptRenderer, IDisposable
             }
         }
 
-        p.Y += size;
+        p.Y = y0 + size;
         if (caption.Length > 0) Centered(p, caption, bold: false, SmallSize);
     }
 
@@ -401,6 +412,89 @@ public sealed class ReceiptRenderer : IReceiptRenderer, IDisposable
         return runs;
     }
 
+    // ──────────────────────── thermal raster (v2 printing) ────────────────────────
+
+    /// <summary>203 dpi thermal heads: 8 dots per mm = 8 × 25.4 / 72 dots per PDF point.</summary>
+    internal const float ThermalDotsPerPoint = 8f * 25.4f / 72f;
+    /// <summary>The printable width already excludes the printer's own edges; ~1 mm keeps glyphs off the last dot.</summary>
+    private const float ThermalMargin = 3f;
+
+    public Task<Result<byte[]>> RenderReceiptAsync(Bill bill, ShopProfile shop, Customer? customer, PaperWidth paper, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(bill);
+        ArgumentNullException.ThrowIfNull(shop);
+        return ThermalJobAsync(() => ReceiptLayout.Build(bill, shop, _text, customer), paper, bill.Id, ct);
+    }
+
+    public Task<Result<byte[]>> RenderReturnAsync(SalesReturn ret, Bill bill, ShopProfile shop, Customer? customer, PaperWidth paper, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(ret);
+        ArgumentNullException.ThrowIfNull(bill);
+        ArgumentNullException.ThrowIfNull(shop);
+        return ThermalJobAsync(() => ReceiptLayout.BuildReturn(ret, bill, shop, _text, customer), paper, ret.Id, ct);
+    }
+
+    public Task<Result<byte[]>> RenderTestPageAsync(string shopName, PaperWidth paper, CancellationToken ct = default) =>
+        ThermalJobAsync(() => TestPageRows(shopName, paper), paper, Guid.Empty, ct);
+
+    private async Task<Result<byte[]>> ThermalJobAsync(Func<IReadOnlyList<ReceiptRow>> build, PaperWidth paper, Guid id, CancellationToken ct)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        await _gate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            ct.ThrowIfCancellationRequested();
+            return await Task.Run(() =>
+            {
+                try
+                {
+                    var image = RenderMono(build(), EscPos.DotsFor(paper));
+                    _log.LogInformation("Thermal raster rendered for {Id} ({Dots}x{Rows} dots)", id, image.Width, image.Height);
+                    return Result.Success(EscPos.Job(image));
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _log.LogError(ex, "Thermal raster failed for {Id}", id);
+                    return Result.Failure<byte[]>(ErrorCodes.ReceiptRenderFailed, ex.GetType().Name);
+                }
+            }, ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    /// <summary>The PDF's rows, drawn by the PDF's own code onto a page <paramref name="dots"/> wide. Callers hold the gate.</summary>
+    internal MonoBitmap RenderMono(IReadOnlyList<ReceiptRow> rows, int dots)
+    {
+        EnsureFaces();
+        const float scale = ThermalDotsPerPoint;
+        var width = dots / scale;
+        var measure = new Pass(null, width, ThermalMargin, scale);
+        foreach (var row in rows) DrawRow(measure, row);
+        var height = Math.Max(1, (int)Math.Ceiling((measure.Y + ThermalMargin) * scale));
+        return Raster.Render(dots, height, scale, canvas =>
+        {
+            var draw = new Pass(canvas, width, ThermalMargin, scale);
+            foreach (var row in rows) DrawRow(draw, row);
+        });
+    }
+
+    /// <summary>Test page: the row kinds of a bill, in the app language, with a Telugu shaping sample.</summary>
+    private List<ReceiptRow> TestPageRows(string shopName, PaperWidth paper) =>
+    [
+        new ReceiptRow(ReceiptRowKind.Title) { Text = string.IsNullOrWhiteSpace(shopName) ? _text["printer.title"] : shopName },
+        new ReceiptRow(ReceiptRowKind.Heading) { Text = _text["printer.testpage.heading"] },
+        new ReceiptRow(ReceiptRowKind.Text) { Text = _text.Format("printer.testpage.paper", (int)paper, EscPos.DotsFor(paper)) },
+        new ReceiptRow(ReceiptRowKind.Separator),
+        new ReceiptRow(ReceiptRowKind.Item) { Text = _text["printer.testpage.sample"], Value = "₹1,234.50" },
+        new ReceiptRow(ReceiptRowKind.Field) { Text = _text["printer.testpage.digits"], Value = "0123456789" },
+        new ReceiptRow(ReceiptRowKind.Separator),
+        new ReceiptRow(ReceiptRowKind.GrandTotal) { Text = _text["printer.testpage.amount"], Value = "₹1,234" },
+        new ReceiptRow(ReceiptRowKind.Footer) { Text = _text["printer.testpage.ok"] },
+    ];
+
     // ───────────────────────────── fonts ─────────────────────────────
 
     private Face TeluguFace(bool bold) => bold ? _teluguBold! : _telugu!;
@@ -477,10 +571,17 @@ public sealed class ReceiptRenderer : IReceiptRenderer, IDisposable
         }
     }
 
-    /// <summary>One layout pass. Canvas is null while measuring.</summary>
-    private sealed class Pass(SKCanvas? canvas)
+    /// <summary>
+    /// One layout pass over a page <paramref name="width"/> points wide with <paramref name="edge"/> margins. Canvas is
+    /// null while measuring. <paramref name="snap"/> = device dots per point for the thermal raster (0 for the PDF).
+    /// </summary>
+    private sealed class Pass(SKCanvas? canvas, float width = PageWidth, float edge = Margin, float snap = 0f)
     {
         public SKCanvas? Canvas { get; } = canvas;
-        public float Y { get; set; } = Margin;
+        public float Width { get; } = width;
+        public float Edge { get; } = edge;
+        public float Content { get; } = width - 2 * edge;
+        public float Snap { get; } = snap;
+        public float Y { get; set; } = edge;
     }
 }

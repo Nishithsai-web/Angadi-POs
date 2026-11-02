@@ -153,4 +153,17 @@ public static class ErrorCodes
     public const string ShopNotFound = "SHOP_NOT_FOUND";
     /// <summary>The other shop's file could not be opened; the app stays on the shop it was on.</summary>
     public const string ShopSwitchFailed = "SHOP_SWITCH_FAILED";
+    // v2 printing (Bluetooth thermal receipts)
+    public const string PrinterNotSet = "PRINTER_NOT_SET";
+    public const string PrinterNoBluetooth = "PRINTER_NO_BLUETOOTH";
+    public const string PrinterBluetoothOff = "PRINTER_BLUETOOTH_OFF";
+    public const string PrinterPermissionDenied = "PRINTER_PERMISSION_DENIED";
+    public const string PrinterNonePaired = "PRINTER_NONE_PAIRED";
+    /// <summary>Could not open the Bluetooth link: printer off, out of range, or paired to another phone.</summary>
+    public const string PrinterConnectFailed = "PRINTER_CONNECT_FAILED";
+    /// <summary>The printer reported "paper end" before the job was sent.</summary>
+    public const string PrinterNoPaper = "PRINTER_NO_PAPER";
+    /// <summary>The link dropped while the job was being written.</summary>
+    public const string PrinterDisconnected = "PRINTER_DISCONNECTED";
+    public const string PrinterTimeout = "PRINTER_TIMEOUT";
 }

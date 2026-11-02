@@ -64,6 +64,28 @@ If export itself fails ("couldn't prepare the log file"), the phone is out of st
 | Restored a backup into the wrong shop | Backup/restore act on the open shop only | The previous data is kept as `<shop db>.pre-restore`; restore the right backup in each shop. |
 | "Could not open that shop" | The other shop's file could not be opened (storage full, permissions) | The app stays on the current shop. Free storage and retry; send logs if it repeats. A damaged shop file is repaired from that shop's own safety copy ("Data repaired" on opening it). |
 | Shop list lost after reinstall/restore | `files/shops.json` missing | Every `files/shops/<id>.db` found is listed again (name blank until the shop's setup name is read or it is renamed). |
+## Receipt printer (v2 printing)
+Bluetooth thermal printers, 58 mm (384 dots) or 80 mm (576 dots), ESC/POS raster (GS v 0). Angadi connects only to a
+printer already **paired** in the phone's Bluetooth settings (classic SPP); it never scans, so it never asks for
+location. Android 12+ asks once for "Nearby devices" when the owner opens Settings → Receipt printer → Choose. A
+failed print never affects the bill: it is already saved; the shopkeeper can share it on WhatsApp instead.
+
+| Symptom | Check | Fix |
+|---|---|---|
+| "No paired printer…" | Phone Settings → Bluetooth: is the printer under *Paired devices*? | Switch the printer on, pair it there (PIN usually 0000 or 1234), then Choose again in Angadi. |
+| "No receipt printer set up yet…" | Settings → Receipt printer shows "No printer chosen yet" | Choose the paired printer there (owner PIN if one is set). |
+| "Allow Angadi 'Nearby devices'…" | Permission was denied, or revoked later | Phone Settings → Apps → Angadi → Permissions → Nearby devices → Allow. |
+| "Bluetooth is off…" | Quick settings Bluetooth tile | Turn Bluetooth on, print again. |
+| "Can't reach the printer…" (after ~20 s) | Printer off / flat battery / more than ~10 m away / connected to another phone | Switch it on, bring it close, disconnect it from the other phone (or switch that phone's Bluetooth off), print again. |
+| "The printer is out of paper…" | Paper-end light on the printer | Load a new roll (shiny side towards the print head), print again. Printers that don't report paper status just print blank or nothing — check the roll. |
+| "The printer disconnected while printing…" | The job was cut off mid-way (battery, distance) | Tear the partial slip, print again. |
+| "The printer did not answer in time…" | A very long 80 mm bill on a slow printer, or the printer hung | Switch the printer off and on, print again. |
+| Prints garbage / Chinese characters | The printer is not ESC/POS (some label printers) or the wrong paper width is chosen | Pick the right width (58/80 mm) and print the test page; ESC/POS-compatible printers only. |
+| Receipt is cut short at the right edge, or very narrow | Paper width setting doesn't match the printer | Settings → Receipt printer → choose the other width, print the test page. |
+| Telugu letters broken on paper | Should never happen (same shaping as the PDF) | Escalate with a photo of the test page and the logs zip. |
+
+Hardware note: printing over Bluetooth is not exercised in CI (the emulator has no printer). The ESC/POS bytes and the
+raster are unit-tested; the Android SPP link is tested on a real printer before each release.
 
 ## Escalate to development when
 A crash repeats, totals don't match the receipt, or stock doesn't match bills. Send the logs zip, the bill number and the time. These are bugs, not support questions.

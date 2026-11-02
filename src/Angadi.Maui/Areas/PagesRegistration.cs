@@ -20,6 +20,7 @@ public static class PagesRegistration
         Route<UpiPayPage>(s, Routes.UpiPay);
         Route<SplitPayPage>(s, Routes.SplitPay);     // v2 split tender
         Route<ReturnPage>(s, Routes.BillReturn);     // v2 returns
+        Route<PrinterSettingsPage>(s, Routes.Printer);   // v2 printing
         Route<ItemEditPage>(s, Routes.ItemEdit);
         Route<BillDetailPage>(s, Routes.BillDetail);
         Route<CustomerDetailPage>(s, Routes.CustomerDetail);

@@ -30,6 +30,7 @@ public static class Routes
     public const string SplitPay = "split-pay";          // v2: ?total= (paise) → returns SplitPlan
     public const string BillReturn = "bill-return";      // v2: ?billId= → return items from a bill
     public const string Shops = "shops";                 // v2: several shops on one phone (Settings → Shops)
+    public const string Printer = "printer";             // v2: Settings → Receipt printer
 }
 
 /// <summary>Testable navigation over Shell (implemented in Core/Services.cs by the shell agent).</summary>

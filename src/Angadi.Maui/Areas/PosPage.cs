@@ -387,6 +387,7 @@ public sealed class ReceiptPage : ContentPage, IQueryAttributable
     private readonly Label _change = Ui.Body();
     private readonly Button _toCustomer;
     private Guid _billId;
+    private Guid _autoPrinted;
 
     public ReceiptPage(ISender sender, IDialogService dialogs, ILocalizer text)
     {
@@ -407,9 +408,12 @@ public sealed class ReceiptPage : ContentPage, IQueryAttributable
             var r = await _sender.Send(new SendBillToCustomerCommand(_billId));
             if (r.IsFailure) await _dialogs.ToastAsync(_text.Error(r.Error));
         });
+        // v2 printing: Bluetooth thermal receipt; with no printer chosen it says how to set one up.
+        var print = Ui.Button(text["receipt.print"], Theme.Primary, big: true);
+        print.Clicked += SafeUi.On(() => PrintActions.PrintAsync(_sender, _dialogs, _text, new Angadi.Application.Printing.PrintReceiptCommand(_billId)));
         var next = Ui.Secondary(text["pos.newbill"]);
         next.Clicked += SafeUi.On(async () => await Shell.Current.GoToAsync("//" + Routes.Pos));
-        Content = Ui.Scroll(new Label { Text = "✅", FontSize = 56, HorizontalTextAlignment = TextAlignment.Center }, _number, _total, _change, _toCustomer, share, next);
+        Content = Ui.Scroll(new Label { Text = "✅", FontSize = 56, HorizontalTextAlignment = TextAlignment.Center }, _number, _total, _change, _toCustomer, share, print, next);
     }
 
     public void ApplyQueryAttributes(IDictionary<string, object> query)
@@ -429,6 +433,14 @@ public sealed class ReceiptPage : ContentPage, IQueryAttributable
         var customer = bill.CustomerId is { } cid ? await _sender.Send(new Angadi.Application.Catalog.GetCustomerQuery(cid)) : null;
         _toCustomer.IsVisible = customer is { Phone: { Length: > 0 } };
         if (customer is not null) _toCustomer.Text = _text.Format("receipt.send.customer", customer.Name);
+
+        // v2 printing: "print after every bill" — once per bill, in the background; the counter never waits on it.
+        if (_autoPrinted != bill.Id)
+        {
+            _autoPrinted = bill.Id;
+            var billId = bill.Id;
+            _ = SafeUi.Run(() => PrintActions.AutoPrintAsync(_sender, _dialogs, _text, billId));
+        }
     }
 
     private async Task ShareAsync()

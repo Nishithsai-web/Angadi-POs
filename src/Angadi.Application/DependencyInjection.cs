@@ -6,6 +6,7 @@ using Angadi.Application.Insights;
 using Angadi.Application.Inventory;
 using Angadi.Application.Notes;
 using Angadi.Application.Platform;
+using Angadi.Application.Printing;
 using Angadi.Application.Reports;
 using Angadi.Application.Voice;
 using Angadi.Domain.Billing;
@@ -67,6 +68,16 @@ public static class DependencyInjection
         services.AddTransient<IRequestHandler<GetBillReturnsQuery, BillReturns?>, GetBillReturnsHandler>();
         services.AddTransient<IRequestHandler<GetCustomerReturnsQuery, IReadOnlyList<Angadi.Domain.Billing.SalesReturn>>, GetCustomerReturnsHandler>();
         services.AddTransient<IRequestHandler<ShareReturnNoteCommand, Result>, ShareReturnNoteHandler>();
+        // v2 printing (Bluetooth thermal receipts)
+        services.AddOptions<PrintingOptions>();
+        services.AddTransient<PrinterSettingsHandlers>();
+        services.AddTransient<IRequestHandler<GetPrinterSettingsQuery, PrinterSettings>>(sp => sp.GetRequiredService<PrinterSettingsHandlers>());
+        services.AddTransient<IRequestHandler<SavePrinterSettingsCommand, Result>>(sp => sp.GetRequiredService<PrinterSettingsHandlers>());
+        services.AddTransient<IRequestHandler<ListPairedPrintersQuery, Result<IReadOnlyList<PairedPrinter>>>>(sp => sp.GetRequiredService<PrinterSettingsHandlers>());
+        services.AddTransient<PrintHandlers>();
+        services.AddTransient<IRequestHandler<PrintReceiptCommand, Result>>(sp => sp.GetRequiredService<PrintHandlers>());
+        services.AddTransient<IRequestHandler<PrintReturnNoteCommand, Result>>(sp => sp.GetRequiredService<PrintHandlers>());
+        services.AddTransient<IRequestHandler<PrintTestPageCommand, Result>>(sp => sp.GetRequiredService<PrintHandlers>());
         services.AddTransient<BillDraftHandlers>();
         services.AddTransient<IRequestHandler<SaveBillDraftCommand, Result>>(sp => sp.GetRequiredService<BillDraftHandlers>());
         services.AddTransient<IRequestHandler<GetBillDraftQuery, BillDraftSnapshot?>>(sp => sp.GetRequiredService<BillDraftHandlers>());

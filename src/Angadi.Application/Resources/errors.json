@@ -314,5 +314,41 @@
   "SHOP_SWITCH_FAILED": {
     "te": "ఆ దుకాణం తెరవలేకపోయాం — మీరు ఇంకా ఇదే దుకాణంలో ఉన్నారు",
     "en": "Could not open that shop — you are still on this shop"
+  },
+  "PRINTER_NOT_SET": {
+    "te": "ఇంకా రసీదు ప్రింటర్ ఎంచుకోలేదు. సెట్టింగ్స్ → రసీదు ప్రింటర్‌లో ఎంచుకోండి",
+    "en": "No receipt printer set up yet. Choose one in Settings → Receipt printer"
+  },
+  "PRINTER_NO_BLUETOOTH": {
+    "te": "ఈ ఫోన్‌లో బ్లూటూత్ లేదు",
+    "en": "This phone has no Bluetooth"
+  },
+  "PRINTER_BLUETOOTH_OFF": {
+    "te": "బ్లూటూత్ ఆఫ్‌లో ఉంది. ఆన్ చేసి మళ్ళీ ప్రయత్నించండి",
+    "en": "Bluetooth is off. Turn it on and try again"
+  },
+  "PRINTER_PERMISSION_DENIED": {
+    "te": "ఫోన్ సెట్టింగ్స్‌లో అంగడికి 'సమీప పరికరాలు' (బ్లూటూత్) అనుమతి ఇవ్వండి",
+    "en": "Allow Angadi 'Nearby devices' (Bluetooth) in the phone's settings"
+  },
+  "PRINTER_NONE_PAIRED": {
+    "te": "జత చేసిన ప్రింటర్ లేదు. ముందు ఫోన్ బ్లూటూత్ సెట్టింగ్స్‌లో ప్రింటర్‌ను జత చేయండి (PIN సాధారణంగా 0000 లేదా 1234)",
+    "en": "No paired printer. Pair the printer in the phone's Bluetooth settings first (PIN is usually 0000 or 1234)"
+  },
+  "PRINTER_CONNECT_FAILED": {
+    "te": "ప్రింటర్ అందడం లేదు. ప్రింటర్ ఆన్‌లో ఉందో, ఫోన్ దగ్గర ఉందో చూడండి",
+    "en": "Can't reach the printer. Check it is switched on and near the phone"
+  },
+  "PRINTER_NO_PAPER": {
+    "te": "ప్రింటర్‌లో పేపర్ అయిపోయింది. కొత్త రోల్ పెట్టి మళ్ళీ ప్రింట్ చేయండి",
+    "en": "The printer is out of paper. Load a new roll and print again"
+  },
+  "PRINTER_DISCONNECTED": {
+    "te": "ప్రింట్ చేస్తుండగా ప్రింటర్ కనెక్షన్ పోయింది. ప్రింటర్ చూసి మళ్ళీ ప్రింట్ చేయండి",
+    "en": "The printer disconnected while printing. Check it and print again"
+  },
+  "PRINTER_TIMEOUT": {
+    "te": "ప్రింటర్ సమయానికి స్పందించలేదు. ఆన్‌లో ఉందో చూసి మళ్ళీ ప్రింట్ చేయండి",
+    "en": "The printer did not answer in time. Check it is on and print again"
   }
 }

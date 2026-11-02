@@ -1,8 +1,10 @@
 using Angadi.Application.Persistence;
 using Angadi.Application.Platform;
+using Angadi.Application.Printing;
 using Angadi.Infrastructure.Billing;
 using Angadi.Infrastructure.Logging;
 using Angadi.Infrastructure.Persistence;
+using Angadi.Infrastructure.Printing;
 using Angadi.Infrastructure.Receipts;
 using Angadi.Infrastructure.Seed;
 using Microsoft.Extensions.DependencyInjection;
@@ -66,9 +68,15 @@ public static class DependencyInjection
         // the gate itself lives in the MAUI head). Logged in docs/AGENT_FIX_LOG.md.
         services.AddSingleton<IPinService, PinService>();
 
-        services.AddSingleton<IReceiptRenderer>(sp => new ReceiptRenderer(
+        services.AddSingleton(sp => new ReceiptRenderer(
             options.ReceiptFonts, Path.Combine(options.CacheDirectory, "receipts"),
             sp.GetRequiredService<ILocalizer>(), sp.GetRequiredService<ILogger<ReceiptRenderer>>()));
+        services.AddSingleton<IReceiptRenderer>(sp => sp.GetRequiredService<ReceiptRenderer>());
+        // v2 printing: the same renderer (same rows, fonts, gate) draws the thermal raster. The printer choice is
+        // hardware, kept in its own file outside the database; the Android head replaces the transport.
+        services.AddSingleton<IThermalReceiptRenderer>(sp => sp.GetRequiredService<ReceiptRenderer>());
+        services.AddSingleton<IPrinterSettingsStore>(_ => new PrinterSettingsStore(Path.Combine(options.DataDirectory, "printer.json")));
+        services.AddSingleton<IBluetoothPrinterTransport, NoBluetoothPrinterTransport>();
 
         // C2: never-Pro stub until the Play Billing adapter lands; the platform layer may replace it.
         services.AddSingleton<ISubscriptionService, StubSubscriptionService>();

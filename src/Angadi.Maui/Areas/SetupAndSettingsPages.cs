@@ -290,6 +290,11 @@ public sealed class SettingsPage : ContentPage
             Item("settings.subscription", () => Shell.Current.GoToAsync(Routes.Subscription)),
             Item("settings.notes", () => Shell.Current.GoToAsync(Routes.Notes)),
             _shopScope,
+            // v2 printing: an owner setting, behind the owner PIN like the others (no PIN set → opens straight away).
+            Item("settings.printer", async () =>
+            {
+                if (await PinGate.CheckAsync(_pinService, _dialogs, _text)) await Shell.Current.GoToAsync(Routes.Printer);
+            }),
             Item("settings.backup", BackupAsync),
             _backupStatus,
             Item("settings.restore", RestoreAsync, danger: true),
