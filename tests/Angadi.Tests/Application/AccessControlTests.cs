@@ -112,7 +112,8 @@ public sealed class AccessControlTests : IDisposable
         Assert.True((await SaveShop()).IsSuccess);
 
         var log = await Access.ListActivityAsync(1);
-        var entry = Assert.Single(log, e => e.Action == nameof(SaveShopProfileCommand));
+        // The first-run shop setup (no PIN yet, the owner) is logged too; this is the manager's save.
+        var entry = Assert.Single(log, e => e.Action == nameof(SaveShopProfileCommand) && e.Role == Role.Manager);
         Assert.Equal(("Lakshmi", Role.Manager, Role.Owner), (entry.Who, entry.Role, entry.ApprovedByRole!.Value));
 
         _host.Clock.Advance(TimeSpan.FromSeconds(IAccessControl.ApprovalSeconds + 1));
