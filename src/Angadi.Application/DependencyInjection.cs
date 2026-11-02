@@ -140,6 +140,9 @@ public static class DependencyInjection
         // v2-stock: suppliers, purchases, purchase orders, batch & expiry
         Angadi.Application.Stock.StockRegistration.AddStock(services);
 
+        // v2 several shops on one phone (Settings → Shops)
+        Angadi.Application.Shops.ShopsRegistration.AddShops(services);
+
         return services;
     }
 }

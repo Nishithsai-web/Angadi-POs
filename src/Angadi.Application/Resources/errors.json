@@ -302,5 +302,17 @@
   "PURCHASE_CORRECTION_TOO_LARGE": {
     "te": "ఈ వరుసలో గరిష్టంగా {0} మాత్రమే సరిచేయవచ్చు",
     "en": "At most {0} can be corrected on this line"
+  },
+  "SHOP_NEEDS_PRO": {
+    "te": "రెండో దుకాణానికి అంగడి ప్రో కావాలి — ఒక్క చందా (₹{0}/నెల) మీ అన్ని దుకాణాలకూ సరిపోతుంది",
+    "en": "A second shop needs Angadi Pro — one subscription (₹{0}/month) covers all your shops"
+  },
+  "SHOP_NOT_FOUND": {
+    "te": "ఆ దుకాణం ఈ ఫోన్‌లో లేదు",
+    "en": "That shop is not on this phone"
+  },
+  "SHOP_SWITCH_FAILED": {
+    "te": "ఆ దుకాణం తెరవలేకపోయాం — మీరు ఇంకా ఇదే దుకాణంలో ఉన్నారు",
+    "en": "Could not open that shop — you are still on this shop"
   }
 }

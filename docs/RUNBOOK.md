@@ -55,5 +55,15 @@ If export itself fails ("couldn't prepare the log file"), the phone is out of st
 | Report says "batches don't match stock" | Should never happen | Escalate with the logs zip. A restore of a backup with this problem is refused ("batch(es) whose quantity does not match"). |
 | Margin looks wrong | It is an ESTIMATE from each item's latest purchase cost; sold lines without a cost are left out (count shown) | Enter purchases for the top sellers so they get a cost. Never use it for GST filing. |
 
+## Several shops on one phone (v2)
+| Symptom | Check | Fix |
+|---|---|---|
+| "A second shop needs Angadi Pro" | The phone is on the free tier | Correct: one shop free. Buy Pro (Settings → Subscription); it covers every shop on the phone. |
+| Free bills ran out "too early" | The 50 free bills count the bills of ALL shops on the phone this month | Correct by design. Pro removes the limit for every shop. |
+| A shop's items/bills are "gone" | The top bar shows which shop is open (with 2+ shops) | Settings → Shops → tap the right shop. Nothing is shared between shops. |
+| Restored a backup into the wrong shop | Backup/restore act on the open shop only | The previous data is kept as `<shop db>.pre-restore`; restore the right backup in each shop. |
+| "Could not open that shop" | The other shop's file could not be opened (storage full, permissions) | The app stays on the current shop. Free storage and retry; send logs if it repeats. A damaged shop file is repaired from that shop's own safety copy ("Data repaired" on opening it). |
+| Shop list lost after reinstall/restore | `files/shops.json` missing | Every `files/shops/<id>.db` found is listed again (name blank until the shop's setup name is read or it is renamed). |
+
 ## Escalate to development when
 A crash repeats, totals don't match the receipt, or stock doesn't match bills. Send the logs zip, the bill number and the time. These are bugs, not support questions.

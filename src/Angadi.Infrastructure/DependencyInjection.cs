@@ -26,7 +26,16 @@ public static class DependencyInjection
     {
         services.AddSingleton(options);
         services.AddSingleton<IClock, SystemClock>();
-        services.AddSingleton(_ => new AngadiDb(Path.Combine(options.DataDirectory, "angadi.db"), Path.Combine(options.DataDirectory, "snapshots")));
+        // v2 several shops: the database opened at start is the current shop's (the first shop keeps files/angadi.db,
+        // safety copies in files/snapshots — exactly the v1 paths, so existing installs are untouched).
+        services.AddSingleton(_ => new Angadi.Infrastructure.Shops.ShopRegistry(options.DataDirectory));
+        services.AddSingleton(sp =>
+        {
+            var shops = sp.GetRequiredService<Angadi.Infrastructure.Shops.ShopRegistry>();
+            var current = shops.CurrentId;
+            return new AngadiDb(shops.DatabasePath(current), shops.SnapshotDirectory(current));
+        });
+        services.AddSingleton<Angadi.Application.Shops.IShopDirectory, Angadi.Infrastructure.Shops.ShopDirectory>();
         services.AddSingleton<IUnitOfWork>(sp => sp.GetRequiredService<AngadiDb>());
         services.AddSingleton<IDataSafety, DataSafety>();
         services.AddSingleton<IBillDraftStore, BillDraftStore>();

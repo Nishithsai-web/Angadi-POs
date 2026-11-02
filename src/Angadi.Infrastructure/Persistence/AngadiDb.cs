@@ -48,8 +48,13 @@ public sealed class AngadiDb : IUnitOfWork, IDisposable
         }
     }
 
-    public string DatabasePath { get; }
-    public string SnapshotDirectory { get; }
+    /// <summary>The open shop's file. Changes only under both locks, in <see cref="SwitchToAsync"/> (v2 several shops).</summary>
+    public string DatabasePath { get; private set; }
+    public string SnapshotDirectory { get; private set; }
+
+    /// <summary>Bumped on every successful <see cref="SwitchToAsync"/>: per-file caches (DataSafety) start over.</summary>
+    public int Generation => Volatile.Read(ref _generation);
+    private int _generation;
 
     private DataRecoveryReport? _recovery;
 
@@ -362,6 +367,62 @@ public sealed class AngadiDb : IUnitOfWork, IDisposable
                 _readGate.Release();
                 _gate.Release();
             }
+        }
+    }
+
+    /// <summary>
+    /// v2 several shops: closes the open shop's database cleanly (WAL checkpointed) and opens another file — modelled
+    /// on <see cref="ReplaceWithAsync"/>: the write lock, then the read lock (PERF-1: the reader is closed and reopens
+    /// lazily on the next read against the new <see cref="DatabasePath"/>). The new file is opened verified
+    /// (quick_check, migrated; damage runs the usual recovery from THAT shop's own safety copies). If it cannot be
+    /// opened at all, the previous file is reopened and the exception rethrown, so the app stays on the shop it was on.
+    /// Both locks are released on every path, even when reopening the previous file fails too (BUILD/A1-02: a lock
+    /// left held froze every screen).
+    /// </summary>
+    public async Task SwitchToAsync(string databasePath, string snapshotDirectory, CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(databasePath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(snapshotDirectory);
+        await EnterAsync(ct).ConfigureAwait(false);
+        if (!await _readGate.WaitAsync(LockTimeout, ct).ConfigureAwait(false))
+        {
+            _gate.Release();
+            throw new DatabaseBusyException("Database busy: read lock not released within " + LockTimeout.TotalSeconds + " s");
+        }
+        try
+        {
+            await OffTheUiThread();
+            if (string.Equals(Path.GetFullPath(databasePath), Path.GetFullPath(DatabasePath), StringComparison.Ordinal)) return;
+            CloseReader();
+            try { _conn.ExecuteScalar<int>("PRAGMA wal_checkpoint(TRUNCATE)"); }
+            catch (SQLiteException) { /* closing still checkpoints; never block a switch on it */ }
+            _conn.Close();
+            try
+            {
+                DataRecoveryReport? report = null;
+                SQLiteConnection next;
+                try { next = OpenVerified(databasePath); }
+                catch (DamagedDatabaseException ex)
+                {
+                    report = DatabaseRecovery.Recover(databasePath, snapshotDirectory, ex.Message, DateTimeOffset.Now);
+                    next = OpenVerified(databasePath);
+                }
+                _conn = next;
+                DatabasePath = databasePath;
+                SnapshotDirectory = snapshotDirectory;
+                if (report is not null) _recovery = report;
+                Interlocked.Increment(ref _generation);
+            }
+            catch
+            {
+                _conn = OpenVerified(DatabasePath);   // stay on the shop we were on
+                throw;
+            }
+        }
+        finally
+        {
+            _readGate.Release();
+            _gate.Release();
         }
     }
 

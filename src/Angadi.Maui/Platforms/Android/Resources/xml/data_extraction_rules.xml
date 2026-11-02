@@ -4,11 +4,19 @@
   <cloud-backup>
     <include domain="file" path="angadi.db" />
     <include domain="file" path="angadi.db-wal" />
+    <!-- v2 several shops: the shop list and the other shops' databases (files/shops/ID.db + WAL; their safety
+         copies live in files/shop-snapshots/, left out like the first shop's). -->
+    <include domain="file" path="shops.json" />
+    <include domain="file" path="shops/" />
     <include domain="sharedpref" path="." />
   </cloud-backup>
   <device-transfer>
     <include domain="file" path="angadi.db" />
     <include domain="file" path="angadi.db-wal" />
+    <!-- v2 several shops: the shop list and the other shops' databases (files/shops/ID.db + WAL; their safety
+         copies live in files/shop-snapshots/, left out like the first shop's). -->
+    <include domain="file" path="shops.json" />
+    <include domain="file" path="shops/" />
     <include domain="sharedpref" path="." />
   </device-transfer>
 </data-extraction-rules>

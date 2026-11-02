@@ -146,4 +146,11 @@ public static class ErrorCodes
     public const string BatchQtyTooLow = "BATCH_QTY_TOO_LOW";
     /// <summary>A purchase correction larger than what the line added (minus earlier corrections); arg 0 = the most allowed.</summary>
     public const string PurchaseCorrectionTooLarge = "PURCHASE_CORRECTION_TOO_LARGE";
+
+    // v2 several shops on one phone
+    /// <summary>A second shop needs Pro; arg 0 = the monthly price in rupees.</summary>
+    public const string ShopNeedsPro = "SHOP_NEEDS_PRO";
+    public const string ShopNotFound = "SHOP_NOT_FOUND";
+    /// <summary>The other shop's file could not be opened; the app stays on the shop it was on.</summary>
+    public const string ShopSwitchFailed = "SHOP_SWITCH_FAILED";
 }

@@ -8,8 +8,54 @@ namespace Angadi.Infrastructure.Persistence;
 /// Effective month = local month of max(now, last_seen) — a clock rolled back stays on the spent month;
 /// a clock rolled forward spends a future bucket that keeps its own count.
 /// </summary>
-internal sealed class QuotaStore(AngadiDb db) : IQuotaStore
+internal sealed class QuotaStore(AngadiDb db, Shops.ShopRegistry? shops = null) : IQuotaStore
 {
+    // FIX(SHOPS-QUOTA, 2026-11-01, v2-shops): Flaw: with several shops on one phone, each shop's database keeps its
+    // own month buckets, so a phone whose Pro lapsed with N shops would get N x 50 free bills a month.
+    // Fix: the free quota is per PHONE — "used this month" adds every other shop's used count for the same month
+    // (its bucket, or its bills when the month has no bucket yet, plus its own M-3 unabsorbed lifetime bills), read
+    // straight from that shop's file. Increment still touches only the open shop, so each bill is counted exactly
+    // once, in its own shop, and each file's M-3 watermark/lifetime pair (S1-F2) stays consistent. Together the
+    // per-file lifetime counters ARE the device-wide count. A shop file that cannot be read counts 0 (fails open,
+    // like M-3's degrade path) — it must never stop the counter.
+    // Why: one subscription covers every shop, so one free allowance must too. Logged in docs/AGENT_FIX_LOG.md.
+    private int OtherShops(string month)
+    {
+        if (shops is null) return 0;
+        long total = 0;
+        foreach (var path in shops.OtherDatabasePaths(db.DatabasePath))
+            total += UsedInFile(path, month);
+        return (int)Math.Min(total, int.MaxValue / 2);
+    }
+
+    /// <summary>Another (closed) shop's used count for <paramref name="month"/>, read without changing that file.</summary>
+    internal static int UsedInFile(string databasePath, string month)
+    {
+        if (!File.Exists(databasePath)) return 0;
+        try
+        {
+            using var c = new SQLite.SQLiteConnection(databasePath, SQLite.SQLiteOpenFlags.ReadWrite | SQLite.SQLiteOpenFlags.FullMutex);
+            c.BusyTimeout = TimeSpan.FromSeconds(2);
+            var row = c.Find<MetaRow>(CountKey(month));
+            var bucket = row is not null && int.TryParse(row.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n)
+                ? n
+                : BillsInMonth(c, month);
+            var lifetime = Math.Max(LifetimeBillCounter.Read(databasePath), Watermark(c) ?? 0);
+            return (int)Math.Min(bucket + (long)Unabsorbed(c, lifetime), int.MaxValue / 4);
+        }
+        catch (SQLite.SQLiteException)
+        {
+            return 0;
+        }
+    }
+
+    private static int BillsInMonth(SQLite.SQLiteConnection c, string month)
+    {
+        var y = int.Parse(month[..4], CultureInfo.InvariantCulture);
+        var m = int.Parse(month[4..], CultureInfo.InvariantCulture);
+        return c.ExecuteScalar<int>("SELECT COUNT(*) FROM Bill WHERE Day >= ? AND Day <= ? AND Status <> 0", y * 10000 + m * 100 + 1, y * 10000 + m * 100 + 31);
+    }
+
     private const string LastSeenKey = "quota.last_seen_ms";
     internal const string WatermarkKey = "quota.lifetime_watermark";
 
@@ -31,7 +77,7 @@ internal sealed class QuotaStore(AngadiDb db) : IQuotaStore
         db.RunAsync(c =>
         {
             var month = EffectiveMonth(c, now, advance: false);
-            return Count(c, month) + Unabsorbed(c, SyncedLifetime(c));
+            return Count(c, month) + Unabsorbed(c, SyncedLifetime(c)) + OtherShops(month);
         }, ct);
 
     public Task IncrementAsync(DateTimeOffset now, CancellationToken ct = default) =>

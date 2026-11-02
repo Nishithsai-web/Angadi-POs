@@ -20,6 +20,9 @@ public sealed class AppShell : Shell
     private readonly IServiceProvider _services;
     private readonly ILocalizer _text;
     private bool _checkedFirstRun;
+    /// <summary>v2 several shops: tab pages built so far, and the open shop's name (null = one shop: no badge).</summary>
+    private readonly List<Page> _pages = [];
+    private string? _shopName;
 
     public AppShell(IServiceProvider services, ILocalizer text)
     {
@@ -52,6 +55,8 @@ public sealed class AppShell : Shell
         {
             var page = _services.GetRequiredService<TPage>();
             page.ToolbarItems.Add(LanguageSwitch());
+            _pages.Add(page);
+            if (_shopName is not null) AddShopBadge(page);
             return page;
         }),
     };
@@ -95,11 +100,38 @@ public sealed class AppShell : Shell
         }
     }
 
+    /// <summary>v2 several shops: the open shop's name in the top bar; a tap opens Settings → Shops.</summary>
+    private void AddShopBadge(Page page)
+    {
+        if (page.ToolbarItems.Any(t => string.Equals(t.ClassId, ShopBadgeId, StringComparison.Ordinal))) return;
+        var badge = new ToolbarItem { Text = _shopName, Order = ToolbarItemOrder.Primary, ClassId = ShopBadgeId };
+        badge.Clicked += SafeUi.On(async () => await GoToAsync(Routes.Shops));
+        page.ToolbarItems.Insert(0, badge);
+    }
+
+    private const string ShopBadgeId = "angadi.shop-badge";
+
+    private async Task ShowShopNameAsync()
+    {
+        try
+        {
+            var shops = await _services.GetRequiredService<ISender>().Send(new Angadi.Application.Shops.ListShopsQuery());
+            if (!shops.HasSeveral) return;
+            _shopName = shops.Current.Name.Length > 0 ? shops.Current.Name : _text["shops.unnamed"];
+            foreach (var page in _pages) AddShopBadge(page);
+        }
+        catch (Exception ex)
+        {
+            GlobalExceptions.Report(ex, "shop-badge");   // cosmetic: never blocks the counter
+        }
+    }
+
     protected override async void OnAppearing()
     {
         base.OnAppearing();
         if (_checkedFirstRun) return;
         _checkedFirstRun = true;
+        await ShowShopNameAsync();
         try
         {
             var profile = await _services.GetRequiredService<ISender>().Send(new GetShopProfileQuery());

@@ -1,0 +1,16 @@
+{
+  "settings.shops": "Shops",
+  "shops.title": "Your shops",
+  "shops.hint": "Each shop has its own items, bills, customers, unfinished bill and backups. One Pro subscription covers all your shops.",
+  "shops.open.now": "✓ {0} (open now)",
+  "shops.unnamed": "New shop",
+  "shops.add": "+ Add a shop",
+  "shops.rename": "Rename",
+  "shops.rename.title": "Shop name in this list",
+  "shops.switch.title": "Open another shop",
+  "shops.switch.confirm": "Open {0}? The bill on screen stays with this shop.",
+  "shops.add.confirm": "Add a new shop? You will set it up like the first one; this shop's data stays as it is.",
+  "shops.needspro.title": "Angadi Pro",
+  "shops.plans": "See plans",
+  "shops.scope": "Backup and restore act on this shop only: {0}"
+}

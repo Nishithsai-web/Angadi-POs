@@ -259,6 +259,8 @@ public sealed class SettingsPage : ContentPage
     private readonly IPinService _pinService;
     private readonly Label _pinNudge = Ui.Caption();
     private readonly Label _backupStatus = Ui.Caption();
+    /// <summary>v2 several shops: "Backup and restore act on this shop only: X" (hidden with one shop).</summary>
+    private readonly Label _shopScope = Ui.Caption();
 
     public SettingsPage(ISender sender, IReceiptShare share, IDialogService dialogs, ILocalizer text, IAppRestart restart, IBackupInspector inspector, IPinService pinService)
     {
@@ -280,11 +282,14 @@ public sealed class SettingsPage : ContentPage
 
         _pinNudge.Text = text["settings.pin.nudge"];
         _pinNudge.IsVisible = false;
+        _shopScope.IsVisible = false;
         Content = Ui.Scroll(
             Ui.Title(text["nav.settings"]),
             Item("settings.shop", () => Shell.Current.GoToAsync(Routes.ShopSetup)),
+            Item("settings.shops", () => Shell.Current.GoToAsync(Routes.Shops)),   // v2 several shops
             Item("settings.subscription", () => Shell.Current.GoToAsync(Routes.Subscription)),
             Item("settings.notes", () => Shell.Current.GoToAsync(Routes.Notes)),
+            _shopScope,
             Item("settings.backup", BackupAsync),
             _backupStatus,
             Item("settings.restore", RestoreAsync, danger: true),
@@ -303,6 +308,9 @@ public sealed class SettingsPage : ContentPage
         {
             _pinNudge.IsVisible = !await _pinService.HasPinAsync();
             await RefreshBackupStatusAsync();
+            var shops = await _sender.Send(new Angadi.Application.Shops.ListShopsQuery());
+            _shopScope.IsVisible = shops.HasSeveral;
+            _shopScope.Text = _text.Format("shops.scope", shops.Current.Name.Length > 0 ? shops.Current.Name : _text["shops.unnamed"]);
         });
     }
 

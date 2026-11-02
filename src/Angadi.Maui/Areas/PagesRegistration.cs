@@ -26,6 +26,7 @@ public static class PagesRegistration
         Route<ShopSetupPage>(s, Routes.ShopSetup);
         Route<SubscriptionPage>(s, Routes.Subscription);
         Route<NotesPage>(s, Routes.Notes);
+        Route<ShopsPage>(s, Routes.Shops);           // v2 several shops
         StockRoutes.Register(s);   // v2-stock
         return s;
     }
