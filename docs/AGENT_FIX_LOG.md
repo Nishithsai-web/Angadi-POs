@@ -502,3 +502,21 @@ Development no longer runs through one implementer. Muse's own dev/fix agents no
   - Schema 6.
 - **Why:** counter fraud (fake voids, UPI swaps, write-offs) is the real threat for shops with staff, and a check in one place can't be skipped by one forgotten screen.
 - **Tests:** `AccessControlTests` (policy matrix; every protected request returns a Result and has an activity label; counter, manager, approval expiry, cashier grants, lockout across staff PINs, PIN uniqueness, turned-off staff, pipeline prompt, language, shop-switch isolation).
+
+### CUST-1 (HIGH) — the same phone saved twice, and no way to remove a customer
+- **Status:** FIXED-AWAITING-VERIFY · **Fixed by:** Claude Code, 2026-11-02 (owner's emulator test: "nishith" twice, same number)
+- **Fix:**
+  - `SaveCustomerHandler` refuses a phone already used by another (not removed) customer, `CUSTOMER_PHONE_DUPLICATE` naming them, compared after normalization.
+  - `RemoveCustomerCommand` (manager/owner, `Permission.RemoveCustomer`) hides a customer whose balance is ₹0 (`CUSTOMER_HAS_DUES` otherwise). `CustomerRow.IsRemoved` is JsonIgnore-when-default (old backups keep their MAC); bills and the ledger keep the customer.
+  - Customer screen: *Remove customer*.
+- **Tests:** `CustomerCleanupTests`.
+
+### SHARE-2 (MEDIUM) — "Share again" never went to the customer's WhatsApp
+- **Status:** FIXED-AWAITING-VERIFY · **Fixed by:** Claude Code, 2026-11-02
+- **Fix:** a bill with a customer phone sends the PDF straight to that customer's WhatsApp chat: Android `ACTION_SEND` to `com.whatsapp`, then `com.whatsapp.w4b`, with the `jid` extra, through MAUI's FileProvider. It is a free share intent, not an API. Any failure opens the normal share sheet, so there is never a dead end.
+- **Tests:** `CustomerCleanupTests.Receipt_*` (direct first; fallback for no WhatsApp and for walk-ins).
+
+### VOICE-10 (HIGH) — "Voice needs internet" while online (Android 12+, no Telugu pack)
+- **Status:** FIXED-AWAITING-VERIFY on a real phone · **Fixed by:** Claude Code, 2026-11-02
+- **Evidence:** with an on-device recognizer present, the only attempt was on-device/offline-first. With no Telugu model, it returns server, network or language errors, mapped to VOICE_NO_INTERNET.
+- **Fix:** such a failure retries once with Google's online recognizer, without the offline hint, when the phone has internet. The message now says voice couldn't reach Google speech and to tap again or type.

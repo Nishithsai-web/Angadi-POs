@@ -74,6 +74,10 @@ public interface ICustomerRepository
     Task<IReadOnlyList<DuesEntry>> GetLedgerAsync(Guid customerId, CancellationToken ct = default);
     Task SaveAsync(Customer customer, CancellationToken ct = default);
     Task AddDuesEntryAsync(DuesEntry entry, CancellationToken ct = default);
+    /// <summary>CUST-1: the customer (not removed) already using this normalized phone, other than <paramref name="exceptId"/>.</summary>
+    Task<Customer?> FindByPhoneAsync(string phone, Guid exceptId, CancellationToken ct = default);
+    /// <summary>CUST-1: hides the customer from lists and search; bills and the ledger keep their history.</summary>
+    Task RemoveAsync(Guid id, CancellationToken ct = default);
 }
 
 /// <summary>

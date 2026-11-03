@@ -1,7 +1,7 @@
 {
   "VOICE_NO_INTERNET": {
-    "te": "వాయిస్ కోసం ఇంటర్నెట్ కావాలి — సరుకులు నొక్కి బిల్లు వేయండి",
-    "en": "Voice needs internet — tap or type items instead"
+    "te": "వాయిస్ ఇప్పుడు పని చేయలేదు (ఇంటర్నెట్ లేదా Google స్పీచ్ అందుబాటులో లేదు). మళ్ళీ మైక్ నొక్కండి, లేదా సరుకులు నొక్కి/టైప్ చేసి బిల్లు వేయండి",
+    "en": "Voice couldn't reach Google speech right now (no internet or the service is busy). Tap the mic again, or tap/type items to keep billing"
   },
   "VOICE_PERMISSION_DENIED": {
     "te": "మైక్ అనుమతి ఇవ్వండి — సెట్టింగ్స్‌లో మార్చవచ్చు",
@@ -398,5 +398,13 @@
   "STAFF_LIMIT_REACHED": {
     "te": "ఒక దుకాణానికి గరిష్ఠంగా {0} మంది సిబ్బంది. పనిచేయని వారిని తీసివేసి కొత్తవారిని చేర్చండి",
     "en": "A shop can have at most {0} staff. Turn off someone who has left, then add the new person"
+  },
+  "CUSTOMER_PHONE_DUPLICATE": {
+    "te": "ఈ ఫోన్ నంబర్ ఇప్పటికే '{0}' పేరుతో ఉంది. కస్టమర్ల జాబితాలో వారిని తెరవండి",
+    "en": "This phone number is already saved for '{0}'. Open them from the customer list"
+  },
+  "CUSTOMER_HAS_DUES": {
+    "te": "ఈ కస్టమర్‌కు ఇంకా {0} బాకీ ఉంది. ముందు బాకీ వసూలు చేయండి లేదా మాఫీ చేయండి, తర్వాత తీసివేయండి",
+    "en": "This customer still has {0} in dues. Collect or write it off first, then remove them"
   }
 }

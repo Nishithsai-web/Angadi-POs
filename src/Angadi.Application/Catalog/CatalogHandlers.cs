@@ -140,9 +140,28 @@ internal sealed class SaveCustomerHandler(ICustomerRepository customers, IOutbox
         var c = command.Customer;
         c.Name = c.Name.Trim();
         c.Phone = PhoneNumbers.Normalize(c.Phone);
+        // FIX(CUST-1, 2026-11-02, Claude): Flaw: the same phone could be saved twice ("nishith" ×2 on the owner's test
+        // phone), splitting one customer's udhaar across two accounts and sending reminders twice. Fix: a phone
+        // already used by another (not removed) customer is refused, naming them. Why: one person, one dues account.
+        // Logged in docs/AGENT_FIX_LOG.md.
+        if (c.Phone is { } phone && await customers.FindByPhoneAsync(phone, c.Id, ct) is { } other)
+            return Result.Failure<Guid>(Error.With(ErrorCodes.CustomerPhoneDuplicate, other.Name));
         await customers.SaveAsync(c, ct);
         await outbox.AppendAsync("Customer", new CustomerChanged(c.Id, clock.Now), ct);   // M6
         return Result.Success(c.Id);
+    }
+}
+
+/// <summary>CUST-1: remove a customer from lists; refused while they have a balance either way.</summary>
+internal sealed class RemoveCustomerHandler(ICustomerRepository customers, IOutbox outbox, IClock clock) : IRequestHandler<RemoveCustomerCommand, Result>
+{
+    public async Task<Result> Handle(RemoveCustomerCommand command, CancellationToken ct)
+    {
+        if (await customers.GetAsync(command.CustomerId, ct) is not { } c) return Result.Failure(ErrorCodes.CustomerNotFound);
+        if (c.DuesBalance.Value != 0) return Result.Failure(Error.With(ErrorCodes.CustomerHasDues, IndianFormat.Rupees(c.DuesBalance)));
+        await customers.RemoveAsync(c.Id, ct);
+        await outbox.AppendAsync("Customer", new CustomerChanged(c.Id, clock.Now), ct);
+        return Result.Success();
     }
 }
 

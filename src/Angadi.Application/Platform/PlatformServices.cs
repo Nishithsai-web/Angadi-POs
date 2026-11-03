@@ -49,6 +49,13 @@ public interface IReceiptShare
     Task<Result> OpenSmsAsync(string phoneE164, string message, CancellationToken ct = default);
     /// <summary>OS share sheet with plain text (feedback when no support number is configured).</summary>
     Task<Result> ShareTextAsync(string text, string title, CancellationToken ct = default);
+    /// <summary>
+    /// SHARE-2: the file straight into WhatsApp (or WhatsApp Business), addressed to this customer's chat, through
+    /// Android's normal share intent (no API, no cost). Fails when neither app can take it; callers then fall back to
+    /// the share sheet. Default: not supported.
+    /// </summary>
+    Task<Result> ShareFileToWhatsAppAsync(string phoneE164, string filePath, string caption, CancellationToken ct = default) =>
+        Task.FromResult(Result.Failure(ErrorCodes.ShareFailed, "not supported"));
 }
 
 /// <summary>Google Play Billing (Agent D). FR-34/35.</summary>

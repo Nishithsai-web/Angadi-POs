@@ -85,6 +85,52 @@ internal sealed class ReceiptShare(ILogger<ReceiptShare> log) : IReceiptShare
         }
     }
 
+    /// <summary>SHARE-2: WhatsApp first, then WhatsApp Business; any failure → the caller opens the share sheet.</summary>
+    public async Task<Result> ShareFileToWhatsAppAsync(string phoneE164, string filePath, string caption, CancellationToken ct = default)
+    {
+#if ANDROID
+        try
+        {
+            return await MainThread.InvokeOnMainThreadAsync(() =>
+            {
+                var activity = Microsoft.Maui.ApplicationModel.Platform.CurrentActivity;
+                var context = (global::Android.Content.Context?)activity ?? global::Android.App.Application.Context;
+                // MAUI Essentials' own FileProvider (it serves the cache folder the receipts are written to).
+                var uri = AndroidX.Core.Content.FileProvider.GetUriForFile(context, context.PackageName + ".fileProvider", new Java.IO.File(filePath));
+                foreach (var package in new[] { "com.whatsapp", "com.whatsapp.w4b" })
+                {
+                    var intent = new global::Android.Content.Intent(global::Android.Content.Intent.ActionSend);
+                    intent.SetType("application/pdf");
+                    intent.PutExtra(global::Android.Content.Intent.ExtraStream, uri);
+                    intent.PutExtra(global::Android.Content.Intent.ExtraText, caption);
+                    intent.PutExtra("jid", phoneE164 + "@s.whatsapp.net");   // opens that customer's chat
+                    intent.SetPackage(package);
+                    intent.AddFlags(global::Android.Content.ActivityFlags.GrantReadUriPermission);
+                    if (activity is null) intent.AddFlags(global::Android.Content.ActivityFlags.NewTask);
+                    try
+                    {
+                        context.StartActivity(intent);
+                        return Result.Success();
+                    }
+                    catch (global::Android.Content.ActivityNotFoundException)
+                    {
+                        // this WhatsApp flavour isn't installed: try the next one
+                    }
+                }
+                return Result.Failure(ErrorCodes.ShareFailed, "no whatsapp");
+            });
+        }
+        catch (Exception ex)
+        {
+            log.LogWarning(ex, "Direct WhatsApp share failed; the share sheet will open instead");
+            return Result.Failure(ErrorCodes.ShareFailed, ex.GetType().Name);
+        }
+#else
+        await Task.CompletedTask;
+        return Result.Failure(ErrorCodes.ShareFailed, "not supported");
+#endif
+    }
+
     public async Task<Result> OpenWhatsAppAsync(string phoneE164, string message, CancellationToken ct = default)
     {
         try

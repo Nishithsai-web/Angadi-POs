@@ -401,6 +401,16 @@ internal sealed class ShareReceiptHandler(
         if (pdf.IsFailure) return Result.Failure(pdf.Error);
 
         var title = text.Format("receipt.share.text", profile.Name, bill.Number, IndianFormat.Rupees(bill.GrandTotal));
+        // FIX(SHARE-2, 2026-11-02, Claude): Flaw: "Share again" / "Share receipt" always opened the general share sheet,
+        // even for a bill with a customer on file, so the shopkeeper had to find the customer in WhatsApp by hand.
+        // Fix: a bill with a customer phone goes straight to that customer's WhatsApp chat with the PDF; if WhatsApp
+        // can't take it (not installed, no account) the share sheet opens as before. Why: one tap to the right person,
+        // and never a dead end. Logged in docs/AGENT_FIX_LOG.md.
+        if (PhoneNumbers.Normalize(customer?.Phone) is { } phone)
+        {
+            var direct = await share.ShareFileToWhatsAppAsync(phone, pdf.Value, title, ct);
+            if (direct.IsSuccess) return direct;
+        }
         return await share.ShareFileAsync(pdf.Value, title, ct);
     }
 }

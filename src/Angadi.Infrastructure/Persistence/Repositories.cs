@@ -248,7 +248,7 @@ internal sealed class CustomerRepository(AngadiDb db, IClock clock) : ICustomerR
             phoneExact = Angadi.Application.Billing.PhoneNumbers.Normalize(text);
         }
         return db.ReadAsync<IReadOnlyList<Customer>>(c => c.Query<CustomerRow>(
-                "SELECT * FROM Customer WHERE Name LIKE ? OR Phone LIKE ? OR Phone = ? ORDER BY Name LIMIT ?",
+                "SELECT * FROM Customer WHERE COALESCE(IsRemoved, 0) = 0 AND (Name LIKE ? OR Phone LIKE ? OR Phone = ?) ORDER BY Name LIMIT ?",
                 like, phoneLike, phoneExact, CustomerSearchLimit)
             .Select(ToDomain).ToList(), ct);
     }
@@ -280,10 +280,19 @@ internal sealed class CustomerRepository(AngadiDb db, IClock clock) : ICustomerR
             var existing = c.Find<CustomerRow>(row.Id);
             if (existing is null) { c.Insert(row); return; }
             row.DuesBalancePaise = existing.DuesBalancePaise;
+            row.IsRemoved = existing.IsRemoved;
             c.Update(row);
             customer.DuesBalance = new Paise(existing.DuesBalancePaise);
         }, ct);
     }
+
+    public Task<Customer?> FindByPhoneAsync(string phone, Guid exceptId, CancellationToken ct = default)
+        => db.ReadAsync(c => c.Query<CustomerRow>(
+                "SELECT * FROM Customer WHERE Phone = ? AND Id <> ? AND COALESCE(IsRemoved, 0) = 0 LIMIT 1", phone, exceptId)
+            .Select(ToDomain).FirstOrDefault(), ct);
+
+    public Task RemoveAsync(Guid id, CancellationToken ct = default)
+        => db.RunAsync(c => { c.Execute("UPDATE Customer SET IsRemoved = 1, UpdatedAtMs = ? WHERE Id = ?", clock.Now.ToUnixTimeMilliseconds(), id); }, ct);
 
     /// <summary>Writes the ledger row and moves the balance atomically (Charge +, Payment/Reversal/WriteOff −; SEC-5).</summary>
     public Task AddDuesEntryAsync(DuesEntry entry, CancellationToken ct = default)

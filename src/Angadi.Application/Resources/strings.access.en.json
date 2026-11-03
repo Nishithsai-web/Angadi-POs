@@ -58,5 +58,9 @@
   "activity.SwitchShopCommand": "Shop switched",
   "activity.SaveStaffCommand": "Staff changed",
   "activity.SetStaffActiveCommand": "Staff turned on/off",
-  "activity.SaveCashierGrantsCommand": "Cashier permissions changed"
+  "activity.SaveCashierGrantsCommand": "Cashier permissions changed",
+  "activity.RemoveCustomerCommand": "Customer removed",
+  "customers.remove": "Remove customer",
+  "customers.remove.confirm": "Remove '{0}' from the list? Their old bills stay as they are.",
+  "customers.removed": "Customer removed"
 }

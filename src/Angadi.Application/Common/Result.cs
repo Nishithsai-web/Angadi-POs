@@ -101,6 +101,10 @@ public static class ErrorCodes
     public const string AmountInvalid = "AMOUNT_INVALID";
     public const string CustomerNoPhone = "CUSTOMER_NO_PHONE";
     public const string CustomerNoDues = "CUSTOMER_NO_DUES";
+    /// <summary>CUST-1: another customer already has this phone; arg 0 = their name.</summary>
+    public const string CustomerPhoneDuplicate = "CUSTOMER_PHONE_DUPLICATE";
+    /// <summary>CUST-1: a customer who still owes (or is owed) money can't be removed; arg 0 = the balance.</summary>
+    public const string CustomerHasDues = "CUSTOMER_HAS_DUES";
     public const string VoidReasonRequired = "VOID_REASON_REQUIRED";
     public const string ItemNameRequired = "ITEM_NAME_REQUIRED";
     public const string ItemPriceInvalid = "ITEM_PRICE_INVALID";

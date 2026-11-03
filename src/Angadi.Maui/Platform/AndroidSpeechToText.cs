@@ -74,7 +74,20 @@ public sealed class AndroidSpeechToText(ILogger<AndroidSpeechToText> log) : ISpe
         try
         {
             linked.CancelAfter(HardTimeout);
-            return await ListenOnceAsync(string.IsNullOrWhiteSpace(culture) ? "te-IN" : culture, partials, linked.Token, ct, onDevice);
+            var language = string.IsNullOrWhiteSpace(culture) ? "te-IN" : culture;
+            var first = await ListenOnceAsync(language, partials, linked.Token, ct, onDevice, preferOffline: true);
+            // FIX(VOICE-10, 2026-11-02, Claude): Flaw: on Android 12+ the on-device recogniser (or the offline hint)
+            // was the ONLY attempt. With no Telugu pack downloaded it answers with a server/network/language error, so
+            // the shopkeeper read "Voice needs internet" while the phone was online. Fix: such a failure retries once
+            // with Google's online recogniser and no offline hint, when the phone has internet. Why: voice billing must
+            // work on a phone that simply never downloaded the Telugu pack. Logged in docs/AGENT_FIX_LOG.md.
+            if (first.IsFailure && RetryOnline.Contains(first.Error.Detail ?? "") && !linked.IsCancellationRequested
+                && Connectivity.Current.NetworkAccess == NetworkAccess.Internet)
+            {
+                log.LogInformation("Speech: {Detail} from the {Kind} recogniser; retrying online", first.Error.Detail, onDevice ? "on-device" : "offline-first");
+                return await ListenOnceAsync(language, partials, linked.Token, ct, preferOnDevice: false, preferOffline: false);
+            }
+            return first;
         }
         catch (Exception ex) when (ex is not System.OperationCanceledException)
         {
@@ -88,7 +101,7 @@ public sealed class AndroidSpeechToText(ILogger<AndroidSpeechToText> log) : ISpe
         }
     }
 
-    private async Task<Result<string>> ListenOnceAsync(string culture, IProgress<string>? partials, CancellationToken token, CancellationToken callerToken, bool preferOnDevice)
+    private async Task<Result<string>> ListenOnceAsync(string culture, IProgress<string>? partials, CancellationToken token, CancellationToken callerToken, bool preferOnDevice, bool preferOffline)
     {
         var tcs = new TaskCompletionSource<Result<string>>(TaskCreationOptions.RunContinuationsAsynchronously);
         SpeechRecognizer? recognizer = null;
@@ -119,7 +132,7 @@ public sealed class AndroidSpeechToText(ILogger<AndroidSpeechToText> log) : ISpe
             try
             {
                 recognizer.SetRecognitionListener(new Listener(tcs, partials));
-                recognizer.StartListening(BuildIntent(culture));
+                recognizer.StartListening(BuildIntent(culture, preferOffline));
             }
             catch (Exception ex)
             {
@@ -157,7 +170,14 @@ public sealed class AndroidSpeechToText(ILogger<AndroidSpeechToText> log) : ISpe
         return result;
     }
 
-    private static Intent BuildIntent(string culture)
+    /// <summary>VOICE-10: failures of the offline-first attempt that the online recogniser can fix.</summary>
+    private static readonly HashSet<string> RetryOnline = new(StringComparer.Ordinal)
+    {
+        "network", "network_timeout", "server", "server_disconnected", "language_not_supported", "language_unavailable",
+        "recognizer_unavailable", "start_failed", "error_5",
+    };
+
+    private static Intent BuildIntent(string culture, bool preferOffline)
     {
         var intent = new Intent(RecognizerIntent.ActionRecognizeSpeech);
         intent.PutExtra(RecognizerIntent.ExtraLanguageModel, RecognizerIntent.LanguageModelFreeForm);
@@ -166,7 +186,7 @@ public sealed class AndroidSpeechToText(ILogger<AndroidSpeechToText> log) : ISpe
         intent.PutExtra(RecognizerIntent.ExtraPartialResults, true);
         intent.PutExtra(RecognizerIntent.ExtraMaxResults, 1);
         // VOICE-9: prefer on-device models when the system has them (a hint; ignored where unsupported).
-        intent.PutExtra(PreferOfflineExtra, true);
+        if (preferOffline) intent.PutExtra(PreferOfflineExtra, true);
         // Google's recognizer treats these as hints and may ignore them; the 20 s hard timeout backs them up.
         intent.PutExtra(RecognizerIntent.ExtraSpeechInputCompleteSilenceLengthMillis, CompleteSilenceMs);
         intent.PutExtra(RecognizerIntent.ExtraSpeechInputPossiblyCompleteSilenceLengthMillis, PossiblyCompleteSilenceMs);

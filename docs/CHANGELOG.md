@@ -1,6 +1,12 @@
 # CHANGELOG.md — Angadi POS v1
 Every meaningful change: date, what, the issue it addresses, and the one-line why. Newest first.
 
+## 2026-11-02 (Claude Code) — customers, WhatsApp receipts, voice retry
+- **No duplicate customers:** the same phone number can't be saved twice; the message names who already has it.
+- **Remove customer** (manager/owner): only when dues are ₹0. Old bills keep the name.
+- **Share receipt / Share again** for a customer with a phone goes straight to their WhatsApp chat with the PDF. If WhatsApp isn't there, the normal share sheet opens.
+- **Voice:** when the phone's offline Telugu recognizer fails, Angadi retries with Google's online recognizer, and the message now says what happened.
+
 ## 2026-11-02 (Claude Code, RBAC-1) — staff roles and the activity log
 - **Three roles per shop.**
   - **Owner:** everything.

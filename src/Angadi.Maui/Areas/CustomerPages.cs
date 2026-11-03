@@ -222,7 +222,24 @@ public sealed class CustomerDetailPage : ContentPage, IQueryAttributable
             }),
             Ui.Card(new VerticalStackLayout { Spacing = 4, Children = { Header(text["customers.report"]), _report } }),
             Ui.Card(new VerticalStackLayout { Spacing = 4, Children = { Header(text["customers.receipts"]), _receipts } }),
-            Ui.Card(new VerticalStackLayout { Spacing = 4, Children = { Header(text["customers.ledger"]), _ledger } }));
+            Ui.Card(new VerticalStackLayout { Spacing = 4, Children = { Header(text["customers.ledger"]), _ledger } }),
+            RemoveButton(text));
+    }
+
+    /// <summary>CUST-1: remove a customer with no dues (manager or owner: the pipeline asks for a PIN when needed).</summary>
+    private Button RemoveButton(ILocalizer text)
+    {
+        var remove = Ui.Button(text["customers.remove"], Theme.Danger);
+        remove.Clicked += SafeUi.On(async () =>
+        {
+            if (_customer is null) return;
+            if (!await _dialogs.ConfirmAsync(text["customers.remove"], text.Format("customers.remove.confirm", _customer.Name), text["common.yes"], text["common.no"])) return;
+            var r = await _sender.Send(new RemoveCustomerCommand(_customer.Id));
+            if (r.IsFailure) { await _dialogs.ToastAsync(text.Error(r.Error)); return; }
+            await _dialogs.ToastAsync(text["customers.removed"]);
+            await Shell.Current.GoToAsync("..");
+        });
+        return remove;
     }
 
     private static Label Header(string text) => new() { Text = text, FontFamily = Theme.FontBold, FontSize = 18 };

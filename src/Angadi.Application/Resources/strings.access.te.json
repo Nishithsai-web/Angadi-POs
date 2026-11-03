@@ -58,5 +58,9 @@
   "activity.SwitchShopCommand": "దుకాణం మార్పు",
   "activity.SaveStaffCommand": "సిబ్బంది మార్పు",
   "activity.SetStaffActiveCommand": "సిబ్బంది ఆన్/ఆఫ్",
-  "activity.SaveCashierGrantsCommand": "క్యాషియర్ అనుమతులు మార్పు"
+  "activity.SaveCashierGrantsCommand": "క్యాషియర్ అనుమతులు మార్పు",
+  "activity.RemoveCustomerCommand": "కస్టమర్ తీసివేశారు",
+  "customers.remove": "కస్టమర్‌ను తీసివేయండి",
+  "customers.remove.confirm": "'{0}' ను జాబితా నుండి తీసివేయాలా? పాత బిల్లులు అలాగే ఉంటాయి.",
+  "customers.removed": "కస్టమర్‌ను తీసివేశారు"
 }

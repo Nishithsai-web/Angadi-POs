@@ -85,6 +85,7 @@ public static class DependencyInjection
         // Catalog
         services.AddTransient<IRequestHandler<SaveItemCommand, Result<Guid>>, SaveItemHandler>();
         services.AddTransient<IRequestHandler<SaveCustomerCommand, Result<Guid>>, SaveCustomerHandler>();
+        services.AddTransient<IRequestHandler<RemoveCustomerCommand, Result>, RemoveCustomerHandler>();   // CUST-1
         services.AddTransient<ItemQueries>();
         services.AddTransient<IRequestHandler<SearchItemsQuery, IReadOnlyList<Item>>>(sp => sp.GetRequiredService<ItemQueries>());
         services.AddTransient<IRequestHandler<GetAllItemsQuery, IReadOnlyList<Item>>>(sp => sp.GetRequiredService<ItemQueries>());

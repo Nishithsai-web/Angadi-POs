@@ -27,6 +27,8 @@ public sealed record SearchCustomersQuery(string Text) : IQuery<IReadOnlyList<Cu
 public sealed record GetCustomerQuery(Guid CustomerId) : IQuery<Customer?>;
 public sealed record GetCustomerLedgerQuery(Guid CustomerId) : IQuery<IReadOnlyList<DuesEntry>>;
 public sealed record SaveCustomerCommand(Customer Customer) : ICommand<Result<Guid>>;
+/// <summary>CUST-1: remove a customer with no dues from lists and search (manager or owner). Bills keep their history.</summary>
+public sealed record RemoveCustomerCommand(Guid CustomerId) : ICommand<Result>;
 
 // Shop (FR-01)
 public sealed record GetShopProfileQuery : IQuery<ShopProfile?>;

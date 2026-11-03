@@ -96,6 +96,9 @@ internal sealed class CustomerRow
     public string? Notes { get; set; }
     public int? PromisedPayDay { get; set; }       // yyyymmdd
     public long? LastRemindedAtMs { get; set; }
+    // CUST-1: removed from lists and search; bills and the ledger keep pointing at it. JsonIgnore-when-default keeps
+    // every older backup's MAC input unchanged (INV2-1).
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public bool IsRemoved { get; set; }
 }
 
 [Table("DuesEntry")]

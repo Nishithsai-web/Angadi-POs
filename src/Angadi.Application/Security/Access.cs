@@ -34,6 +34,7 @@ public enum Permission
     ExportData = 9,
     PrinterSetup = 10,
     SellExpired = 11,
+    RemoveCustomer = 12,
     // Owner only
     RestoreData = 20,
     ShopSettings = 21,
@@ -79,6 +80,7 @@ public static class AccessPolicy
         [typeof(RecordReturnCommand)] = Permission.Refund,
         [typeof(RecordDuesPaymentCommand)] = Permission.CollectDues,
         [typeof(RecordDuesWriteOffCommand)] = Permission.WriteOffDues,
+        [typeof(RemoveCustomerCommand)] = Permission.RemoveCustomer,
         [typeof(SaveItemCommand)] = Permission.EditCatalog,
         [typeof(SeedItemsCommand)] = Permission.EditCatalog,
         [typeof(AdjustStockCommand)] = Permission.AdjustStock,
