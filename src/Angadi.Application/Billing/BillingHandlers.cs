@@ -419,7 +419,8 @@ internal sealed class ShareReceiptHandler(
 /// After a bill for a customer with a phone: the bill summary and their udhaar balance, to THEIR registered number.
 /// </summary>
 internal sealed class SendBillToCustomerHandler(
-    IBillRepository bills, ICustomerRepository customers, IShopProfileRepository shop, IReceiptShare share, ILocalizer text)
+    IBillRepository bills, ICustomerRepository customers, IShopProfileRepository shop, IReceiptShare share, ILocalizer text,
+    IReceiptRenderer renderer, ILogger<SendBillToCustomerHandler> log)
     : IRequestHandler<SendBillToCustomerCommand, Result>
 {
     public async Task<Result> Handle(SendBillToCustomerCommand command, CancellationToken ct)
@@ -458,6 +459,24 @@ internal sealed class SendBillToCustomerHandler(
             IndianFormat.Rupees(bill.GrandTotal), tender) + "\n" + items;
         if (customer.DuesBalance.Value > 0)
             message += "\n" + text.Format("receipt.customer.balance", IndianFormat.Rupees(customer.DuesBalance));
+        // FIX(SHARE-3, 2026-11-02, Claude): Flaw: "Send to customer" sent only a text summary, while the PDF receipt is
+        // what shops and customers keep. Fix: the PDF goes straight to the customer's WhatsApp chat with this message as
+        // its caption; if the PDF can't be made or WhatsApp can't take it, the text message opens as before. Why: the PDF
+        // is the default document, and the text is the safety net so sending never dead-ends. Logged in
+        // docs/AGENT_FIX_LOG.md.
+        try
+        {
+            if (profile is not null)
+            {
+                var pdf = await renderer.RenderAsync(bill, profile, customer, ct);
+                if (pdf.IsSuccess && (await share.ShareFileToWhatsAppAsync(phone, pdf.Value, message, ct)).IsSuccess)
+                    return Result.Success();
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            log.LogWarning(ex, "PDF to WhatsApp failed; sending the text message instead");
+        }
         return await share.OpenWhatsAppAsync(phone, message, ct);   // SEND-1: normalized above
     }
 }

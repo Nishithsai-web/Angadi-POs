@@ -400,8 +400,8 @@
     "en": "A shop can have at most {0} staff. Turn off someone who has left, then add the new person"
   },
   "CUSTOMER_PHONE_DUPLICATE": {
-    "te": "ఈ ఫోన్ నంబర్ ఇప్పటికే '{0}' పేరుతో ఉంది. కస్టమర్ల జాబితాలో వారిని తెరవండి",
-    "en": "This phone number is already saved for '{0}'. Open them from the customer list"
+    "te": "'{0}' అనే కస్టమర్ ఇదే ఫోన్ నంబర్‌తో ఇప్పటికే ఉన్నారు. కస్టమర్ల జాబితాలో వారిని తెరవండి",
+    "en": "A customer named '{0}' with this phone number already exists. Open them from the customer list"
   },
   "CUSTOMER_HAS_DUES": {
     "te": "ఈ కస్టమర్‌కు ఇంకా {0} బాకీ ఉంది. ముందు బాకీ వసూలు చేయండి లేదా మాఫీ చేయండి, తర్వాత తీసివేయండి",

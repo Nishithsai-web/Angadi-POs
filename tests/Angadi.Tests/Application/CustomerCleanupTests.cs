@@ -26,13 +26,14 @@ public sealed class CustomerCleanupTests : IDisposable
     }
 
     [Fact]
-    public async Task TheSamePhone_CannotBeSavedForTwoCustomers_InAnyWriting()
+    public async Task TheSamePersonAndPhone_CannotBeSavedTwice_InAnyWriting_ButAFamilyMayShareAPhone()
     {
         await _h.SeedShopAsync();
         await AddCustomerAsync("nishith", "89193 70399");
-        var again = await _h.Sender.Send(new SaveCustomerCommand(new Customer { Name = "nishith", Phone = "+91 8919370399" }));
+        var again = await _h.Sender.Send(new SaveCustomerCommand(new Customer { Name = " Nishith ", Phone = "+91 8919370399" }));
         Assert.Equal(ErrorCodes.CustomerPhoneDuplicate, again.Error.Code);
         Assert.Single(await _h.Sender.Send(new SearchCustomersQuery("nishith")));
+        await AddCustomerAsync("Nishith's wife", "89193 70399");   // different person, same phone: allowed
     }
 
     [Fact]
@@ -97,9 +98,29 @@ public sealed class CustomerCleanupTests : IDisposable
         Assert.Equal(2, _share.Sheet.Count);   // both ended on the share sheet
     }
 
+    [Fact]
+    public async Task SendToCustomer_SendsThePdfWithTheMessageAsCaption_AndFallsBackToText()
+    {
+        await _h.SeedShopAsync();
+        var rice = await _h.AddItemAsync("బియ్యం", 6000);
+        var c = await AddCustomerAsync("Ravi", "9876543210");
+        var draft = AppHost.Draft(TenderType.Cash, (rice, 1000));
+        draft.CustomerId = c.Id;
+        var bill = await _h.Sender.Send(new FinalizeBillCommand(draft));
+
+        Assert.True((await _h.Sender.Send(new SendBillToCustomerCommand(bill.Value.BillId))).IsSuccess);
+        Assert.Equal("919876543210", Assert.Single(_share.Direct).Phone);
+        Assert.Empty(_share.Texts);   // the PDF went; no separate text
+
+        _share.DirectWorks = false;
+        Assert.True((await _h.Sender.Send(new SendBillToCustomerCommand(bill.Value.BillId))).IsSuccess);
+        Assert.Equal("919876543210", Assert.Single(_share.Texts).Phone);   // WhatsApp couldn't take the PDF: text instead
+    }
+
     private sealed class DirectShare : IReceiptShare
     {
         public bool DirectWorks { get; set; } = true;
+        public List<(string Phone, string Message)> Texts { get; } = [];
         public List<(string Phone, string File)> Direct { get; } = [];
         public List<string> Sheet { get; } = [];
 
@@ -115,7 +136,11 @@ public sealed class CustomerCleanupTests : IDisposable
             return Task.FromResult(Result.Success());
         }
 
-        public Task<Result> OpenWhatsAppAsync(string phoneE164, string message, CancellationToken ct = default) => Task.FromResult(Result.Success());
+        public Task<Result> OpenWhatsAppAsync(string phoneE164, string message, CancellationToken ct = default)
+        {
+            Texts.Add((phoneE164, message));
+            return Task.FromResult(Result.Success());
+        }
         public Task<Result> OpenSmsAsync(string phoneE164, string message, CancellationToken ct = default) => Task.FromResult(Result.Success());
         public Task<Result> ShareTextAsync(string text, string title, CancellationToken ct = default) => Task.FromResult(Result.Success());
     }

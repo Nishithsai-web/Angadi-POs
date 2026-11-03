@@ -506,7 +506,7 @@ Development no longer runs through one implementer. Muse's own dev/fix agents no
 ### CUST-1 (HIGH) — the same phone saved twice, and no way to remove a customer
 - **Status:** FIXED-AWAITING-VERIFY · **Fixed by:** Claude Code, 2026-11-02 (owner's emulator test: "nishith" twice, same number)
 - **Fix:**
-  - `SaveCustomerHandler` refuses a phone already used by another (not removed) customer, `CUSTOMER_PHONE_DUPLICATE` naming them, compared after normalization.
+  - `SaveCustomerHandler` refuses the same name (any case) AND phone as another (not removed) customer, `CUSTOMER_PHONE_DUPLICATE` naming them. Different names may share a phone (families), as `CustomerDirectoryTests` requires.
   - `RemoveCustomerCommand` (manager/owner, `Permission.RemoveCustomer`) hides a customer whose balance is ₹0 (`CUSTOMER_HAS_DUES` otherwise). `CustomerRow.IsRemoved` is JsonIgnore-when-default (old backups keep their MAC); bills and the ledger keep the customer.
   - Customer screen: *Remove customer*.
 - **Tests:** `CustomerCleanupTests`.
@@ -520,3 +520,8 @@ Development no longer runs through one implementer. Muse's own dev/fix agents no
 - **Status:** FIXED-AWAITING-VERIFY on a real phone · **Fixed by:** Claude Code, 2026-11-02
 - **Evidence:** with an on-device recognizer present, the only attempt was on-device/offline-first. With no Telugu model, it returns server, network or language errors, mapped to VOICE_NO_INTERNET.
 - **Fix:** such a failure retries once with Google's online recognizer, without the offline hint, when the phone has internet. The message now says voice couldn't reach Google speech and to tap again or type.
+
+### SHARE-3 (MEDIUM) — "Send to customer" sent only a text summary
+- **Status:** FIXED-AWAITING-VERIFY · **Fixed by:** Claude Code, 2026-11-02 (owner: the PDF is the default document)
+- **Fix:** `SendBillToCustomerHandler` sends the PDF receipt straight to the customer's WhatsApp chat with the message (items, total, udhaar balance) as its caption. If the PDF can't be made or WhatsApp can't take it, the text message opens as before.
+- **Tests:** `CustomerCleanupTests.SendToCustomer_*`.

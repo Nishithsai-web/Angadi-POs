@@ -286,9 +286,9 @@ internal sealed class CustomerRepository(AngadiDb db, IClock clock) : ICustomerR
         }, ct);
     }
 
-    public Task<Customer?> FindByPhoneAsync(string phone, Guid exceptId, CancellationToken ct = default)
+    public Task<Customer?> FindDuplicateAsync(string phone, string name, Guid exceptId, CancellationToken ct = default)
         => db.ReadAsync(c => c.Query<CustomerRow>(
-                "SELECT * FROM Customer WHERE Phone = ? AND Id <> ? AND COALESCE(IsRemoved, 0) = 0 LIMIT 1", phone, exceptId)
+                "SELECT * FROM Customer WHERE Phone = ? AND Name = ? COLLATE NOCASE AND Id <> ? AND COALESCE(IsRemoved, 0) = 0 LIMIT 1", phone, name, exceptId)
             .Select(ToDomain).FirstOrDefault(), ct);
 
     public Task RemoveAsync(Guid id, CancellationToken ct = default)

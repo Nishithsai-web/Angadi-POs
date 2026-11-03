@@ -140,11 +140,11 @@ internal sealed class SaveCustomerHandler(ICustomerRepository customers, IOutbox
         var c = command.Customer;
         c.Name = c.Name.Trim();
         c.Phone = PhoneNumbers.Normalize(c.Phone);
-        // FIX(CUST-1, 2026-11-02, Claude): Flaw: the same phone could be saved twice ("nishith" ×2 on the owner's test
-        // phone), splitting one customer's udhaar across two accounts and sending reminders twice. Fix: a phone
-        // already used by another (not removed) customer is refused, naming them. Why: one person, one dues account.
-        // Logged in docs/AGENT_FIX_LOG.md.
-        if (c.Phone is { } phone && await customers.FindByPhoneAsync(phone, c.Id, ct) is { } other)
+        // FIX(CUST-1, 2026-11-02, Claude): Flaw: the same person could be saved twice ("nishith" ×2, same number on the
+        // owner's test phone), splitting their udhaar across two accounts and sending reminders twice. Fix: the same
+        // name AND number as another (not removed) customer is refused. Different names may share a phone (a family),
+        // as the directory already allowed. Why: one person, one dues account. Logged in docs/AGENT_FIX_LOG.md.
+        if (c.Phone is { } phone && await customers.FindDuplicateAsync(phone, c.Name, c.Id, ct) is { } other)
             return Result.Failure<Guid>(Error.With(ErrorCodes.CustomerPhoneDuplicate, other.Name));
         await customers.SaveAsync(c, ct);
         await outbox.AppendAsync("Customer", new CustomerChanged(c.Id, clock.Now), ct);   // M6

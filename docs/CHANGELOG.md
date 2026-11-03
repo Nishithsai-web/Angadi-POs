@@ -2,7 +2,8 @@
 Every meaningful change: date, what, the issue it addresses, and the one-line why. Newest first.
 
 ## 2026-11-02 (Claude Code) — customers, WhatsApp receipts, voice retry
-- **No duplicate customers:** the same phone number can't be saved twice; the message names who already has it.
+- **No duplicate customers:** the same name and phone number can't be saved twice (a family can share a number under different names).
+- **The PDF receipt is the default document:** *Send to customer* now sends the PDF with the message as its caption (text only if WhatsApp can't take it).
 - **Remove customer** (manager/owner): only when dues are ₹0. Old bills keep the name.
 - **Share receipt / Share again** for a customer with a phone goes straight to their WhatsApp chat with the PDF. If WhatsApp isn't there, the normal share sheet opens.
 - **Voice:** when the phone's offline Telugu recognizer fails, Angadi retries with Google's online recognizer, and the message now says what happened.
