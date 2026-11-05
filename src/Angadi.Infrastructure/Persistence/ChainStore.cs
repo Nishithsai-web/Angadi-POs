@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using Angadi.Application.Chain;
 using Angadi.Application.Common;
+using Angadi.Application.Persistence;
 using Microsoft.Extensions.Logging;
 
 namespace Angadi.Infrastructure.Persistence;
