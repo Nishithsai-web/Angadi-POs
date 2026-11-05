@@ -406,5 +406,25 @@
   "CUSTOMER_HAS_DUES": {
     "te": "ఈ కస్టమర్‌కు ఇంకా {0} బాకీ ఉంది. ముందు బాకీ వసూలు చేయండి లేదా మాఫీ చేయండి, తర్వాత తీసివేయండి",
     "en": "This customer still has {0} in dues. Collect or write it off first, then remove them"
+  },
+  "CHAIN_CODE_INVALID": {
+    "te": "చైన్ కోడ్ కనీసం {0} అక్షరాలు ఉండాలి. అన్ని ఫోన్లలో ఒకే కోడ్ పెట్టండి",
+    "en": "The chain code must be at least {0} characters. Use the same code on every phone"
+  },
+  "CHAIN_CODE_MISSING": {
+    "te": "ముందు చైన్ కోడ్ పెట్టండి (సెట్టింగ్స్ → చైన్ & బ్రాంచీలు). అన్ని ఫోన్లలో ఒకే కోడ్ ఉండాలి",
+    "en": "Set the chain code first (Settings → Chain & branches). It must be the same on every phone"
+  },
+  "CHAIN_PACK_UNREADABLE": {
+    "te": "ఈ ఫైల్ అంగడి బ్రాంచ్ రిపోర్ట్ కాదు. బ్రాంచ్ ఫోన్ నుండి 'రిపోర్ట్ పంపండి' తో వచ్చిన ఫైల్‌నే ఎంచుకోండి",
+    "en": "This isn't an Angadi branch report. Pick the file sent by a branch phone using 'Send report'"
+  },
+  "CHAIN_PACK_REJECTED": {
+    "te": "ఈ రిపోర్ట్ మీ చైన్ కోడ్‌తో సరిపోలలేదు. బ్రాంచ్ ఫోన్‌లో అదే కోడ్ ఉందో చూడండి, లేదా ఫైల్ మారలేదో చూసి మళ్ళీ పంపమనండి",
+    "en": "This report doesn't match your chain code. Check the branch phone uses the same code, or ask them to send it again"
+  },
+  "CHAIN_TOO_MANY_BRANCHES": {
+    "te": "గరిష్ఠంగా {0} బ్రాంచీలు. పాతవి తీసివేసి మళ్ళీ ప్రయత్నించండి",
+    "en": "At most {0} branches. Remove an old one and try again"
   }
 }

@@ -155,6 +155,15 @@ public static class DependencyInjection
         // v2 several shops on one phone (Settings → Shops)
         Angadi.Application.Shops.ShopsRegistration.AddShops(services);
 
+        // CHAIN-1 branch report packs (IChainStore and ChainPackFolder come from Infrastructure).
+        services.AddTransient<Chain.ChainHandlers>();
+        services.AddTransient<IRequestHandler<Chain.SetChainCodeCommand, Result>>(sp => sp.GetRequiredService<Chain.ChainHandlers>());
+        services.AddTransient<IRequestHandler<Chain.BuildChainPackCommand, Result<string>>>(sp => sp.GetRequiredService<Chain.ChainHandlers>());
+        services.AddTransient<IRequestHandler<Chain.ImportChainPackCommand, Result<Chain.ImportOutcome>>>(sp => sp.GetRequiredService<Chain.ChainHandlers>());
+        services.AddTransient<IRequestHandler<Chain.ListBranchesQuery, Result<IReadOnlyList<Chain.BranchPack>>>>(sp => sp.GetRequiredService<Chain.ChainHandlers>());
+        services.AddTransient<IRequestHandler<Chain.RemoveBranchCommand, Result>>(sp => sp.GetRequiredService<Chain.ChainHandlers>());
+        services.AddTransient<IRequestHandler<Chain.GetChainStatusQuery, Chain.ChainStatus>>(sp => sp.GetRequiredService<Chain.ChainHandlers>());
+
         // RBAC-1 roles, staff and activity log (IAccessControl itself is registered by Infrastructure).
         services.AddTransient<Security.AccessHandlers>();
         services.AddTransient<IRequestHandler<Security.GetCurrentUserQuery, Security.AccessUser>>(sp => sp.GetRequiredService<Security.AccessHandlers>());

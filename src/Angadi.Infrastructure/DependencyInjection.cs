@@ -76,6 +76,10 @@ public static class DependencyInjection
         // v2 printing: the same renderer (same rows, fonts, gate) draws the thermal raster. The printer choice is
         // hardware, kept in its own file outside the database; the Android head replaces the transport.
         services.AddSingleton<IThermalReceiptRenderer>(sp => sp.GetRequiredService<ReceiptRenderer>());
+        // CHAIN-1: this phone's chain code + received branch reports (per phone, not in the shop database or backups).
+        services.AddSingleton<Angadi.Application.Chain.IChainStore>(sp => new ChainStore(
+            Path.Combine(options.DataDirectory, "chain.json"), sp.GetRequiredService<AngadiDb>(), sp.GetRequiredService<ILogger<ChainStore>>()));
+        services.AddSingleton(new Angadi.Application.Chain.ChainPackFolder(Path.Combine(options.CacheDirectory, "chain")));
         services.AddSingleton<IPrinterSettingsStore>(_ => new PrinterSettingsStore(Path.Combine(options.DataDirectory, "printer.json")));
         services.AddSingleton<IBluetoothPrinterTransport, NoBluetoothPrinterTransport>();
 

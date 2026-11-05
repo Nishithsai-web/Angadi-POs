@@ -171,6 +171,13 @@ public static class ErrorCodes
     public const string PrinterDisconnected = "PRINTER_DISCONNECTED";
     public const string PrinterTimeout = "PRINTER_TIMEOUT";
 
+    // CHAIN-1 branch report packs
+    public const string ChainCodeInvalid = "CHAIN_CODE_INVALID";
+    public const string ChainCodeMissing = "CHAIN_CODE_MISSING";
+    public const string ChainPackUnreadable = "CHAIN_PACK_UNREADABLE";
+    public const string ChainPackRejected = "CHAIN_PACK_REJECTED";
+    public const string ChainTooManyBranches = "CHAIN_TOO_MANY_BRANCHES";
+
     // RBAC-1 roles and staff
     /// <summary>A manager or the owner must approve this (their PIN on this phone).</summary>
     public const string NotAllowedManager = "NOT_ALLOWED_MANAGER";

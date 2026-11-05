@@ -35,6 +35,7 @@ public enum Permission
     PrinterSetup = 10,
     SellExpired = 11,
     RemoveCustomer = 12,
+    SendChainReport = 13,
     // Owner only
     RestoreData = 20,
     ShopSettings = 21,
@@ -42,6 +43,8 @@ public enum Permission
     ManageStaff = 23,
     Subscription = 24,
     ViewActivity = 25,
+    ChainSetup = 26,
+    ChainView = 27,
 }
 
 public static class AccessPolicy
@@ -50,7 +53,7 @@ public static class AccessPolicy
     public static readonly IReadOnlySet<Permission> OwnerOnly = new HashSet<Permission>
     {
         Permission.RestoreData, Permission.ShopSettings, Permission.ManageShops, Permission.ManageStaff,
-        Permission.Subscription, Permission.ViewActivity,
+        Permission.Subscription, Permission.ViewActivity, Permission.ChainSetup, Permission.ChainView,
     };
 
     /// <summary>What the owner may hand to cashiers in a shop (Settings → Staff), so the counter need not wait for a manager.</summary>
@@ -81,6 +84,11 @@ public static class AccessPolicy
         [typeof(RecordDuesPaymentCommand)] = Permission.CollectDues,
         [typeof(RecordDuesWriteOffCommand)] = Permission.WriteOffDues,
         [typeof(RemoveCustomerCommand)] = Permission.RemoveCustomer,
+        [typeof(Chain.SetChainCodeCommand)] = Permission.ChainSetup,
+        [typeof(Chain.BuildChainPackCommand)] = Permission.SendChainReport,
+        [typeof(Chain.ImportChainPackCommand)] = Permission.ChainView,
+        [typeof(Chain.ListBranchesQuery)] = Permission.ChainView,
+        [typeof(Chain.RemoveBranchCommand)] = Permission.ChainView,
         [typeof(SaveItemCommand)] = Permission.EditCatalog,
         [typeof(SeedItemsCommand)] = Permission.EditCatalog,
         [typeof(AdjustStockCommand)] = Permission.AdjustStock,

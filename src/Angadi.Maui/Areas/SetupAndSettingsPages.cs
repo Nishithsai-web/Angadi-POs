@@ -311,6 +311,7 @@ public sealed class SettingsPage : ContentPage
             {
                 if (await PinGate.CheckAsync(Permission.ManageStaff, _dialogs, _text)) await Shell.Current.GoToAsync(Routes.Staff);
             }),
+            Item("settings.chain", async () => await Shell.Current.GoToAsync(Routes.Chain)),   // CHAIN-1: page decides who sees what
             Item("settings.activity", async () =>
             {
                 if (await PinGate.CheckAsync(Permission.ViewActivity, _dialogs, _text)) await Shell.Current.GoToAsync(Routes.Activity);
