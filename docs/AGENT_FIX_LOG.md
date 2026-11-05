@@ -525,3 +525,11 @@ Development no longer runs through one implementer. Muse's own dev/fix agents no
 - **Status:** FIXED-AWAITING-VERIFY · **Fixed by:** Claude Code, 2026-11-02 (owner: the PDF is the default document)
 - **Fix:** `SendBillToCustomerHandler` sends the PDF receipt straight to the customer's WhatsApp chat with the message (items, total, udhaar balance) as its caption. If the PDF can't be made or WhatsApp can't take it, the text message opens as before.
 - **Tests:** `CustomerCleanupTests.SendToCustomer_*`.
+
+### CHAIN-1 (FEATURE) — a chain owner could not see child shops
+- **Status:** FIXED-AWAITING-VERIFY · **Fixed by:** Claude Code, 2026-11-05
+- **Flaw:** one owner with several shops had to visit each phone; v1 has no server to merge data.
+- **Fix:** HMAC-SHA256-signed branch report packs (PBKDF2 key from the shared chain code). Branch builds and shares; head imports. `ChainStore` keeps the newest pack per shop (replay-safe), per-phone file `chain.json` (not in the DB or backups). Permissions: SendChainReport (manager+), ChainSetup/ChainView (owner only).
+- **Why:** keeps per-shop DB isolation and the no-backend rule; only totals travel.
+- **Tests:** `ChainTests` (codec, wrong code, tamper, garbage, replay, end to end, permissions).
+- **Limit:** the head view is as fresh as the last file sent; there is no live sync in v1.

@@ -1,6 +1,11 @@
 # CHANGELOG.md — Angadi POS v1
 Every meaningful change: date, what, the issue it addresses, and the one-line why. Newest first.
 
+## 2026-11-05 (Claude Code, CHAIN-1) — chain owner sees every branch
+- **Settings → Chain & branches.** Set one chain code (min 6 characters) on every phone. A branch taps *Send report to owner*: a signed `.angadi` file with 14 days of totals, udhaar due and stock counts goes out through the share sheet (WhatsApp works).
+- **Owner phone:** *Import a branch report* (owner PIN) shows each branch: last 7 days, payments, udhaar, low/out stock. A newer file updates a branch; an older or repeated file changes nothing.
+- **Privacy:** no items, no customer names or phones leave a branch. A wrong code or edited file is refused with a plain message. Up to 50 branches.
+
 ## 2026-11-02 (Claude Code) — customers, WhatsApp receipts, voice retry
 - **No duplicate customers:** the same name and phone number can't be saved twice (a family can share a number under different names).
 - **The PDF receipt is the default document:** *Send to customer* now sends the PDF with the message as its caption (text only if WhatsApp can't take it).
