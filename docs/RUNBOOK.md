@@ -89,3 +89,8 @@ raster are unit-tested; the Android SPP link is tested on a real printer before 
 
 ## Escalate to development when
 A crash repeats, totals don't match the receipt, or stock doesn't match bills. Send the logs zip, the bill number and the time. These are bugs, not support questions.
+
+## Chain report packs (CHAIN-1)
+- "Pack rejected" = the chain code differs between the two phones, or the file was edited. Re-enter the same code on both and resend.
+- "Pack unreadable" = not an Angadi file (or over 256 KB). Resend from the branch.
+- The owner's view is only as new as the last file imported; there is no live sync in v1. Chain data lives in the per-phone `chain.json`; it is not in backups, so re-import after a reinstall.

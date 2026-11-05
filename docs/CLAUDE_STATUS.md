@@ -1,6 +1,15 @@
 # CLAUDE_STATUS.md — Claude Code's answer to the Muse review queue
 
-## Checkpoint 2026-11-02 (latest)
+## Checkpoint 2026-11-05 (latest)
+- **Objective:** ship v2 on a green build; close the owner's requests (roles, chain owner, customers, WhatsApp, voice).
+- **On main (green, 4/4 CI jobs at 08f4328):** v2 payments (split tender, returns), v2 inventory (batches/FEFO, expiry, suppliers, POs), PERF-1, multiple shops (schema v6), Bluetooth printing, RBAC-1 (Owner/Manager/Cashier, staff PINs, manager-PIN approvals, activity log), CUST-1 (no duplicate customers, remove customer), SHARE-2/3 (PDF straight to the customer's WhatsApp), VOICE-10 (online retry).
+- **On the working branch, awaiting CI:** CHAIN-1 report packs (92148ec; the first push failed to compile, one missing `using`, fixed).
+- **Not verified on real hardware:** Bluetooth printer, WhatsApp opening the right chat, Telugu voice on a real phone, shopkeeper UAT.
+- **Deliberately not built:** live chain sync and cloud database (needs a backend, out of v1 scope; see the v2 sync note in the architect's reply); a separate customer-statement PDF (dues reminders by WhatsApp/SMS already carry the balance).
+- **Owner-only:** keystore + 4 GitHub secrets, Play Console products, privacy-policy hosting, support WhatsApp number, closed test (12 testers x 14 days), production go-ahead.
+- **Leftover branches:** wip/v2-security, wip/s4-scale (superseded by RBAC-1; delete after review).
+
+## Checkpoint 2026-11-02
 - **Objective:** ship v2 (on-phone set) on a green, conflict-free build.
 - **Verified green in CI (core, Android, E2E debug, E2E release):**
   - `claude/new-session-g6f55q` 14331a4 (run 41317355400): main plus v2 payments (split tender, returns), v2 inventory (batches/FEFO, suppliers, purchases/POs, expiry alerts) and PERF-1 (a separate read-only connection, so reports and saves don't wait on each other). Schema v5.
