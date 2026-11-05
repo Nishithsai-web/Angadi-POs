@@ -22,7 +22,7 @@ public sealed class ConcurrentAccessTests : IDisposable
         var report = _t.Db.ReadAsync(c =>
         {
             reading.Set();
-            Thread.Sleep(1500);   // a heavy report
+            Thread.Sleep(6000);   // a heavy report (long, so a loaded CI machine's stalls can't look like blocking)
             return c.ExecuteScalar<int>("SELECT COUNT(*) FROM Meta");
         });
         Assert.True(reading.Wait(TimeSpan.FromSeconds(10)));
@@ -32,7 +32,7 @@ public sealed class ConcurrentAccessTests : IDisposable
         sw.Stop();
 
         Assert.False(report.IsCompleted, "the report should still be running");
-        Assert.True(sw.ElapsedMilliseconds < 1000, $"the save waited {sw.ElapsedMilliseconds} ms for the report");
+        Assert.True(sw.ElapsedMilliseconds < 3000, $"the save waited {sw.ElapsedMilliseconds} ms for the report");
         await report;
     }
 
@@ -44,7 +44,7 @@ public sealed class ConcurrentAccessTests : IDisposable
         {
             await _t.Db.RunAsync(c => c.Execute("INSERT OR REPLACE INTO Meta (Key, Value) VALUES ('perf.tx', '1')"));
             writing.Set();
-            await Task.Delay(1500);   // a long transaction
+            await Task.Delay(6000);   // a long transaction
             return true;
         }, ok => ok);
         Assert.True(writing.Wait(TimeSpan.FromSeconds(10)));
@@ -53,7 +53,7 @@ public sealed class ConcurrentAccessTests : IDisposable
         var seenDuring = await _t.Db.ReadAsync(c => c.ExecuteScalar<int>("SELECT COUNT(*) FROM Meta WHERE Key = 'perf.tx'"));
         sw.Stop();
 
-        Assert.True(sw.ElapsedMilliseconds < 1000, $"the report waited {sw.ElapsedMilliseconds} ms for the save");
+        Assert.True(sw.ElapsedMilliseconds < 3000, $"the report waited {sw.ElapsedMilliseconds} ms for the save");
         Assert.Equal(0, seenDuring);   // uncommitted work is never visible to a report
         await save;
         Assert.Equal(1, await _t.Db.ReadAsync(c => c.ExecuteScalar<int>("SELECT COUNT(*) FROM Meta WHERE Key = 'perf.tx'")));
