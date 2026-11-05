@@ -4,7 +4,7 @@ using Angadi.Application.Common;
 using Angadi.Application.Security;
 using Angadi.Domain.Billing;
 using Angadi.Domain.Shop;
-using Angadi.Infrastructure.Persistence;
+using Angadi.Application.Platform;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Angadi.Tests.Application;
