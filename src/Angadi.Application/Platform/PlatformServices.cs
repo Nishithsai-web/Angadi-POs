@@ -154,14 +154,7 @@ public interface ILogExporter
     Task<Result<string>> ExportAsync(CancellationToken ct = default);
 }
 
-/// <summary>
-/// M4: the v2 sync seam. v1 registers nothing, so no code path can pretend to sync. A v2 implementation drains
-/// unsent Outbox rows (in order, by PayloadVersion) and returns how many it delivered.
-/// </summary>
-public interface ISyncService
-{
-    Task<Result<int>> DrainAsync(CancellationToken ct = default);
-}
+// The v2 sync seam that stood here (M4) is now Angadi.Application.Sync.ISyncService.
 
 /// <summary>Looks up Telugu/English strings from Resources/strings.*.json (FR-02, NFR-04).</summary>
 public interface ILocalizer
