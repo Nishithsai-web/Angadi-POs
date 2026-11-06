@@ -115,7 +115,7 @@ Development no longer runs through one implementer. Muse's own dev/fix agents no
 - **Effect on Claude Code:** You are now one implementer among several. Check this log + fix-site comments before touching a file — another agent may already own the flaw. Claim an entry by setting it `IN-FIX` with your agent name in the same push that starts the work.
 
 ### MINOR-1 — Dues-reminder promised date renders in English inside Telugu WhatsApp messages
-- **Status:** OPEN
+- **Status:** FIXED-AWAITING-VERIFY (reconciled 2026-11-06: `SendDuesReminderHandler` formats with `text.Short(promised)` → day + localized `month.N` string, no InvariantCulture month)
 - **Evidence:** `SendDuesReminderHandler` formats the promised-pay date with `InvariantCulture` (noted by repo watcher review, 2026-10-20 06:40 EDT) → "25 Oct" appears inside an otherwise-Telugu reminder message.
 - **Fix:** format with `te-IN` culture (and the app's selected UI language for English mode). Add a test asserting the formatted month in a Telugu reminder string.
 - **Why:** A reminder the customer can't smoothly read is a reminder that doesn't get paid.
@@ -167,18 +167,18 @@ Development no longer runs through one implementer. Muse's own dev/fix agents no
 - **Why recorded:** Any marketing or status claim of "AI features" for v1 must mean Tier-1 deterministic insights only.
 
 ### UI-1 (MEDIUM) — 8 secondary pages have unwrapped `async void OnAppearing`; exceptions escape SafeUi (no toast, half-loaded page)
-- **Status:** OPEN · **Found by:** Testing agent T4 (Android/E2E), 2026-10-20, code read at HEAD 0b25f05
+- **Status:** FIXED-AWAITING-VERIFY (reconciled 2026-11-06: `FIX(UI-1` marker in `src/Angadi.Maui/Areas/CatalogPages.cs`; was logged OPEN) · **Found by:** Testing agent T4 (Android/E2E), 2026-10-20, code read at HEAD 0b25f05
 - **Evidence:** ItemsPage (CatalogPages.cs:76), BillsPage + ReportsPage (LedgerPages.cs:70, 186), CustomersPage + CustomerDetailPage (CustomerPages.cs:70, 228), ShopSetupPage + SubscriptionPage (SetupAndSettingsPages.cs:92, 181), NotesPage (NotesPage.cs:59) — all derive directly from `ContentPage` (not `PageBase`) and await sender calls with no try/catch, e.g. ShopSetupPage: `_existing = await _sender.Send(new GetShopProfileQuery());`. A failure lands only on the global hooks — logged, but the shopkeeper sees no UNEXPECTED toast and the page can sit half-loaded. This is the one systematic exception to the "never-fail UI" claim (41 page-level handlers + 9/10 POS commands ARE wrapped).
 - **Fix:** route these pages through `PageBase` (which wraps OnAppearingAsync) or wrap each body in the SafeUi pattern. Pick one approach, apply to all 8, add a grep-level architecture test asserting no `async void OnAppearing` exists outside the wrapped base.
 - **Why:** "Never-fail UI" was the fix for the owner's "nothing is working" report — a hole in 8 of 14 pages is how that class of bug returns.
 
 ### UI-2 (LOW) — `PosViewModel.EditLine` is the only POS command not routed through SafeAsync
-- **Status:** OPEN · **Found by:** T4, 2026-10-20
+- **Status:** FIXED-AWAITING-VERIFY (reconciled 2026-11-06: `FIX(UI-2` marker in `src/Angadi.Maui/Areas/PosViewModel.cs`; was logged OPEN) · **Found by:** T4, 2026-10-20
 - **Evidence:** `[RelayCommand] private Task EditLine(LineRow row) => EditLineAsync(row.Id);` — all 9 sibling async commands use SafeAsync. A prompt/parse exception faults the command task instead of showing the friendly toast.
 - **Fix:** route through SafeAsync like its siblings.
 
 ### UI-3 (LOW) — `PosViewModel.SearchAsync` fire-and-forget swallows sender failures silently
-- **Status:** OPEN · **Found by:** T4, 2026-10-20
+- **Status:** FIXED-AWAITING-VERIFY (reconciled 2026-11-06: `FIX(UI-3` marker in `src/Angadi.Maui/Areas/PosViewModel.cs`; was logged OPEN) · **Found by:** T4, 2026-10-20
 - **Evidence:** called fire-and-forget from `OnSearchTextChanged`; catches only `OperationCanceledException`. A sender failure faults an unobserved task (global hook logs it) — search just returns nothing, no UI signal.
 - **Fix:** catch + log via GlobalExceptions.Report with a "search" tag (no toast — search failing silently-but-logged is acceptable UX; unobserved-task faults are not).
 
@@ -188,18 +188,18 @@ Development no longer runs through one implementer. Muse's own dev/fix agents no
 - **Why:** The Day-2 exit check requires these on a real device; emulator green is necessary, not sufficient.
 
 ### VOICE-1 (HIGH) — Slash fractions are dead code: "1/2 కేజీ" bills 1 kg instead of 500 g
-- **Status:** OPEN · **Found by:** Testing agent T2 (voice), 2026-10-20, code read at HEAD 0b25f05
+- **Status:** FIXED-AWAITING-VERIFY (reconciled 2026-11-06: `FIX(VOICE-1` marker in `src/Angadi.Application/Voice/ItemMatcher.cs`; was logged OPEN) · **Found by:** Testing agent T2 (voice), 2026-10-20, code read at HEAD 0b25f05
 - **Evidence:** `TeluguParser.ParsePhrase` explodes tokens BEFORE number parsing. `Explode`'s `DigitsThenWord` regex splits `"1/2"` into `"1"` + `"/2"`, so `TryNumber`'s fraction branch (`^([0-9]+)/([0-9]+)$`) can never fire. Result: "1/2 కేజీ బియ్యం" → Qty **1000 milli (1 kg)**, and `"/2"` falls through into the item name, polluting the match. No test anywhere uses a slash fraction.
 - **Fix:** teach `Explode` to keep a `digits/digits` token whole (check Fraction shape before DigitsThenWord), so TryNumber's fraction branch becomes reachable. Regression test: SPEC-1 in the T2 report (`T2_Fraction_SlashQuantity_Parses` — expects Name బియ్యం, Qty 500 milli, Kilogram).
 - **Why:** "Half a kilo" is one of the most common phrases at a kirana counter. Billing double quantity on it is a money error customers will catch before we do.
 
 ### VOICE-2 (MEDIUM) — Thousands-comma numbers ("2,500") are protected from splitting, then never parsed
-- **Status:** OPEN · **Found by:** T2, 2026-10-20
+- **Status:** FIXED-AWAITING-VERIFY (reconciled 2026-11-06: `FIX(VOICE-2` marker in `src/Angadi.Application/Voice/TeluguParser.cs`; was logged OPEN) · **Found by:** T2, 2026-10-20
 - **Evidence:** `MarkPunctuationSeparators` deliberately keeps "2,500" whole, but the only numeric recognizer (`Decimal()` = `^[0-9]+(?:\.[0-9]+)?$`) rejects commas; `Explode` then splits it to `"2"` + `",500"` (the latter pollutes the name). "2,500 రూపాయల బియ్యం" → Qty 2 instead of a ₹2,500 amount. Indian-locale STT commonly emits comma-grouped digits.
 - **Fix:** strip grouping commas inside numeric tokens before Decimal matching (or extend Decimal to `[0-9][0-9,]*(\.[0-9]+)?` and remove commas in TryNumber). Test: SPEC-2.
 
 ### VOICE-3 (MEDIUM) — "N + వెయ్యి" compounds misread as ranges; the Confirm candidate is wrong by 1000×
-- **Status:** OPEN · **Found by:** T2, 2026-10-20
+- **Status:** FIXED-AWAITING-VERIFY (reconciled 2026-11-06: `FIX(VOICE-3` marker in `src/Angadi.Application/Voice/TeluguParser.cs`; was logged OPEN) · **Found by:** T2, 2026-10-20
 - **Evidence:** `వెయ్యి` (1,000,000 milli) is in numbers.te.json but NOT in `hundredMultipliers` (only వంద/వందల/నూరు). After "రెండు" (lastPlace 2000), the range rule `value >= lastPlace → ambiguous, continue` drops వెయ్యి as a "range". "ఐదు వెయ్యి రూపాయల బియ్యం" → Amount candidate **500 paise (₹5) instead of ₹5,000**, flagged ambiguous. Fails safe (asks, never auto-adds) — but asks about the wrong number. Standalone వెయ్యి works (V1 test green).
 - **Fix:** give వెయ్యి multiplier treatment like వంద (previous number × 1000, descending-compound rule like H6's 20+5 / 200+50 handling). Tests: SPEC-3.
 
@@ -209,17 +209,17 @@ Development no longer runs through one implementer. Muse's own dev/fix agents no
 - **Fix:** add లక్ష/లక్షలు/కోటి as multipliers alongside the VOICE-3 fix. Test: SPEC-4.
 
 ### VOICE-5 (LOW) — Descending "ranges" add silently (asymmetric ambiguity rule)
-- **Status:** OPEN · **Found by:** T2, 2026-10-20
+- **Status:** FIXED-AWAITING-VERIFY (reconciled 2026-11-06: `FIX(VOICE-5` marker in `src/Angadi.Application/Voice/TeluguParser.cs`; was logged OPEN) · **Found by:** T2, 2026-10-20
 - **Evidence:** the ambiguity rule fires only when the second number ≥ previous place. "మూడు రెండు కేజీల బియ్యం" (3–2 descending) parses to 3000+2000 = **5000 milli, IsAmbiguous=false** → can auto-add 5 kg. Telugu ranges are normally ascending (covered), so impact is low.
 - **Fix:** two adjacent bare quantities with no unit/connector between them → IsAmbiguous regardless of direction. Test: SPEC-10.
 
 ### VOICE-6 (MEDIUM) — "Generic word asks" is an emergent seed-catalog tie, not a rule — a single-oil catalog silently auto-adds
-- **Status:** OPEN · **Found by:** T2 (WEAK-3), 2026-10-20
+- **Status:** FIXED-AWAITING-VERIFY (reconciled 2026-11-06: `FIX(VOICE-6` marker in `src/Angadi.Application/Voice/ItemMatcher.cs`; was logged OPEN) · **Found by:** T2 (WEAK-3), 2026-10-20
 - **Evidence:** No generic-alias flag exists in ItemMatcher/Item. "నూనె" asks only because several seed oils tie at 1.0 (gap < 0.05 → Confirm). If a shop stocks/deletes down to ONE oil, its curated alias "నూనె" scores exactly 1.0 → **AutoAdd, silently** — the H5 failure mode returning through catalog editing. No test exercises a single-oil catalog.
 - **Fix:** a seed-level `GenericAliases` set scored with the same 0.89 cap as unconfirmed learned aliases (ask-only, always). Test: SPEC-8 (`T2_GenericAlias_SingleOilCatalog_StillAsks` — fails today).
 
 ### VOICE-7 (LOW) — Learned-alias "LRU" evicts by least-recently-LEARNED, not least-recently-USED
-- **Status:** OPEN · **Found by:** T2 (WEAK-4), 2026-10-20
+- **Status:** FIXED-AWAITING-VERIFY (reconciled 2026-11-06: `FIX(VOICE-7` marker in `src/Angadi.Application/Voice/VoiceBillingPipeline.cs`; was logged OPEN) · **Found by:** T2 (WEAK-4), 2026-10-20
 - **Evidence:** `AliasLearner` sets `LastUsedMs` only in `LearnAsync`; the matcher never updates it on a successful match. Eviction (`MinBy(LastUsedMs)`) can evict a daily-used alias learned 31 aliases ago for a fresh one never used since. Existing LRU test advances the clock only via Learn calls, so it cannot catch this.
 - **Fix:** touch LastUsedMs on auto-add/confirm via that alias (matcher returns which alias scored; pipeline persists), or rename the mechanism honestly and evict by confirmation count then age. Test must advance usage without Learn calls.
 
@@ -230,23 +230,23 @@ Development no longer runs through one implementer. Muse's own dev/fix agents no
 - **Verified strong (no action):** H4 decimal splitting, leading bulk quantities, V1 standalone వెయ్యి, H6 ascending ranges + dative currency, M1 dosage rotation, M2 graded learned aliases, M13 fused tokens/stutter/ము→ం, Telugu-script digits, transliterated English, multi-phrase splitting, voice→bill conversion defaults (M3).
 
 ### LOG-1 (MEDIUM) — The 45 s finalize watchdog logs NOTHING when it fires; a true hang leaves no trace
-- **Status:** OPEN · **Found by:** Audit agent A1 (logging/exceptions), 2026-10-20, code read at 94a9684f
+- **Status:** FIXED-AWAITING-VERIFY (reconciled 2026-11-06: `FIX(LOG-1` marker in `src/Angadi.Maui/Areas/PosViewModel.cs`; was logged OPEN) · **Found by:** Audit agent A1 (logging/exceptions), 2026-10-20, code read at 94a9684f
 - **Evidence:** `PosViewModel.cs:402-408` — the watchdog's `catch (TimeoutException)` shows the BILL_SAVE_SLOW toast but the VM has no `ILogger` and never calls `GlobalExceptions.Report`. The request pipeline logs only on completion — so the exact counter-freeze scenario this whole design was built against would leave **zero evidence in the exported logs** support would ask the shopkeeper to send.
 - **Fix:** in the watchdog catch: `GlobalExceptions.Report(new TimeoutException("Finalize exceeded 45 s"), "finalize-watchdog");` before the toast.
 
 ### LOG-2 (LOW-MED) — Malformed `appsettings.json` crashes startup hard, with no file log
-- **Status:** OPEN · **Found by:** A1, 2026-10-20
+- **Status:** FIXED-AWAITING-VERIFY (reconciled 2026-11-06: `FIX(LOG-2` marker in `src/Angadi.Maui/MauiProgram.cs`; was logged OPEN) · **Found by:** A1, 2026-10-20
 - **Evidence:** `MauiProgram.LoadConfiguration` catches only `FileNotFoundException or IOException` (silently). Malformed JSON throws `FormatException` from the config provider — uncaught → startup crash; and because logging isn't wired yet (compounds LOG-4), nothing reaches the file log.
 - **Fix:** widen the filter to include `FormatException`, keep fall-back-to-defaults, and record a startup warning once logging exists (static flag checked post-Build).
 
 ### LOG-3 (LOW) — Log/export/recovery polish batch (9 small items, one push)
-- **Status:** OPEN · **Found by:** A1, 2026-10-20
+- **Status:** FIXED-AWAITING-VERIFY (reconciled 2026-11-06: `FIX(LOG-3` marker in `src/Angadi.Application/Billing/BillingHandlers.cs`; was logged OPEN) · **Found by:** A1, 2026-10-20
 - **Items:** (a) ✅ DONE by FIX-2, 2026-10-20, with MONEY-2 (warning log on the timeout branch + hanging-service test; both fallback branches now log). (b) `GlobalExceptions.Report` puts the correlation id in the message text, not a scope — the file template's `{CorrelationId}` renders BLANK on unhandled lines; wrap in BeginScope, and set a bootstrap logger before `builder.Build()`. (c) `LogExporter` catches only IO/Unauthorized — other exceptions (InvalidData, OOM) surface as UNEXPECTED instead of LOG_EXPORT_FAILED; broaden the catch + add the failure-path test (only success is tested today). (d) Settings export discards the share `Result` (SetupAndSettingsPages.cs:263) — a failed share gives the shopkeeper no feedback; toast it. (e) `DatabaseRecovery.Recover` (DataSafety.cs:39) skips failed safety-copy candidates with no log line — include skip reasons in the recovery report. (f) `AngadiDb.BackupBeforeMigration` swallows any SQLiteException silently — if the probe fails from corruption (not "no such table"), migration proceeds WITHOUT the `.pre-update` copy, unlogged; only swallow the missing-table result. (g) `JsonLocalizer.Error`/`Format` can show a raw `{0}` template on an arg-count FormatException — fall back to the placeholder-stripped template. (h) AppShell first-run/language-switch failures are logged but never toasted — the shopkeeper can land on an empty POS with no setup prompt and no message; call `SafeUi.ShowUnexpectedAsync()` in both catches. (i) Retention doc says "7 days / 5 MB" but Serilog's limit counts FILES (7 files ≈ 35 MB; a busy day shortens real coverage) — correct the comment or prune by age.
 - **Also noted (test-hardening, no code flaw):** NFR-08 asserts the customer PHONE never reaches logs but never asserts the NAME; cancellation (OperationCanceledException) is logged nowhere end-to-end by design; the exported log zip has no redaction pass — PII hygiene is by write-side convention, verified clean today (no log call anywhere takes name/phone/address/utterance/token — A1 swept every Log call).
 - **Verified strong (no action):** correlation scope opens BEFORE validation (rejections carry it), 50-code bilingual error catalog test-enforced both languages, storage failures classified (STORAGE_FULL/DATABASE_BUSY), bounded everything (2 s guard / 5 s busy / 30 s gate / 45 s watchdog), no raw exception text reaches any screen (grep: zero `ex.Message` in UI), purchase token never logged.
 
 ### SEC-1 (HIGH) — Manual backup export is a plaintext copy of the entire shop book
-- **Status:** OPEN · **Found by:** Audit agent A2 (security), 2026-10-20, code read at HEAD 0b25f05
+- **Status:** FIXED-AWAITING-VERIFY (reconciled 2026-11-06: `FIX(SEC-1` marker in `src/Angadi.Infrastructure/Persistence/BackupService.cs`; was logged OPEN) · **Found by:** Audit agent A2 (security), 2026-10-20, code read at HEAD 0b25f05
 - **Evidence:** `BackupService.ExportAsync` copies the raw DB to `CacheDirectory/backups/angadi-backup-*.db` — no encryption, no passphrase. The file holds every customer name, phone, dues balance, and bill history. It leaves the device by user share — the realistic leak: the shopkeeper WhatsApps it to a personal number or a shared drive, and whoever holds that one file owns the dues book (customer phone+dues is personal data under DPDP Act 2023; pharmacy histories are especially sensitive).
 - **Fix:** encrypt exports with an owner-set passphrase (AES-256-GCM, PBKDF2/Argon2 key derivation) before Play production — the v2 build plan's W4 already designs exactly this envelope for cloud backup; apply the same envelope to manual exports. Interim minimum: a Telugu warning dialog on export ("this file contains all customer dues — keep it private").
 - **Why:** This is the single most likely real-world data leak in the product — not a hacker, a forwarded file.
@@ -272,7 +272,7 @@ Development no longer runs through one implementer. Muse's own dev/fix agents no
 - **Fix:** add `DuesEntryKind.WriteOff` + a UI action with a required reason; exclude write-offs from "dues paid" totals; show them as their own report line.
 
 ### SEC-6 (MEDIUM) — Restore proves a backup is internally consistent, not that it's genuine or current
-- **Status:** OPEN · **Found by:** A2, 2026-10-20
+- **Status:** FIXED-AWAITING-VERIFY (reconciled 2026-11-06: `FIX(SEC-6` marker in `src/Angadi.Infrastructure/DependencyInjection.cs`; was logged OPEN) · **Found by:** A2, 2026-10-20
 - **Evidence:** `RestoreAsync` validates marker + schema + integrity_check + ledger reconciliation, then swaps (safety export taken first — good). A doctored-but-reconciling backup is accepted; restoring an OLD backup silently rolls the books back.
 - **Fix:** before swap, show backup date + bill/customer counts and require explicit confirm; write an HMAC/checksum record into Meta at export so tampered files are detectable. Full signing is v2.
 
@@ -328,7 +328,7 @@ Development no longer runs through one implementer. Muse's own dev/fix agents no
 - **Adjacent LOWs (same lane):** (a) `int.Parse` (not TryParse) on `schema_version` can crash-loop startup on a non-numeric value — TryParse → throw DamagedDatabaseException so snapshot recovery handles it. (b) Two backup exports in the same minute overwrite each other (filename has minute precision, `overwrite: true`) — INCLUDING the pre-restore safety copy: export at 10:42, restore at 10:42, and the safety copy IS the overwritten file. Fix: seconds/GUID suffix; safety copies `overwrite: false`. — **BOTH FIXED-AWAITING-VERIFY by FIX-2, 2026-10-20** (tests `UnparseableSchemaVersion_RecoversInsteadOfCrashing` + `DATA1_TwoExportsInTheSameSecond_ProduceTwoFiles`. UNVERIFIED-CI. The MEDIUM framework above stays OPEN — FIX-2 wave-2 item 11.)
 
 ### VOICE-9 (MEDIUM) — Speech has no offline/on-device path, and the "manual" fallback never opens typed entry
-- **Status:** OPEN · **Found by:** Flaw hunter (extends VOICE-8), 2026-10-20
+- **Status:** FIXED-AWAITING-VERIFY (reconciled 2026-11-06: `FIX(VOICE-9` marker in `src/Angadi.Application/Platform/SpeechFallback.cs`; was logged OPEN) · **Found by:** Flaw hunter (extends VOICE-8), 2026-10-20
 - **Evidence:** `AndroidSpeechToText` gates on internet FIRST (`VoiceNoInternet` before availability is checked), sets no `EXTRA_PREFER_OFFLINE`, uses only `SpeechRecognizer.CreateSpeechRecognizer` (no `CreateOnDeviceSpeechRecognizer`, API 31+). And `PosViewModel.MicCore`'s "manual" branch just toasts and returns — the POS search is NOT focused, despite the fallback comment claiming "the POS opens typed search". On de-Googled / GMS-less budget tablets (a large slice of this market) voice billing — the headline feature — is permanently dead.
 - **Fix:** try the on-device recognizer first; drop the internet pre-gate when it exists; set prefer-offline; make the manual branch actually focus the search field.
 
@@ -370,7 +370,7 @@ Development no longer runs through one implementer. Muse's own dev/fix agents no
 - **Fix (semantics pinned by Muse, 2026-10-20):** a reversal cancels min(reversal amount, that charge's remaining); any excess joins the payment pool. Tests T3-06 (partial payment remainder) + T3-07 (reversal scoping + redistribution).
 
 ### DATA-5 (LOW) — Auto Backup restores DB+WAL as a non-atomic pair; no checkpoint hook
-- **Status:** OPEN · **Found by:** T3 re-run (VERIFY-1 deep-dive) at cd2754b, 2026-10-20
+- **Status:** MITIGATED (reconciled 2026-11-06: `App.OnSleep` → safety snapshot, whose copy step runs `wal_checkpoint(TRUNCATE)` on the live database first, so the WAL is empty whenever the app goes to the background, when Android's Auto Backup normally runs; a device test (spec T3-10) is still owed) · **Found by:** T3 re-run (VERIFY-1 deep-dive) at cd2754b, 2026-10-20
 - **Evidence:** backup_rules include db + wal (correct scoping), but Android's transport copies the two files at different moments and the app declares no BackupAgent/onBackup checkpoint hook. A torn pair can silently restore an older/mixed state on a new phone. The app's daily snapshots are checkpointed copies — but are excluded from Auto Backup.
 - **Fix direction:** checkpoint the WAL on app pause, or include the snapshots folder in the rules; device behaviour pinned by spec T3-10. Pairs with SEC-1/H-D (backup trust) and v2 W4.
 
@@ -547,3 +547,6 @@ Development no longer runs through one implementer. Muse's own dev/fix agents no
 - **SHOP-SWITCH-2:** a failure copying the language after a successful shop switch no longer reports the switch as failed (any non-cancellation error is logged).
 - **STAFF-CAP:** turning a staff member back on enforces the 20-active limit (`StaffCapTests`).
 - **Not changed (owner decision):** cashiers may void and refund by default; the owner can turn either off in Settings → Staff, and every void/refund is in the activity log with the cashier's name.
+
+### Fix-log reconciliation (2026-11-06, Claude Code)
+17 entries still said OPEN although the code carries their fix (UI-1/2/3, VOICE-1/2/3/5/6/7/9, LOG-1/2/3, SEC-1, SEC-6, MINOR-1, DATA-5). Each was checked for its `FIX(ID` marker or the code path itself and re-marked with the evidence. **Genuinely open now: VOICE-4 (lakh/crore words), VOICE-8 (voice test-integrity gaps), TESTS-1 (money test specs held outside the repo).** Rule going forward: a fix commit updates its own status line.
