@@ -336,6 +336,10 @@ public sealed class SettingsPage : ContentPage
             {
                 if (await PinGate.CheckAsync(Permission.MarkAttendance, _dialogs, _text)) await Shell.Current.GoToAsync(Routes.Payroll);
             }),
+            Item("settings.export", async () =>
+            {
+                if (await PinGate.CheckAsync(Permission.ExportData, _dialogs, _text)) await Shell.Current.GoToAsync(Routes.Export);
+            }),
             Item("settings.chain", async () => await Shell.Current.GoToAsync(Routes.Chain)),   // CHAIN-1: page decides who sees what
             Item("settings.activity", async () =>
             {

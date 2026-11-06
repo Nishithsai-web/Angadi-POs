@@ -81,6 +81,7 @@ public static class DependencyInjection
         services.AddSingleton<Angadi.Application.Chain.IChainStore>(sp => new ChainStore(
             Path.Combine(options.DataDirectory, "chain.json"), sp.GetRequiredService<AngadiDb>(), sp.GetRequiredService<ILogger<ChainStore>>()));
         services.AddSingleton(new Angadi.Application.Chain.ChainPackFolder(Path.Combine(options.CacheDirectory, "chain")));
+        services.AddSingleton(new Angadi.Application.Reports.ExportFolder(Path.Combine(options.CacheDirectory, "exports")));
         services.AddSingleton<IPrinterSettingsStore>(_ => new PrinterSettingsStore(Path.Combine(options.DataDirectory, "printer.json")));
         services.AddSingleton<IBluetoothPrinterTransport, NoBluetoothPrinterTransport>();
 

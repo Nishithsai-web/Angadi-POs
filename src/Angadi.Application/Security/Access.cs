@@ -111,6 +111,7 @@ public static class AccessPolicy
         [typeof(MarkPurchaseOrderSentCommand)] = Permission.Purchases,
         [typeof(SaveSupplierCommand)] = Permission.Purchases,
         [typeof(ExportBackupCommand)] = Permission.ExportData,
+        [typeof(Reports.ExportCsvCommand)] = Permission.ExportData,
         [typeof(SavePrinterSettingsCommand)] = Permission.PrinterSetup,
         [typeof(RestoreBackupCommand)] = Permission.RestoreData,
         [typeof(SaveShopProfileCommand)] = Permission.ShopSettings,

@@ -99,5 +99,14 @@
   "activity.MarkAttendanceCommand": "హాజరు వేశారు",
   "activity.GiveAdvanceCommand": "అడ్వాన్స్ ఇచ్చారు",
   "activity.PaySalaryCommand": "జీతం ఇచ్చారు",
-  "activity.SharePayslipCommand": "జీతం స్లిప్ పంపారు"
+  "activity.SharePayslipCommand": "జీతం స్లిప్ పంపారు",
+  "settings.export": "ఎక్సెల్ కోసం ఎగుమతి",
+  "export.title": "ఎక్సెల్ (CSV) ఫైల్",
+  "export.hint": "అకౌంటెంట్‌కు లేదా మీ కోసం ఫైల్ తయారవుతుంది. ఎక్సెల్ లేదా గూగుల్ షీట్స్‌లో తెరవవచ్చు.",
+  "export.sales.month": "ఈ నెల అమ్మకాలు",
+  "export.sales.last": "గత నెల అమ్మకాలు",
+  "export.dues": "రావలసిన బాకీల జాబితా",
+  "export.stock": "సరుకు జాబితా",
+  "export.share.title": "అంగడి ఫైల్",
+  "activity.ExportCsvCommand": "ఎక్సెల్ ఫైల్ తయారు చేశారు"
 }

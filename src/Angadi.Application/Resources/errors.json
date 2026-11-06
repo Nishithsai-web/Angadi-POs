@@ -458,5 +458,9 @@
   "NOTHING_TO_PAY": {
     "te": "ఈ నెల హాజరు వేయలేదు — ముందు హాజరు వేయండి",
     "en": "No attendance marked this month — mark attendance first"
+  },
+  "EXPORT_RANGE_INVALID": {
+    "te": "తేదీలు సరిగా లేవు — ఒక సంవత్సరం కంటే ఎక్కువ వద్దు",
+    "en": "Those dates don't work — pick a range of up to one year"
   }
 }

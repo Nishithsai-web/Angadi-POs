@@ -99,5 +99,14 @@
   "activity.MarkAttendanceCommand": "Attendance marked",
   "activity.GiveAdvanceCommand": "Advance given",
   "activity.PaySalaryCommand": "Salary paid",
-  "activity.SharePayslipCommand": "Pay slip sent"
+  "activity.SharePayslipCommand": "Pay slip sent",
+  "settings.export": "Export to Excel",
+  "export.title": "Excel (CSV) files",
+  "export.hint": "Makes a file for your accountant or yourself. Opens in Excel or Google Sheets.",
+  "export.sales.month": "This month's sales",
+  "export.sales.last": "Last month's sales",
+  "export.dues": "Udhaar dues list",
+  "export.stock": "Stock list",
+  "export.share.title": "Angadi file",
+  "activity.ExportCsvCommand": "Excel file made"
 }

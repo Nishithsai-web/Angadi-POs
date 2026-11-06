@@ -165,6 +165,9 @@ public static class DependencyInjection
         services.AddTransient<IRequestHandler<Chain.RemoveBranchCommand, Result>>(sp => sp.GetRequiredService<Chain.ChainHandlers>());
         services.AddTransient<IRequestHandler<Chain.GetChainStatusQuery, Chain.ChainStatus>>(sp => sp.GetRequiredService<Chain.ChainHandlers>());
 
+        // Spreadsheet export (sales, dues, stock); ExportFolder comes from Infrastructure.
+        services.AddTransient<IRequestHandler<Reports.ExportCsvCommand, Result<string>>, Reports.ExportCsvHandler>();
+
         // RBAC-1 roles, staff and activity log (IAccessControl itself is registered by Infrastructure).
         services.AddTransient<Security.AccessHandlers>();
         services.AddTransient<IRequestHandler<Security.GetCurrentUserQuery, Security.AccessUser>>(sp => sp.GetRequiredService<Security.AccessHandlers>());

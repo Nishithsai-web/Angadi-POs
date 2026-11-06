@@ -177,6 +177,7 @@ public static class ErrorCodes
     public const string ChainPackUnreadable = "CHAIN_PACK_UNREADABLE";
     public const string ChainPackRejected = "CHAIN_PACK_REJECTED";
     public const string ChainTooManyBranches = "CHAIN_TOO_MANY_BRANCHES";
+    public const string ExportRangeInvalid = "EXPORT_RANGE_INVALID";
 
     // Staff money: workers, attendance, advances, salary
     public const string WorkerNameRequired = "WORKER_NAME_REQUIRED";
