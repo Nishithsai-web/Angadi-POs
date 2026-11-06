@@ -23,6 +23,11 @@ internal sealed class AccessControl(AngadiDb db, IPinService pins, IClock clock,
     private static readonly AccessUser Owner = new("", Role.Owner, null);
     private static readonly AccessUser Counter = new("", Role.Cashier, null);
     /// <summary>When the owner has made no choice yet: cashiers may void and refund (the owner can turn it off).</summary>
+    // DECISION(RBAC-GRANTS, 2026-11-02, owner): cashiers may void a bill and refund WITHOUT calling a manager, by
+    // default. The owner asked for this explicitly ("cashier can void ... or refunds ... or else he need to always get
+    // to main single owner"). Risk accepted with two controls: the owner can turn either grant off in Settings -> Staff,
+    // and every void/refund is in the activity log with the cashier's name. Collecting / writing off dues stays off.
+    // Not an oversight: do not flip without the owner's word.
     private static readonly IReadOnlySet<Permission> DefaultGrants = new HashSet<Permission> { Permission.VoidBill, Permission.Refund };
 
     private readonly object _lock = new();
