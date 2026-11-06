@@ -26,6 +26,9 @@ public sealed class ShopSetupPage : ContentPage
     private readonly Label _prefixReturning;                                       // A2-07
     private readonly View _seedBox;
     private readonly Label _qrStatus = Ui.Caption();
+    // The uploaded QR photo, shown right away so the owner can see what customers will scan (and take it off again).
+    private readonly Image _qrPreview = new() { HeightRequest = 180, HorizontalOptions = LayoutOptions.Center, IsVisible = false };
+    private readonly Button _qrRemove = Ui.Secondary("");
     private ShopProfile? _existing;
     private string? _qrPayload;
     private byte[]? _qrImage;
@@ -70,6 +73,15 @@ public sealed class ShopSetupPage : ContentPage
             _upi.Text = qr.PayeeAddress;
             _qrStatus.Text = _text.Format("setup.upi.found", qr.PayeeAddress);
         });
+        _qrRemove.Text = text["setup.upi.photo.remove"];
+        _qrRemove.IsVisible = false;
+        _qrRemove.Clicked += SafeUi.On(() =>
+        {
+            _qrImage = null;
+            ShowQrPhoto();
+            _qrStatus.Text = _text["setup.upi.photo.removed"];
+            return Task.CompletedTask;
+        });
         var uploadQr = Ui.Secondary(text["setup.upi.upload"]);
         uploadQr.Clicked += SafeUi.On(UploadQrAsync);
         var qrRow = new Grid { ColumnDefinitions = { new(GridLength.Star), new(GridLength.Star) }, ColumnSpacing = 8 };
@@ -85,7 +97,7 @@ public sealed class ShopSetupPage : ContentPage
             Ui.Caption(text["settings.shop.address"]), _address,
             Ui.Caption(text["settings.shop.phone"]), _phone,
             Ui.Caption(text["settings.shop.upi"]), _upi,
-            Ui.Caption(text["setup.upi.help"]), qrRow, _qrStatus,
+            Ui.Caption(text["setup.upi.help"]), qrRow, _qrStatus, _qrPreview, _qrRemove,
             Ui.Caption(text["settings.shop.gstin"]), _gstin,
             Ui.Caption(text["setup.gstin.note"]),
             Labeled(_composition, text["setup.composition"]),
@@ -123,6 +135,7 @@ public sealed class ShopSetupPage : ContentPage
             _qrImage = _existing.UpiQrImage;
             if (UpiQr.Parse(_qrPayload) is { } qr) _qrStatus.Text = _text.Format("setup.upi.found", qr.PayeeAddress);
             else if (_qrImage is not null) _qrStatus.Text = _text["setup.upi.photo.saved"];
+            ShowQrPhoto();
         });
     }
 
@@ -136,6 +149,14 @@ public sealed class ShopSetupPage : ContentPage
         if (copy.Length > UpiQr.MaxImageBytes) { await _dialogs.ToastAsync(_text.Error(new Error(ErrorCodes.UpiQrImageTooLarge))); return; }
         _qrImage = copy.ToArray();
         _qrStatus.Text = _text["setup.upi.photo.saved"];
+        ShowQrPhoto();
+    }
+
+    private void ShowQrPhoto()
+    {
+        var bytes = _qrImage;
+        _qrPreview.IsVisible = _qrRemove.IsVisible = bytes is { Length: > 0 };
+        _qrPreview.Source = bytes is { Length: > 0 } ? ImageSource.FromStream(() => new MemoryStream(bytes)) : null;
     }
 
     /// <summary>No profile yet → the shop can't bill; back is blocked on first run.</summary>

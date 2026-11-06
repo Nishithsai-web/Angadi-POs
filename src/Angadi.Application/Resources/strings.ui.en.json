@@ -95,5 +95,7 @@
   "settings.pin.nudge": "No PIN is set: anyone holding this tablet can void bills, record dues payments and restore backups. Tap 'Owner PIN' above to protect them.",
   "data.recovered.title": "Data repaired",
   "data.recovered": "The data file on this phone was damaged. Angadi put back the safety copy from {0} at {1}. Check the bills made after that time.",
-  "data.recovered.none": "The data file on this phone was damaged and no safety copy was found. Go to Settings → Restore from backup and choose your last shared backup."
+  "data.recovered.none": "The data file on this phone was damaged and no safety copy was found. Go to Settings → Restore from backup and choose your last shared backup.",
+  "setup.upi.photo.remove": "Remove this QR photo",
+  "setup.upi.photo.removed": "QR photo removed — it takes effect when you save"
 }
