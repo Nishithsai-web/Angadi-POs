@@ -49,9 +49,9 @@ public static class PayRules
 
 internal sealed class WorkerHandlers(IPayrollRepository repo, IOutbox outbox, IClock clock) :
     IRequestHandler<SaveWorkerCommand, Result<Guid>>,
-    IRequestHandler<ListWorkersQuery, IReadOnlyList<Worker>>,
+    IRequestHandler<ListWorkersQuery, Result<IReadOnlyList<Worker>>>,
     IRequestHandler<MarkAttendanceCommand, Result>,
-    IRequestHandler<GetAttendanceQuery, IReadOnlyList<AttendanceEntry>>
+    IRequestHandler<GetAttendanceQuery, Result<IReadOnlyList<AttendanceEntry>>>
 {
     public async Task<Result<Guid>> Handle(SaveWorkerCommand command, CancellationToken ct)
     {
@@ -63,7 +63,8 @@ internal sealed class WorkerHandlers(IPayrollRepository repo, IOutbox outbox, IC
         return Result.Success(w.Id);
     }
 
-    public Task<IReadOnlyList<Worker>> Handle(ListWorkersQuery query, CancellationToken ct) => repo.ListWorkersAsync(query.IncludeInactive, ct);
+    public async Task<Result<IReadOnlyList<Worker>>> Handle(ListWorkersQuery query, CancellationToken ct) =>
+        Result<IReadOnlyList<Worker>>.Success(await repo.ListWorkersAsync(query.IncludeInactive, ct));
 
     public async Task<Result> Handle(MarkAttendanceCommand command, CancellationToken ct)
     {
@@ -74,7 +75,8 @@ internal sealed class WorkerHandlers(IPayrollRepository repo, IOutbox outbox, IC
         return Result.Success();
     }
 
-    public Task<IReadOnlyList<AttendanceEntry>> Handle(GetAttendanceQuery query, CancellationToken ct) => repo.GetAttendanceAsync(query.Year, query.Month, ct);
+    public async Task<Result<IReadOnlyList<AttendanceEntry>>> Handle(GetAttendanceQuery query, CancellationToken ct) =>
+        Result<IReadOnlyList<AttendanceEntry>>.Success(await repo.GetAttendanceAsync(query.Year, query.Month, ct));
 }
 
 // ---------- Advances, payslips, salary ----------
@@ -161,9 +163,9 @@ internal static class PayrollRegistration
 
         services.AddTransient<WorkerHandlers>();
         services.AddTransient<IRequestHandler<SaveWorkerCommand, Result<Guid>>>(sp => sp.GetRequiredService<WorkerHandlers>());
-        services.AddTransient<IRequestHandler<ListWorkersQuery, IReadOnlyList<Worker>>>(sp => sp.GetRequiredService<WorkerHandlers>());
+        services.AddTransient<IRequestHandler<ListWorkersQuery, Result<IReadOnlyList<Worker>>>>(sp => sp.GetRequiredService<WorkerHandlers>());
         services.AddTransient<IRequestHandler<MarkAttendanceCommand, Result>>(sp => sp.GetRequiredService<WorkerHandlers>());
-        services.AddTransient<IRequestHandler<GetAttendanceQuery, IReadOnlyList<AttendanceEntry>>>(sp => sp.GetRequiredService<WorkerHandlers>());
+        services.AddTransient<IRequestHandler<GetAttendanceQuery, Result<IReadOnlyList<AttendanceEntry>>>>(sp => sp.GetRequiredService<WorkerHandlers>());
 
         services.AddTransient<PayHandlers>();
         services.AddTransient<IRequestHandler<GiveAdvanceCommand, Result>>(sp => sp.GetRequiredService<PayHandlers>());

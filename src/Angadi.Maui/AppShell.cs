@@ -55,6 +55,7 @@ public sealed class AppShell : Shell
         {
             var page = _services.GetRequiredService<TPage>();
             page.ToolbarItems.Add(LanguageSwitch());
+            HelpGuide.Attach(page, _text, _services.GetRequiredService<IDialogService>());
             _pages.Add(page);
             if (_shopName is not null) AddShopBadge(page);
             return page;
@@ -135,7 +136,11 @@ public sealed class AppShell : Shell
         try
         {
             var profile = await _services.GetRequiredService<ISender>().Send(new GetShopProfileQuery());
-            if (profile is not null) return;
+            if (profile is not null)
+            {
+                await HelpGuide.RunIfFirstTimeAsync(_text, _services.GetRequiredService<IDialogService>());   // once per phone
+                return;
+            }
 
             // First run: language first, in both scripts, before any other screen is built.
             if (!Preferences.Default.ContainsKey(LanguageKey))

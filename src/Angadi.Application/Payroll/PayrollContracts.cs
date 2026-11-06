@@ -5,11 +5,11 @@ using Angadi.Domain.Payroll;
 namespace Angadi.Application.Payroll;
 
 public sealed record SaveWorkerCommand(Worker Worker) : ICommand<Result<Guid>>;
-public sealed record ListWorkersQuery(bool IncludeInactive = false) : IQuery<IReadOnlyList<Worker>>;
+public sealed record ListWorkersQuery(bool IncludeInactive = false) : IQuery<Result<IReadOnlyList<Worker>>>;
 
 /// <summary>One mark per worker per day; marking again replaces it. A future day is refused.</summary>
 public sealed record MarkAttendanceCommand(Guid WorkerId, DateOnly Day, AttendanceMark Mark) : ICommand<Result>;
-public sealed record GetAttendanceQuery(int Year, int Month) : IQuery<IReadOnlyList<AttendanceEntry>>;
+public sealed record GetAttendanceQuery(int Year, int Month) : IQuery<Result<IReadOnlyList<AttendanceEntry>>>;
 
 public sealed record GiveAdvanceCommand(Guid WorkerId, Paise Amount, string? Note) : ICommand<Result>;
 

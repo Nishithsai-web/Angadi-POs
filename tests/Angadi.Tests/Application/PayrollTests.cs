@@ -128,8 +128,8 @@ public sealed class PayrollTests : IDisposable
         var w = await AddWorkerAsync(PayType.Daily, 50_000);
         w.IsActive = false;
         await _h.Sender.Send(new SaveWorkerCommand(w));
-        Assert.Empty(await _h.Sender.Send(new ListWorkersQuery()));
-        Assert.Single(await _h.Sender.Send(new ListWorkersQuery(IncludeInactive: true)));
+        Assert.Empty((await _h.Sender.Send(new ListWorkersQuery())).Value);
+        Assert.Single((await _h.Sender.Send(new ListWorkersQuery(IncludeInactive: true))).Value);
     }
 
     [Fact]

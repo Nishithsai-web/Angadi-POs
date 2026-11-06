@@ -328,6 +328,7 @@ public sealed class SettingsPage : ContentPage
             Item("settings.pin", async () => await PinGate.SetPinAsync(_pinService, _dialogs, _text)),
             _pinNudge,
             // RBAC-1 roles: staff with their own PINs, who did what, and who is using the app now.
+            Item("settings.walkthrough", async () => await HelpGuide.RunAsync(_text, _dialogs)),
             Item("settings.staff", async () =>
             {
                 if (await PinGate.CheckAsync(Permission.ManageStaff, _dialogs, _text)) await Shell.Current.GoToAsync(Routes.Staff);

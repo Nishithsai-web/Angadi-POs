@@ -1,3 +1,4 @@
+using Angadi.Application.Platform;
 using Angadi.Maui.Core;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -53,8 +54,13 @@ public static class PagesRegistration
         public override Element GetOrCreate() => Create(null);
         public override Element GetOrCreate(IServiceProvider services) => Create(services);
 
-        private static TPage Create(IServiceProvider? fromShell) =>
-            (SafeUi.Services ?? fromShell ?? throw new InvalidOperationException("App services are not ready"))
-                .GetRequiredService<TPage>();
+        private static TPage Create(IServiceProvider? fromShell)
+        {
+            var services = SafeUi.Services ?? fromShell ?? throw new InvalidOperationException("App services are not ready");
+            var page = services.GetRequiredService<TPage>();
+            try { HelpGuide.Attach(page, services.GetRequiredService<ILocalizer>(), services.GetRequiredService<IDialogService>()); }
+            catch (Exception ex) { GlobalExceptions.Report(ex, "help-attach"); }   // help is optional: never block a screen
+            return page;
+        }
     }
 }

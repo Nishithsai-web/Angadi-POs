@@ -43,9 +43,16 @@ public sealed class PayrollPage : ContentPage
     private async Task RefreshAsync()
     {
         var today = _clock.Today;
-        var workers = await _sender.Send(new ListWorkersQuery());
-        var marks = await _sender.Send(new GetAttendanceQuery(today.Year, today.Month));
+        var workersResult = await _sender.Send(new ListWorkersQuery());
+        var marksResult = await _sender.Send(new GetAttendanceQuery(today.Year, today.Month));
         _list.Clear();
+        if (workersResult.IsFailure || marksResult.IsFailure)
+        {
+            await _dialogs.ToastAsync(_text.Error(workersResult.IsFailure ? workersResult.Error : marksResult.Error));
+            return;
+        }
+        var workers = workersResult.Value;
+        var marks = marksResult.Value;
         if (workers.Count == 0) _list.Add(Ui.Caption(_text["payroll.none"]));
         foreach (var w in workers) _list.Add(Card(w, marks.FirstOrDefault(m => m.WorkerId == w.Id && m.Day == today)));
     }
