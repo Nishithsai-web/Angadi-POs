@@ -1,0 +1,25 @@
+# Local v2 sync server: `docker compose up` then http://localhost:8080/health
+# Development only: change the password before anything real, and never expose Postgres publicly.
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: angadi-dev
+      POSTGRES_DB: angadi
+    volumes: [ "angadi-db:/var/lib/postgresql/data" ]
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 5s
+      retries: 12
+  server:
+    build:
+      context: .
+      dockerfile: src/Angadi.Server/Dockerfile
+    environment:
+      ConnectionStrings__Angadi: Host=db;Port=5432;Username=postgres;Password=angadi-dev;Database=angadi
+    ports: [ "8080:8080" ]
+    depends_on:
+      db:
+        condition: service_healthy
+volumes:
+  angadi-db:

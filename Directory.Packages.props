@@ -33,6 +33,9 @@
     <PackageVersion Include="CommunityToolkit.Maui" Version="12.2.0" />
     <PackageVersion Include="BarcodeScanning.Native.Maui" Version="2.2.1" />
     <PackageVersion Include="Plugin.InAppBilling" Version="8.0.5" />
+    <!-- v2 sync server -->
+    <PackageVersion Include="Npgsql" Version="9.0.3" />
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="10.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.0" />
 

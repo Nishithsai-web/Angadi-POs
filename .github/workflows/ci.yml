@@ -16,6 +16,46 @@ env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
 
 jobs:
+  server:
+    name: Sync server build + tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: angadi
+          POSTGRES_DB: angadi_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      ANGADI_TEST_PG: Host=localhost;Port=5432;Username=postgres;Password=angadi;Database=angadi_test
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Build (warnings are errors)
+        run: |
+          set +e
+          dotnet build tests/Angadi.Server.Tests/Angadi.Server.Tests.csproj -c Release \
+            -p:TreatWarningsAsErrors=true -p:ContinuousIntegrationBuild=true 2>&1 | tee build.log
+          code=${PIPESTATUS[0]}
+          python3 tools/ci_report.py build.log "server build"
+          exit $code
+      - name: Test
+        shell: bash
+        run: |
+          set +e
+          dotnet test tests/Angadi.Server.Tests/Angadi.Server.Tests.csproj -c Release --no-build \
+            --logger "trx;LogFileName=server.trx" --results-directory ServerResults 2>&1 | tee server-test.log
+          exit ${PIPESTATUS[0]}
+      - name: Report failed tests
+        if: always()
+        run: python3 tools/ci_tests.py ServerResults server-test.log
+
   core:
     name: Core build + tests + coverage
     runs-on: ubuntu-latest
