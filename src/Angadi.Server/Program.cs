@@ -13,6 +13,7 @@ builder.Services.AddSingleton(sp => NpgsqlDataSource.Create(
     sp.GetRequiredService<IConfiguration>().GetConnectionString("Angadi")
     ?? throw new InvalidOperationException("ConnectionStrings:Angadi is not set")));
 builder.Services.AddSingleton<SyncStore>();
+builder.Services.AddSingleton<ChainStore>();
 builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.TypeInfoResolverChain.Insert(0, SyncJsonContext.Default));
 builder.Services.AddRateLimiter(o =>
 {
@@ -22,6 +23,14 @@ builder.Services.AddRateLimiter(o =>
         _ => new FixedWindowRateLimiterOptions
         {
             PermitLimit = http.RequestServices.GetRequiredService<IConfiguration>().GetValue("RateLimits:RegisterPerHour", 20),
+            Window = TimeSpan.FromHours(1),
+        }));
+    // Join codes are short enough to guess at scale: attempts are limited per address.
+    o.AddPolicy("join", http => RateLimitPartition.GetFixedWindowLimiter(
+        http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = http.RequestServices.GetRequiredService<IConfiguration>().GetValue("RateLimits:JoinPerHour", 30),
             Window = TimeSpan.FromHours(1),
         }));
 });
@@ -68,6 +77,47 @@ app.MapGet("/v1/shops/{shopId:guid}/summary", async (Guid shopId, HttpRequest ht
 {
     if (!await store.CheckKeyAsync(shopId, http.Headers[SyncLimits.KeyHeader].ToString(), ct)) return Results.Unauthorized();
     return await store.SummaryAsync(shopId, ct) is { } summary ? Results.Ok(summary) : Results.NotFound();
+});
+
+// ---- v2 phase 4: chains and the head's live dashboard
+
+app.MapPost("/v1/shops/{shopId:guid}/chain", async (Guid shopId, CreateChainRequest request, HttpRequest http, SyncStore shops, ChainStore chains, CancellationToken ct) =>
+{
+    if (!await shops.CheckKeyAsync(shopId, http.Headers[SyncLimits.KeyHeader].ToString(), ct)) return Results.Unauthorized();
+    var name = (request.Name ?? "").Trim();
+    if (name.Length == 0 || name.Length > SyncLimits.MaxNameLength)
+        return Results.BadRequest(new ProblemBody("CHAIN_NAME_INVALID", "A chain name of up to " + SyncLimits.MaxNameLength + " characters is needed"));
+    var (outcome, created) = await chains.CreateAsync(shopId, name, ct);
+    return outcome == ChainOutcome.Ok ? Results.Ok(created) : Results.Conflict(new ProblemBody("ALREADY_IN_CHAIN", "This shop is already in a chain"));
+});
+
+app.MapPost("/v1/shops/{shopId:guid}/chain/join", async (Guid shopId, JoinChainRequest request, HttpRequest http, SyncStore shops, ChainStore chains, CancellationToken ct) =>
+{
+    if (!await shops.CheckKeyAsync(shopId, http.Headers[SyncLimits.KeyHeader].ToString(), ct)) return Results.Unauthorized();
+    var code = JoinCodes.Normalize(request.JoinCode);
+    if (code.Length != SyncLimits.JoinCodeLength) return Results.NotFound(new ProblemBody("JOIN_CODE_UNKNOWN", "That join code is not right"));
+    var (outcome, joined) = await chains.JoinAsync(shopId, code, ct);
+    return outcome switch
+    {
+        ChainOutcome.Ok => Results.Ok(joined),
+        ChainOutcome.AlreadyInAChain => Results.Conflict(new ProblemBody("ALREADY_IN_CHAIN", "This shop is already in a chain")),
+        _ => Results.NotFound(new ProblemBody("JOIN_CODE_UNKNOWN", "That join code is not right")),
+    };
+}).RequireRateLimiting("join");
+
+app.MapGet("/v1/shops/{shopId:guid}/chain", async (Guid shopId, HttpRequest http, SyncStore shops, ChainStore chains, CancellationToken ct) =>
+{
+    if (!await shops.CheckKeyAsync(shopId, http.Headers[SyncLimits.KeyHeader].ToString(), ct)) return Results.Unauthorized();
+    return await chains.MembershipAsync(shopId, ct) is { } m ? Results.Ok(m) : Results.NotFound();
+});
+
+app.MapGet("/v1/shops/{shopId:guid}/chain/dashboard", async (Guid shopId, int? days, HttpRequest http, SyncStore shops, ChainStore chains, CancellationToken ct) =>
+{
+    if (!await shops.CheckKeyAsync(shopId, http.Headers[SyncLimits.KeyHeader].ToString(), ct)) return Results.Unauthorized();
+    var window = Math.Clamp(days ?? 7, 1, SyncLimits.MaxDashboardDays);
+    return await chains.DashboardAsync(shopId, window, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), ct) is { } d
+        ? Results.Ok(d)
+        : Results.NotFound(new ProblemBody("NOT_CHAIN_HEAD", "Only the head shop of a chain sees the chain dashboard"));
 });
 
 await app.RunAsync();

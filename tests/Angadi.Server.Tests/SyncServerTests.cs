@@ -16,6 +16,7 @@ public sealed class ServerHost : WebApplicationFactory<Program>
     {
         builder.UseSetting("ConnectionStrings:Angadi", ConnectionString);
         builder.UseSetting("RateLimits:RegisterPerHour", "100000");
+        builder.UseSetting("RateLimits:JoinPerHour", "100000");
     }
 }
 

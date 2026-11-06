@@ -26,6 +26,25 @@ public sealed record ShopSummary(Guid ShopId, string Name, long EventCount, long
 
 public sealed record ProblemBody(string Code, string Message);
 
+// ---- v2 phase 4: chains (one head shop, many branches) and the head's live dashboard
+
+public sealed record CreateChainRequest(string Name);
+
+/// <summary>The join code is shown once to the head owner, who gives it to each branch.</summary>
+public sealed record CreateChainResponse(Guid ChainId, string Name, string JoinCode);
+
+public sealed record JoinChainRequest(string JoinCode);
+
+public sealed record ChainMembership(Guid ChainId, string Name, bool IsHead, int Branches);
+
+public sealed record DayTotal(string Day, int Bills, long SalesPaise);
+
+/// <param name="SalesPaise">Finalized bills in the window, voided bills excluded.</param>
+public sealed record BranchLive(Guid ShopId, string Name, bool IsHead, long? LastEventAtMs, int Bills, long SalesPaise,
+    long ReturnsPaise, long DuesCollectedPaise, IReadOnlyList<DayTotal> Days);
+
+public sealed record ChainDashboard(Guid ChainId, string Name, int Days, IReadOnlyList<BranchLive> Branches);
+
 public static class SyncLimits
 {
     public const int MaxBatch = 500;
@@ -34,6 +53,8 @@ public static class SyncLimits
     public const int MaxTextLength = 100;
     public const int MaxPage = 1000;
     public const string KeyHeader = "X-Shop-Key";
+    public const int JoinCodeLength = 10;
+    public const int MaxDashboardDays = 31;
 }
 
 /// <summary>Source-generated JSON (the phone's trimmed Release build cannot use reflection).</summary>
@@ -45,4 +66,9 @@ public static class SyncLimits
 [JsonSerializable(typeof(EventsPage))]
 [JsonSerializable(typeof(ShopSummary))]
 [JsonSerializable(typeof(ProblemBody))]
+[JsonSerializable(typeof(CreateChainRequest))]
+[JsonSerializable(typeof(CreateChainResponse))]
+[JsonSerializable(typeof(JoinChainRequest))]
+[JsonSerializable(typeof(ChainMembership))]
+[JsonSerializable(typeof(ChainDashboard))]
 public sealed partial class SyncJsonContext : JsonSerializerContext;
