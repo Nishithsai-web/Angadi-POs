@@ -179,6 +179,14 @@ public static class ErrorCodes
     public const string ChainTooManyBranches = "CHAIN_TOO_MANY_BRANCHES";
     public const string ExportRangeInvalid = "EXPORT_RANGE_INVALID";
 
+    // v2 cloud sync
+    public const string SyncNotAvailable = "SYNC_NOT_AVAILABLE";
+    public const string SyncNotLinked = "SYNC_NOT_LINKED";
+    public const string SyncAlreadyLinked = "SYNC_ALREADY_LINKED";
+    public const string SyncOffline = "SYNC_OFFLINE";
+    public const string SyncKeyRejected = "SYNC_KEY_REJECTED";
+    public const string SyncFailed = "SYNC_FAILED";
+
     // Staff money: workers, attendance, advances, salary
     public const string WorkerNameRequired = "WORKER_NAME_REQUIRED";
     public const string WorkerRateInvalid = "WORKER_RATE_INVALID";

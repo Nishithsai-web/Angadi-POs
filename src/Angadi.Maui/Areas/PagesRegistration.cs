@@ -25,6 +25,7 @@ public static class PagesRegistration
         Route<StaffPage>(s, Routes.Staff);               // RBAC-1
         Route<ChainPage>(s, Routes.Chain);               // CHAIN-1
         Route<ExportPage>(s, Routes.Export);             // spreadsheet export
+        Route<CloudSyncPage>(s, Routes.Cloud);           // v2 cloud sync
         Route<PayrollPage>(s, Routes.Payroll);           // staff pay
         Route<ActivityPage>(s, Routes.Activity);         // RBAC-1
         Route<ItemEditPage>(s, Routes.ItemEdit);

@@ -165,6 +165,12 @@ public static class DependencyInjection
         services.AddTransient<IRequestHandler<Chain.RemoveBranchCommand, Result>>(sp => sp.GetRequiredService<Chain.ChainHandlers>());
         services.AddTransient<IRequestHandler<Chain.GetChainStatusQuery, Chain.ChainStatus>>(sp => sp.GetRequiredService<Chain.ChainHandlers>());
 
+        // v2 cloud sync (ISyncService comes from Infrastructure).
+        services.AddTransient<Sync.SyncHandlers>();
+        services.AddTransient<IRequestHandler<Sync.GetSyncStatusQuery, Sync.SyncStatus>>(sp => sp.GetRequiredService<Sync.SyncHandlers>());
+        services.AddTransient<IRequestHandler<Sync.LinkCloudSyncCommand, Result>>(sp => sp.GetRequiredService<Sync.SyncHandlers>());
+        services.AddTransient<IRequestHandler<Sync.SyncNowCommand, Result<int>>>(sp => sp.GetRequiredService<Sync.SyncHandlers>());
+
         // Spreadsheet export (sales, dues, stock); ExportFolder comes from Infrastructure.
         services.AddTransient<IRequestHandler<Reports.ExportCsvCommand, Result<string>>, Reports.ExportCsvHandler>();
 

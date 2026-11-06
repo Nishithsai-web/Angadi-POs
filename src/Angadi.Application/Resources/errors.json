@@ -462,5 +462,29 @@
   "EXPORT_RANGE_INVALID": {
     "te": "తేదీలు సరిగా లేవు — ఒక సంవత్సరం కంటే ఎక్కువ వద్దు",
     "en": "Those dates don't work — pick a range of up to one year"
+  },
+  "SYNC_NOT_AVAILABLE": {
+    "te": "క్లౌడ్ సింక్ ఈ వెర్షన్‌లో ఇంకా అందుబాటులో లేదు",
+    "en": "Cloud sync isn't available in this version yet"
+  },
+  "SYNC_NOT_LINKED": {
+    "te": "ముందు \"క్లౌడ్ సింక్ ఆన్ చేయండి\" నొక్కండి",
+    "en": "Turn on cloud sync first"
+  },
+  "SYNC_ALREADY_LINKED": {
+    "te": "ఈ దుకాణం ఇంకో ఫోన్ నుండి ఇప్పటికే లింక్ అయింది — ఆ ఫోన్ బ్యాకప్‌ను ఇక్కడ రీస్టోర్ చేయండి లేదా సపోర్ట్‌ను అడగండి",
+    "en": "This shop is already linked from another phone — restore that phone's backup here, or contact support"
+  },
+  "SYNC_OFFLINE": {
+    "te": "సర్వర్‌ను చేరలేకపోయాం — ఇంటర్నెట్ వచ్చాక ఆటోమేటిక్‌గా పంపుతాం. అమ్మకాలు ఆగవు",
+    "en": "Couldn't reach the server — it will send automatically when internet is back. Billing is not affected"
+  },
+  "SYNC_KEY_REJECTED": {
+    "te": "సర్వర్ ఈ దుకాణం కీని ఒప్పుకోలేదు — సపోర్ట్‌ను సంప్రదించండి",
+    "en": "The server didn't accept this shop's key — please contact support"
+  },
+  "SYNC_FAILED": {
+    "te": "సింక్ ఇప్పుడు కుదరలేదు — కాసేపటి తర్వాత మళ్ళీ ప్రయత్నిస్తాం",
+    "en": "Sync didn't work just now — it will try again shortly"
   }
 }

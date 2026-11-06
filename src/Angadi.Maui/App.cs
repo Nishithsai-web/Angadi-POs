@@ -26,18 +26,28 @@ public sealed class App : Microsoft.Maui.Controls.Application
         base.OnStart();
         TakeSafetySnapshot();
         PruneOutbox();
+        SyncQuietly();
     }
 
     protected override void OnSleep()
     {
         base.OnSleep();
         TakeSafetySnapshot();
+        SyncQuietly();
     }
 
     private void TakeSafetySnapshot() => _ = Task.Run(async () =>
     {
         try { await _services.GetRequiredService<ISender>().Send(new TakeSafetySnapshotCommand()); }
         catch (Exception ex) { GlobalExceptions.Report(ex, "safety-snapshot"); }
+    });
+
+    // v2 cloud sync: on start and when the app goes to the background, in the background; a no-op until the shop is
+    // linked, and never in the billing path.
+    private void SyncQuietly() => _ = Task.Run(async () =>
+    {
+        try { await _services.GetRequiredService<ISender>().Send(new Angadi.Application.Sync.SyncNowCommand(false)); }
+        catch (Exception ex) { GlobalExceptions.Report(ex, "cloud-sync"); }
     });
 
     // FIX(M-11, 2026-10-20, FIX-4): app start is when the Outbox retention sweep runs (deletes rows older

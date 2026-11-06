@@ -52,6 +52,9 @@ public static class DependencyInjection
         services.AddSingleton<IBatchLedger>(sp => sp.GetRequiredService<StockLedger>());
         services.AddSingleton<IPurchasingRepository, PurchasingRepository>();
         services.AddSingleton<IPayrollRepository, PayrollRepository>();   // staff money
+        // v2 phase 3 cloud sync: dormant until appsettings Sync:ServerUrl is set (hosting needs the owner's approval).
+        services.AddSingleton(new Angadi.Infrastructure.Sync.SyncHttp(new HttpClient { Timeout = TimeSpan.FromSeconds(20) }));
+        services.AddSingleton<Angadi.Application.Sync.ISyncService, Angadi.Infrastructure.Sync.SyncService>();
         services.AddSingleton<IOutbox, Outbox>();
         services.AddSingleton<IShopProfileRepository, ShopProfileRepository>();
         services.AddSingleton<ISeedService, SeedService>();

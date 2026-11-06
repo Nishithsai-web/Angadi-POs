@@ -108,5 +108,19 @@
   "export.dues": "Udhaar dues list",
   "export.stock": "Stock list",
   "export.share.title": "Angadi file",
-  "activity.ExportCsvCommand": "Excel file made"
+  "activity.ExportCsvCommand": "Excel file made",
+  "settings.cloud": "Cloud sync",
+  "cloud.title": "Cloud sync",
+  "cloud.hint": "When on, this shop's records (bills, stock, payments) are copied to the Angadi server, for the chain owner and as a safe copy. Billing never waits for the internet; records are sent when it's back.",
+  "cloud.unavailable": "Cloud sync isn't available in this version yet",
+  "cloud.off": "Cloud sync is off",
+  "cloud.on": "Cloud sync is on ✓",
+  "cloud.detail": "Waiting to send: {0} · Last sent: {1}",
+  "cloud.never": "not yet",
+  "cloud.rejected": "{0} records were refused by the server — they are kept safely on this phone",
+  "cloud.link": "Turn on cloud sync",
+  "cloud.link.confirm": "This shop's records will be copied to the Angadi server. Turn it on?",
+  "cloud.now": "Send now",
+  "cloud.sent": "{0} records sent ✓",
+  "activity.LinkCloudSyncCommand": "Cloud sync turned on"
 }

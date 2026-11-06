@@ -337,6 +337,7 @@ public sealed class SettingsPage : ContentPage
             {
                 if (await PinGate.CheckAsync(Permission.MarkAttendance, _dialogs, _text)) await Shell.Current.GoToAsync(Routes.Payroll);
             }),
+            Item("settings.cloud", async () => await Shell.Current.GoToAsync(Routes.Cloud)),   // owner PIN asked when turning it on
             Item("settings.export", async () =>
             {
                 if (await PinGate.CheckAsync(Permission.ExportData, _dialogs, _text)) await Shell.Current.GoToAsync(Routes.Export);

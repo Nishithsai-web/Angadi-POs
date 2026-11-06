@@ -83,5 +83,7 @@
   "walk.next": "Next",
   "walk.skip": "Skip",
   "walk.done": "Got it",
-  "settings.walkthrough": "How to use Angadi"
+  "settings.walkthrough": "How to use Angadi",
+  "help.CloudSyncPage.title": "Cloud sync",
+  "help.CloudSyncPage.body": "Turning it on copies your records to the server. Only the owner can turn it on. Without internet it sends later automatically — billing never stops."
 }

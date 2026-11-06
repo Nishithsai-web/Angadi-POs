@@ -42,6 +42,7 @@ public static class MauiProgram
         builder.Services.Configure<InsightsOptions>(o => config.GetSection("Insights").Bind(o));
         builder.Services.Configure<SupportOptions>(o => config.GetSection("Support").Bind(o));
         builder.Services.Configure<DuesOptions>(o => config.GetSection("Dues").Bind(o));
+        builder.Services.Configure<Angadi.Application.Sync.SyncOptions>(o => config.GetSection("Sync").Bind(o));
 
         // NFR-07/FR-36: rolling file logs on the device, exported from Settings.
         var logs = new LogFiles(Path.Combine(FileSystem.AppDataDirectory, "logs"));

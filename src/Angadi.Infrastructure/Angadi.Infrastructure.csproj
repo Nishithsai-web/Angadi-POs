@@ -6,6 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Angadi.Application\Angadi.Application.csproj" />
+    <ProjectReference Include="..\Angadi.Sync.Contracts\Angadi.Sync.Contracts.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="sqlite-net-pcl" />

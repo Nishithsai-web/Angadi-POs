@@ -15,6 +15,6 @@ public static class HelpPages
         "StaffPage", "ChainPage", "ExportPage", "PayrollPage", "ActivityPage",
         "ItemEditPage", "BillDetailPage", "CustomerDetailPage", "ShopSetupPage", "SubscriptionPage", "NotesPage", "ShopsPage",
         "StockHubPage", "SuppliersPage", "PurchaseEditPage", "PurchasesPage", "PurchaseDetailPage", "OrdersPage", "OrderEditPage",
-        "ExpiringPage", "StockReportPage",
+        "ExpiringPage", "StockReportPage", "CloudSyncPage",
     ];
 }

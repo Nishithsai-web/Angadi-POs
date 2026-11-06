@@ -32,6 +32,7 @@ public static class Routes
     public const string Shops = "shops";                 // v2: several shops on one phone (Settings → Shops)
     public const string Printer = "printer";             // v2: Settings → Receipt printer
     public const string Payroll = "payroll";             // Settings → Staff pay
+    public const string Cloud = "cloud";                 // Settings → Cloud sync (v2)
     public const string Export = "export";               // Settings → Export to Excel
     public const string Chain = "chain";                 // CHAIN-1: Settings → Chain & branches
     public const string Staff = "staff";                 // RBAC-1: Settings → Staff & roles (owner)
