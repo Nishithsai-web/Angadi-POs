@@ -180,6 +180,9 @@ public static class ErrorCodes
     public const string ExportRangeInvalid = "EXPORT_RANGE_INVALID";
 
     // v2 cloud sync
+    public const string ChainLiveAlready = "CHAIN_LIVE_ALREADY";
+    public const string ChainJoinCodeWrong = "CHAIN_JOIN_CODE_WRONG";
+    public const string ChainNotHead = "CHAIN_NOT_HEAD";
     public const string SyncNotAvailable = "SYNC_NOT_AVAILABLE";
     public const string SyncNotLinked = "SYNC_NOT_LINKED";
     public const string SyncAlreadyLinked = "SYNC_ALREADY_LINKED";

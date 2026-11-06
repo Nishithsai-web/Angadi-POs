@@ -122,5 +122,22 @@
   "cloud.link.confirm": "This shop's records will be copied to the Angadi server. Turn it on?",
   "cloud.now": "Send now",
   "cloud.sent": "{0} records sent ✓",
-  "activity.LinkCloudSyncCommand": "Cloud sync turned on"
+  "activity.LinkCloudSyncCommand": "Cloud sync turned on",
+  "chain.live.title": "Live chain (internet)",
+  "chain.live.needsync": "Turn on cloud sync first to use the live chain.",
+  "chain.live.hint": "The head shop taps \"Create live chain\" and gets a code; each branch joins with that code. The owner then sees every branch's sales automatically, with no files to send.",
+  "chain.live.create": "Create live chain (head shop)",
+  "chain.live.join": "Join a live chain (branch)",
+  "chain.live.name": "Chain name",
+  "chain.live.code.title": "Code for your branches",
+  "chain.live.code": "Give this code to each branch: {0}\nIt is shown only once, so write it down.",
+  "chain.live.code.prompt": "The 10-character code from the owner",
+  "chain.live.joined": "Joined the \"{0}\" chain ✓",
+  "chain.live.head": "This shop is the head of \"{0}\" · {1} shops",
+  "chain.live.member": "This shop sends live to the \"{0}\" chain · {1} shops",
+  "chain.live.today": "Today: {0}",
+  "chain.live.money": "Dues collected {0} · Returns {1}",
+  "chain.live.nothing": "Nothing received yet",
+  "activity.CreateLiveChainCommand": "Live chain created",
+  "activity.JoinLiveChainCommand": "Joined a live chain"
 }

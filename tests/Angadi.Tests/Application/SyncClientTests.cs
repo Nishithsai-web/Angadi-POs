@@ -148,8 +148,31 @@ public sealed class SyncClientTests : IDisposable
         Assert.Equal(ErrorCodes.SyncAlreadyLinked, (await _h.Sender.Send(new LinkCloudSyncCommand())).Error.Code);
     }
 
+    [Fact]
+    public async Task LiveChain_CreateGivesTheCode_AWrongCodeIsExplained_AndNotInAChainIsNotAnError()
+    {
+        await SellAsync(1);
+        Assert.Equal(ErrorCodes.SyncNotLinked, (await _h.Sender.Send(new CreateLiveChainCommand("Ramu stores"))).Error.Code);
+        await _h.Sender.Send(new LinkCloudSyncCommand());
+
+        var none = await _h.Sender.Send(new GetLiveChainQuery());
+        Assert.True(none.IsSuccess, none.Error.Code);
+        Assert.Null(none.Value);
+
+        var created = await _h.Sender.Send(new CreateLiveChainCommand("Ramu stores"));
+        Assert.True(created.IsSuccess, created.Error.Code);
+        Assert.Equal("ABCDEFGHJK", created.Value.JoinCode);
+        Assert.Equal(ErrorCodes.ChainLiveAlready, (await _h.Sender.Send(new CreateLiveChainCommand("Again"))).Error.Code);
+        Assert.Equal(ErrorCodes.ChainJoinCodeWrong, (await _h.Sender.Send(new JoinLiveChainCommand("WRONGCODE1"))).Error.Code);
+
+        var board = await _h.Sender.Send(new GetLiveDashboardQuery());
+        Assert.True(board.IsSuccess, board.Error.Code);
+        Assert.Equal("Ramu stores", board.Value.Name);
+    }
+
     private sealed class FakeServer : HttpMessageHandler
     {
+        private string? _chain;
         public bool Offline { get; set; }
         public bool Unauthorized { get; set; }
         public bool AckOnlyFirst { get; set; }
@@ -173,6 +196,27 @@ public sealed class SyncClientTests : IDisposable
                 return new HttpResponseMessage(HttpStatusCode.OK)
                 {
                     Content = JsonContent.Create(new RegisterShopResponse(reg!.ShopId, new string('k', 64)), SyncJsonContext.Default.RegisterShopResponse),
+                };
+            }
+            if (path.Contains("/chain", StringComparison.Ordinal))
+            {
+                if (path.EndsWith("/chain/join", StringComparison.Ordinal)) return new HttpResponseMessage(HttpStatusCode.NotFound);
+                if (path.EndsWith("/chain/dashboard", StringComparison.Ordinal))
+                    return _chain is null ? new HttpResponseMessage(HttpStatusCode.NotFound) : new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = JsonContent.Create(new ChainDashboard(Guid.NewGuid(), _chain, 7, []), SyncJsonContext.Default.ChainDashboard),
+                    };
+                if (request.Method == HttpMethod.Get)
+                    return _chain is null ? new HttpResponseMessage(HttpStatusCode.NotFound) : new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = JsonContent.Create(new ChainMembership(Guid.NewGuid(), _chain, true, 1), SyncJsonContext.Default.ChainMembership),
+                    };
+                if (_chain is not null) return new HttpResponseMessage(HttpStatusCode.Conflict);
+                var create = await request.Content!.ReadFromJsonAsync(SyncJsonContext.Default.CreateChainRequest, ct);
+                _chain = create!.Name;
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = JsonContent.Create(new CreateChainResponse(Guid.NewGuid(), _chain, "ABCDEFGHJK"), SyncJsonContext.Default.CreateChainResponse),
                 };
             }
             PushCalls++;

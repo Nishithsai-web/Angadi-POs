@@ -171,6 +171,12 @@ public static class DependencyInjection
         services.AddTransient<IRequestHandler<Sync.LinkCloudSyncCommand, Result>>(sp => sp.GetRequiredService<Sync.SyncHandlers>());
         services.AddTransient<IRequestHandler<Sync.SyncNowCommand, Result<int>>>(sp => sp.GetRequiredService<Sync.SyncHandlers>());
 
+        services.AddTransient<Sync.CloudChainHandlers>();
+        services.AddTransient<IRequestHandler<Sync.CreateLiveChainCommand, Result<Angadi.Sync.Contracts.CreateChainResponse>>>(sp => sp.GetRequiredService<Sync.CloudChainHandlers>());
+        services.AddTransient<IRequestHandler<Sync.JoinLiveChainCommand, Result<Angadi.Sync.Contracts.ChainMembership>>>(sp => sp.GetRequiredService<Sync.CloudChainHandlers>());
+        services.AddTransient<IRequestHandler<Sync.GetLiveChainQuery, Result<Angadi.Sync.Contracts.ChainMembership?>>>(sp => sp.GetRequiredService<Sync.CloudChainHandlers>());
+        services.AddTransient<IRequestHandler<Sync.GetLiveDashboardQuery, Result<Angadi.Sync.Contracts.ChainDashboard>>>(sp => sp.GetRequiredService<Sync.CloudChainHandlers>());
+
         // Spreadsheet export (sales, dues, stock); ExportFolder comes from Infrastructure.
         services.AddTransient<IRequestHandler<Reports.ExportCsvCommand, Result<string>>, Reports.ExportCsvHandler>();
 

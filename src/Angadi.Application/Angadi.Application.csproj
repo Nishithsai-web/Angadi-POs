@@ -5,6 +5,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Angadi.Domain\Angadi.Domain.csproj" />
+    <ProjectReference Include="..\Angadi.Sync.Contracts\Angadi.Sync.Contracts.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />

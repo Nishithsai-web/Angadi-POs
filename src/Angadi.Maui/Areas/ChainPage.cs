@@ -3,6 +3,7 @@ using Angadi.Application.Chain;
 using Angadi.Application.Common;
 using Angadi.Application.Platform;
 using Angadi.Application.Security;
+using Angadi.Application.Sync;
 using Angadi.Domain.Common;
 using Angadi.Maui.Core;
 
@@ -23,6 +24,7 @@ public sealed class ChainPage : ContentPage
     private readonly IClock _clock;
     private readonly Label _status = Ui.Caption();
     private readonly VerticalStackLayout _branches = new() { Spacing = 8 };
+    private readonly VerticalStackLayout _live = new() { Spacing = 8 };   // v2: the live chain over the internet
 
     public ChainPage(ISender sender, IDialogService dialogs, ILocalizer text, IReceiptShare share, IAccessControl access, IClock clock)
     {
@@ -44,7 +46,7 @@ public sealed class ChainPage : ContentPage
         Content = Ui.Scroll(
             Ui.Title(text["chain.title"]), Ui.Caption(text["chain.hint"]), _status, setCode,
             Ui.Title(text["chain.branch.title"]), Ui.Caption(text["chain.branch.hint"]), send,
-            Ui.Title(text["chain.head.title"]), Ui.Caption(text["chain.head.hint"]), import, _branches);
+            Ui.Title(text["chain.head.title"]), Ui.Caption(text["chain.head.hint"]), import, _branches, _live);
     }
 
     protected override async void OnAppearing()
@@ -57,6 +59,7 @@ public sealed class ChainPage : ContentPage
     {
         var status = await _sender.Send(new GetChainStatusQuery());
         _status.Text = status.HasCode ? _text["chain.status.set"] : _text["chain.status.notset"];
+        await RefreshLiveAsync();
         _branches.Clear();
         // The branch list is the head owner's view: shown when this person may see it, otherwise one button asks for the PIN.
         if (!await _access.AllowsAsync(Permission.ChainView))
@@ -74,6 +77,75 @@ public sealed class ChainPage : ContentPage
         _branches.Add(Ui.Title(_text["chain.branches"]));
         if (r.Value.Count == 0) _branches.Add(Ui.Caption(_text["chain.none"]));
         foreach (var b in r.Value) _branches.Add(BranchCard(b));
+    }
+
+    // ---- v2 live chain (needs cloud sync): create / join, and the head's live dashboard
+
+    private async Task RefreshLiveAsync()
+    {
+        _live.Clear();
+        var sync = await _sender.Send(new GetSyncStatusQuery());
+        if (!sync.Available) return;   // this build has no server yet: the file-based chain above is the way
+        _live.Add(Ui.Title(_text["chain.live.title"]));
+        if (!sync.Linked)
+        {
+            _live.Add(Ui.Caption(_text["chain.live.needsync"]));
+            var open = Ui.Secondary(_text["settings.cloud"]);
+            open.Clicked += SafeUi.On(async () => await Shell.Current.GoToAsync(Routes.Cloud));
+            _live.Add(open);
+            return;
+        }
+        var membership = await _sender.Send(new GetLiveChainQuery());
+        if (membership.IsFailure) { _live.Add(Ui.Caption(_text.Error(membership.Error))); return; }
+        if (membership.Value is not { } m)
+        {
+            _live.Add(Ui.Caption(_text["chain.live.hint"]));
+            var create = Ui.Secondary(_text["chain.live.create"]);
+            create.Clicked += SafeUi.On(CreateLiveAsync);
+            var join = Ui.Secondary(_text["chain.live.join"]);
+            join.Clicked += SafeUi.On(JoinLiveAsync);
+            _live.Add(create);
+            _live.Add(join);
+            return;
+        }
+        _live.Add(Ui.Caption(_text.Format(m.IsHead ? "chain.live.head" : "chain.live.member", m.Name, m.Branches)));
+        if (!m.IsHead || !await _access.AllowsAsync(Permission.ChainView)) return;
+        var board = await _sender.Send(new GetLiveDashboardQuery(7));
+        if (board.IsFailure) { _live.Add(Ui.Caption(_text.Error(board.Error))); return; }
+        var today = _clock.Today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        foreach (var b in board.Value.Branches)
+        {
+            var card = new VerticalStackLayout { Spacing = 3 };
+            card.Add(Ui.Title(b.Name.Length == 0 ? _text["chain.unnamed"] : b.Name));
+            var todaySales = b.Days.Where(d => d.Day == today).Sum(d => d.SalesPaise);
+            card.Add(Ui.Body(_text.Format("chain.live.today", IndianFormat.Rupees(new Paise(todaySales))), 15));
+            card.Add(Ui.Caption(_text.Format("chain.week", IndianFormat.Rupees(new Paise(b.SalesPaise)), b.Bills)));
+            card.Add(Ui.Caption(_text.Format("chain.live.money", IndianFormat.Rupees(new Paise(b.DuesCollectedPaise)), IndianFormat.Rupees(new Paise(b.ReturnsPaise)))));
+            card.Add(Ui.Caption(b.LastEventAtMs is { } at
+                ? _text.Format("chain.updated", DateTimeOffset.FromUnixTimeMilliseconds(at).ToLocalTime().ToString("dd MMM HH:mm", CultureInfo.InvariantCulture))
+                : _text["chain.live.nothing"]));
+            _live.Add(Ui.Card(card, padding: 10));
+        }
+    }
+
+    private async Task CreateLiveAsync()
+    {
+        var name = await _dialogs.PromptAsync(_text["chain.live.create"], _text["chain.live.name"], _text["common.ok"], _text["common.cancel"]);
+        if (string.IsNullOrWhiteSpace(name)) return;
+        var r = await _sender.Send(new CreateLiveChainCommand(name));
+        if (r.IsFailure) { await _dialogs.ToastAsync(_text.Error(r.Error)); return; }
+        // Shown once: the server keeps only a hash of it.
+        await _dialogs.AlertAsync(_text["chain.live.code.title"], _text.Format("chain.live.code", r.Value.JoinCode), _text["common.ok"]);
+        await RefreshAsync();
+    }
+
+    private async Task JoinLiveAsync()
+    {
+        var code = await _dialogs.PromptAsync(_text["chain.live.join"], _text["chain.live.code.prompt"], _text["common.ok"], _text["common.cancel"]);
+        if (string.IsNullOrWhiteSpace(code)) return;
+        var r = await _sender.Send(new JoinLiveChainCommand(code));
+        await _dialogs.ToastAsync(r.IsSuccess ? _text.Format("chain.live.joined", r.Value.Name) : _text.Error(r.Error));
+        await RefreshAsync();
     }
 
     private View BranchCard(BranchPack b)

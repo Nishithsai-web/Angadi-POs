@@ -24,7 +24,7 @@ public sealed record SyncHttp(HttpClient Client);
 /// </summary>
 internal sealed class SyncService(
     AngadiDb db, IChainStore chain, IShopProfileRepository shop, IOptions<SyncOptions> options, SyncHttp http, IClock clock,
-    ILogger<SyncService> log) : ISyncService
+    ILogger<SyncService> log) : ISyncService, ICloudChain
 {
     internal const string KeyMeta = "sync.shop_key";
     private const string DeviceMeta = "sync.device_id";
@@ -148,6 +148,67 @@ internal sealed class SyncService(
             return Result.Failure<int>(ErrorCodes.SyncOffline, ex.GetType().Name);
         }
         finally { _one.Release(); }
+    }
+
+    // ---- v2 phase 4: the live chain (same key and server as sync)
+
+    public async Task<Result<CreateChainResponse>> CreateAsync(string name, CancellationToken ct = default)
+    {
+        var clean = (name ?? "").Trim();
+        if (clean.Length == 0 || clean.Length > SyncLimits.MaxNameLength) return Result.Failure<CreateChainResponse>(ErrorCodes.ShopNameRequired);
+        return await CallAsync(HttpMethod.Post, "chain", JsonContent.Create(new CreateChainRequest(clean), SyncJsonContext.Default.CreateChainRequest),
+            SyncJsonContext.Default.CreateChainResponse, ct).ConfigureAwait(false);
+    }
+
+    public async Task<Result<ChainMembership>> JoinAsync(string joinCode, CancellationToken ct = default) =>
+        await CallAsync(HttpMethod.Post, "chain/join", JsonContent.Create(new JoinChainRequest(joinCode ?? ""), SyncJsonContext.Default.JoinChainRequest),
+            SyncJsonContext.Default.ChainMembership, ct).ConfigureAwait(false);
+
+    public async Task<Result<ChainMembership?>> MembershipAsync(CancellationToken ct = default)
+    {
+        var r = await CallAsync(HttpMethod.Get, "chain", null, SyncJsonContext.Default.ChainMembership, ct).ConfigureAwait(false);
+        if (r.IsSuccess) return Result.Success<ChainMembership?>(r.Value);
+        // Not in a chain is an answer, not an error.
+        return r.Error.Code is ErrorCodes.ChainJoinCodeWrong or ErrorCodes.ChainNotHead
+            ? Result.Success<ChainMembership?>(null)
+            : Result.Failure<ChainMembership?>(r.Error);
+    }
+
+    public async Task<Result<ChainDashboard>> DashboardAsync(int days, CancellationToken ct = default)
+    {
+        var r = await CallAsync(HttpMethod.Get, "chain/dashboard?days=" + Math.Clamp(days, 1, SyncLimits.MaxDashboardDays).ToString(CultureInfo.InvariantCulture),
+            null, SyncJsonContext.Default.ChainDashboard, ct).ConfigureAwait(false);
+        return r.IsSuccess || r.Error.Code != ErrorCodes.ChainJoinCodeWrong ? r : Result.Failure<ChainDashboard>(ErrorCodes.ChainNotHead);
+    }
+
+    /// <summary>One keyed call to this shop's own resources; HTTP outcomes become plain errors the screens can show.</summary>
+    private async Task<Result<T>> CallAsync<T>(HttpMethod method, string path, HttpContent? body,
+        System.Text.Json.Serialization.Metadata.JsonTypeInfo<T> type, CancellationToken ct)
+    {
+        if (!Available) return Result.Failure<T>(ErrorCodes.SyncNotAvailable);
+        if (await GetMetaAsync(KeyMeta, ct).ConfigureAwait(false) is not { Length: > 0 } key) return Result.Failure<T>(ErrorCodes.SyncNotLinked);
+        try
+        {
+            var shopId = await ShopIdAsync(ct).ConfigureAwait(false);
+            using var request = new HttpRequestMessage(method, Url($"/v1/shops/{shopId}/{path}")) { Content = body };
+            request.Headers.Add(SyncLimits.KeyHeader, key);
+            using var response = await http.Client.SendAsync(request, ct).ConfigureAwait(false);
+            switch (response.StatusCode)
+            {
+                case HttpStatusCode.Unauthorized: return Result.Failure<T>(ErrorCodes.SyncKeyRejected);
+                case HttpStatusCode.Conflict: return Result.Failure<T>(ErrorCodes.ChainLiveAlready);
+                case HttpStatusCode.NotFound: return Result.Failure<T>(ErrorCodes.ChainJoinCodeWrong);
+                case HttpStatusCode.TooManyRequests: return Result.Failure<T>(ErrorCodes.SyncFailed, "429");
+            }
+            if (!response.IsSuccessStatusCode) return Result.Failure<T>(ErrorCodes.SyncFailed, ((int)response.StatusCode).ToString(CultureInfo.InvariantCulture));
+            var value = await response.Content.ReadFromJsonAsync(type, ct).ConfigureAwait(false);
+            return value is null ? Result.Failure<T>(ErrorCodes.SyncFailed, "empty") : Result.Success(value);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
+        {
+            log.LogWarning(ex, "Live chain call failed");
+            return Result.Failure<T>(ErrorCodes.SyncOffline, ex.GetType().Name);
+        }
     }
 
     private static SyncEvent ToWire(OutboxRow r) => new(r.Id, r.AggregateType, r.AggregateId, r.EventType,

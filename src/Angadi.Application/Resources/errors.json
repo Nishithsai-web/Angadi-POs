@@ -486,5 +486,17 @@
   "SYNC_FAILED": {
     "te": "సింక్ ఇప్పుడు కుదరలేదు — కాసేపటి తర్వాత మళ్ళీ ప్రయత్నిస్తాం",
     "en": "Sync didn't work just now — it will try again shortly"
+  },
+  "CHAIN_LIVE_ALREADY": {
+    "te": "ఈ దుకాణం ఇప్పటికే ఒక చైన్‌లో ఉంది",
+    "en": "This shop is already in a chain"
+  },
+  "CHAIN_JOIN_CODE_WRONG": {
+    "te": "ఆ కోడ్ సరిగా లేదు — యజమాని ఇచ్చిన 10 అక్షరాల కోడ్‌ను మళ్ళీ చూసి రాయండి",
+    "en": "That code isn't right — check the 10-character code the owner gave you"
+  },
+  "CHAIN_NOT_HEAD": {
+    "te": "చైన్ డ్యాష్‌బోర్డ్ ప్రధాన దుకాణం ఫోన్‌లో మాత్రమే కనిపిస్తుంది",
+    "en": "The chain dashboard shows only on the head shop's phone"
   }
 }

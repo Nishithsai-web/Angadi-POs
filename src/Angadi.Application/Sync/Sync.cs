@@ -1,4 +1,5 @@
 using Angadi.Application.Common;
+using Angadi.Sync.Contracts;
 
 namespace Angadi.Application.Sync;
 
@@ -24,6 +25,36 @@ public interface ISyncService
 
     /// <summary>Sends pending events in batches; returns how many the server took. Automatic runs back off after failures.</summary>
     Task<Result<int>> PushAsync(bool manual, CancellationToken ct = default);
+}
+
+/// <summary>v2 phase 4: the live chain on the server (needs cloud sync turned on).</summary>
+public interface ICloudChain
+{
+    Task<Result<CreateChainResponse>> CreateAsync(string name, CancellationToken ct = default);
+    Task<Result<ChainMembership>> JoinAsync(string joinCode, CancellationToken ct = default);
+    /// <summary>Success with null when this shop is not in a live chain.</summary>
+    Task<Result<ChainMembership?>> MembershipAsync(CancellationToken ct = default);
+    Task<Result<ChainDashboard>> DashboardAsync(int days, CancellationToken ct = default);
+}
+
+public sealed record CreateLiveChainCommand(string Name) : ICommand<Result<CreateChainResponse>>, INoTransaction;
+public sealed record JoinLiveChainCommand(string JoinCode) : ICommand<Result<ChainMembership>>, INoTransaction
+{
+    public override string ToString() => nameof(JoinLiveChainCommand);   // never print the code
+}
+public sealed record GetLiveChainQuery : IQuery<Result<ChainMembership?>>;
+public sealed record GetLiveDashboardQuery(int Days = 7) : IQuery<Result<ChainDashboard>>;
+
+internal sealed class CloudChainHandlers(ICloudChain chain) :
+    IRequestHandler<CreateLiveChainCommand, Result<CreateChainResponse>>,
+    IRequestHandler<JoinLiveChainCommand, Result<ChainMembership>>,
+    IRequestHandler<GetLiveChainQuery, Result<ChainMembership?>>,
+    IRequestHandler<GetLiveDashboardQuery, Result<ChainDashboard>>
+{
+    public Task<Result<CreateChainResponse>> Handle(CreateLiveChainCommand r, CancellationToken ct) => chain.CreateAsync(r.Name, ct);
+    public Task<Result<ChainMembership>> Handle(JoinLiveChainCommand r, CancellationToken ct) => chain.JoinAsync(r.JoinCode, ct);
+    public Task<Result<ChainMembership?>> Handle(GetLiveChainQuery r, CancellationToken ct) => chain.MembershipAsync(ct);
+    public Task<Result<ChainDashboard>> Handle(GetLiveDashboardQuery r, CancellationToken ct) => chain.DashboardAsync(r.Days, ct);
 }
 
 public sealed record GetSyncStatusQuery : IQuery<SyncStatus>;
