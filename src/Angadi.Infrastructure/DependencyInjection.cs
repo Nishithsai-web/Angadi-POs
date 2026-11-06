@@ -51,6 +51,7 @@ public static class DependencyInjection
         services.AddSingleton<IStockLedger>(sp => sp.GetRequiredService<StockLedger>());
         services.AddSingleton<IBatchLedger>(sp => sp.GetRequiredService<StockLedger>());
         services.AddSingleton<IPurchasingRepository, PurchasingRepository>();
+        services.AddSingleton<IPayrollRepository, PayrollRepository>();   // staff money
         services.AddSingleton<IOutbox, Outbox>();
         services.AddSingleton<IShopProfileRepository, ShopProfileRepository>();
         services.AddSingleton<ISeedService, SeedService>();

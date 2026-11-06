@@ -178,6 +178,16 @@ public static class ErrorCodes
     public const string ChainPackRejected = "CHAIN_PACK_REJECTED";
     public const string ChainTooManyBranches = "CHAIN_TOO_MANY_BRANCHES";
 
+    // Staff money: workers, attendance, advances, salary
+    public const string WorkerNameRequired = "WORKER_NAME_REQUIRED";
+    public const string WorkerRateInvalid = "WORKER_RATE_INVALID";
+    public const string WorkerNotFound = "WORKER_NOT_FOUND";
+    public const string AttendanceFuture = "ATTENDANCE_FUTURE";
+    public const string PayAmountInvalid = "PAY_AMOUNT_INVALID";
+    public const string PayMonthInvalid = "PAY_MONTH_INVALID";
+    public const string SalaryAlreadyPaid = "SALARY_ALREADY_PAID";
+    public const string NothingToPay = "NOTHING_TO_PAY";
+
     // RBAC-1 roles and staff
     /// <summary>A manager or the owner must approve this (their PIN on this phone).</summary>
     public const string NotAllowedManager = "NOT_ALLOWED_MANAGER";

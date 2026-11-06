@@ -94,5 +94,10 @@
   "activity.SetChainCodeCommand": "Chain code changed",
   "activity.BuildChainPackCommand": "Branch report sent",
   "activity.ImportChainPackCommand": "Branch report imported",
-  "activity.RemoveBranchCommand": "Branch removed"
+  "activity.RemoveBranchCommand": "Branch removed",
+  "activity.SaveWorkerCommand": "Worker details saved",
+  "activity.MarkAttendanceCommand": "Attendance marked",
+  "activity.GiveAdvanceCommand": "Advance given",
+  "activity.PaySalaryCommand": "Salary paid",
+  "activity.SharePayslipCommand": "Pay slip sent"
 }

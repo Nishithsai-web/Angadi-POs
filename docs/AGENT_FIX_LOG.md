@@ -533,3 +533,10 @@ Development no longer runs through one implementer. Muse's own dev/fix agents no
 - **Why:** keeps per-shop DB isolation and the no-backend rule; only totals travel.
 - **Tests:** `ChainTests` (codec, wrong code, tamper, garbage, replay, end to end, permissions).
 - **Limit:** the head view is as fresh as the last file sent; there is no live sync in v1.
+
+### PAY-1 (FEATURE) — the shop could not record staff attendance, advances or pay
+- **Status:** FIXED-AWAITING-VERIFY · **Fixed by:** Claude Code, 2026-11-06
+- **Fix:** Worker / Attendance / PayEntry (schema 7), `PayrollCalculator` in whole paise (monthly = rate x paid half-days / (2 x days in month), rounded half up), handlers with validators, outbox events for the later sync server, owner-only pay via the RBAC pipeline (new permissions MarkAttendance=14 manager+, Payroll=28 owner only), Settings → Staff pay page, Telugu/English strings.
+- **Why:** employees and their money were the owner's stated gap; on-phone first keeps the counter offline-capable.
+- **Not included:** statutory payroll (PF/ESI/TDS) and filing; needs a compliance partner.
+- **Tests:** `PayrollTests` (arithmetic, flow, guards, share, permissions); `LargeShopTests` (PERF-2).

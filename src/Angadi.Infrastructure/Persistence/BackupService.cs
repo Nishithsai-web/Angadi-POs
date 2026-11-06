@@ -100,6 +100,8 @@ internal sealed class BackupService(AngadiDb db, IClock clock, string exportDire
         AppendIfAny<PurchaseLineRow>(c, sb, "PurchaseLine"); AppendIfAny<PurchaseOrderRow>(c, sb, "PurchaseOrder");
         // RBAC-1 (schema 6): staff PIN hashes are covered by the MAC, so a backup cannot be edited to plant a PIN.
         AppendIfAny<StaffRow>(c, sb, "Staff"); AppendIfAny<ActivityRow>(c, sb, "Activity");
+        // Staff money (schema 7): wages and advances are covered by the MAC, so a backup cannot be edited to change what is owed.
+        AppendIfAny<WorkerRow>(c, sb, "Worker"); AppendIfAny<AttendanceRow>(c, sb, "Attendance"); AppendIfAny<PayEntryRow>(c, sb, "PayEntry");
         sb.Append("MetaRow\n");
         foreach (var row in c.Table<MetaRow>().Where(m => m.Key != HmacMeta).ToList().OrderBy(r => JsonSerializer.Serialize(r)))
             sb.Append(JsonSerializer.Serialize(row)).Append('\n');

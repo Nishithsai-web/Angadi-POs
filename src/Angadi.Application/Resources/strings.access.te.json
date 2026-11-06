@@ -94,5 +94,10 @@
   "activity.SetChainCodeCommand": "చైన్ కోడ్ మార్పు",
   "activity.BuildChainPackCommand": "బ్రాంచ్ రిపోర్ట్ పంపారు",
   "activity.ImportChainPackCommand": "బ్రాంచ్ రిపోర్ట్ తీసుకున్నారు",
-  "activity.RemoveBranchCommand": "బ్రాంచ్ తీసివేత"
+  "activity.RemoveBranchCommand": "బ్రాంచ్ తీసివేత",
+  "activity.SaveWorkerCommand": "పని చేసే వారి వివరాలు మార్పు",
+  "activity.MarkAttendanceCommand": "హాజరు వేశారు",
+  "activity.GiveAdvanceCommand": "అడ్వాన్స్ ఇచ్చారు",
+  "activity.PaySalaryCommand": "జీతం ఇచ్చారు",
+  "activity.SharePayslipCommand": "జీతం స్లిప్ పంపారు"
 }

@@ -426,5 +426,37 @@
   "CHAIN_TOO_MANY_BRANCHES": {
     "te": "గరిష్ఠంగా {0} బ్రాంచీలు. పాతవి తీసివేసి మళ్ళీ ప్రయత్నించండి",
     "en": "At most {0} branches. Remove an old one and try again"
+  },
+  "WORKER_NAME_REQUIRED": {
+    "te": "పని చేసే వారి పేరు రాయండి",
+    "en": "Enter the worker's name"
+  },
+  "WORKER_RATE_INVALID": {
+    "te": "జీతం లేదా రోజు కూలీ సరైన మొత్తం రాయండి",
+    "en": "Enter a valid salary or daily wage"
+  },
+  "WORKER_NOT_FOUND": {
+    "te": "ఈ వ్యక్తి దొరకలేదు — జాబితా నుండి మళ్ళీ ఎంచుకోండి",
+    "en": "Worker not found — pick them again from the list"
+  },
+  "ATTENDANCE_FUTURE": {
+    "te": "రాబోయే రోజుకు హాజరు వేయలేరు",
+    "en": "You can't mark attendance for a future day"
+  },
+  "PAY_AMOUNT_INVALID": {
+    "te": "సరైన మొత్తం రాయండి",
+    "en": "Enter a valid amount"
+  },
+  "PAY_MONTH_INVALID": {
+    "te": "ఆ నెల ఇంకా రాలేదు లేదా సరైనది కాదు",
+    "en": "That month is not valid yet"
+  },
+  "SALARY_ALREADY_PAID": {
+    "te": "ఈ నెల జీతం ఇప్పటికే ఇచ్చారు",
+    "en": "This month's salary was already paid"
+  },
+  "NOTHING_TO_PAY": {
+    "te": "ఈ నెల హాజరు వేయలేదు — ముందు హాజరు వేయండి",
+    "en": "No attendance marked this month — mark attendance first"
   }
 }

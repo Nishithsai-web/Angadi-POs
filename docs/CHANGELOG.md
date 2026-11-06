@@ -1,6 +1,12 @@
 # CHANGELOG.md — Angadi POS v1
 Every meaningful change: date, what, the issue it addresses, and the one-line why. Newest first.
 
+## 2026-11-06 (Claude Code, PAY-1) — staff pay on the phone
+- **Settings → Staff pay.** Add the people who work for the shop (monthly salary or daily wage), mark attendance (present / half day / absent), note advances and get a monthly pay slip.
+- **Pay slip:** earned pay minus advances being recovered (never more than earned; the rest carries to next month). Paying a month closes it once; the slip goes to the worker's WhatsApp as text.
+- **Who can do what:** owner and managers mark attendance; only the owner pays salary or gives advances (owner PIN asked). Every action is in the activity log.
+- **Speed guard:** a 50,000-item / 20,000-customer test keeps search quick (PERF-2). Database schema is now 7 (three new tables, included in the backup MAC).
+
 ## 2026-11-05 (Claude Code, CHAIN-1) — chain owner sees every branch
 - **Settings → Chain & branches.** Set one chain code (min 6 characters) on every phone. A branch taps *Send report to owner*: a signed `.angadi` file with 14 days of totals, udhaar due and stock counts goes out through the share sheet (WhatsApp works).
 - **Owner phone:** *Import a branch report* (owner PIN) shows each branch: last 7 days, payments, udhaar, low/out stock. A newer file updates a branch; an older or repeated file changes nothing.
