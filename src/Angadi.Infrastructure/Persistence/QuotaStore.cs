@@ -34,7 +34,10 @@ internal sealed class QuotaStore(AngadiDb db, Shops.ShopRegistry? shops = null) 
         if (!File.Exists(databasePath)) return 0;
         try
         {
-            using var c = new SQLite.SQLiteConnection(databasePath, SQLite.SQLiteOpenFlags.ReadWrite | SQLite.SQLiteOpenFlags.FullMutex);
+            // FIX(QUOTA-RO, 2026-11-06, Claude): Flaw: another shop's database was opened read-WRITE just to count its bills,
+            // so a quota read could create journal files in, lock or (on a driver fault) write to a shop that isn't open.
+            // Fix: read-only. Why: a closed shop's books must not be touchable from the open shop. Logged in docs/AGENT_FIX_LOG.md.
+            using var c = new SQLite.SQLiteConnection(databasePath, SQLite.SQLiteOpenFlags.ReadOnly | SQLite.SQLiteOpenFlags.FullMutex);
             c.BusyTimeout = TimeSpan.FromSeconds(2);
             var row = c.Find<MetaRow>(CountKey(month));
             var bucket = row is not null && int.TryParse(row.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n)
@@ -43,9 +46,9 @@ internal sealed class QuotaStore(AngadiDb db, Shops.ShopRegistry? shops = null) 
             var lifetime = Math.Max(LifetimeBillCounter.Read(databasePath), Watermark(c) ?? 0);
             return (int)Math.Min(bucket + (long)Unabsorbed(c, lifetime), int.MaxValue / 4);
         }
-        catch (SQLite.SQLiteException)
+        catch (Exception ex) when (ex is SQLite.SQLiteException or IOException or UnauthorizedAccessException)
         {
-            return 0;
+            return 0;   // degrade like M-3: a quota read must never stop the counter
         }
     }
 

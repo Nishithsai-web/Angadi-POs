@@ -322,7 +322,7 @@ Development no longer runs through one implementer. Muse's own dev/fix agents no
 - **Fix:** during the sweep, recompute every finalized bill with `BillCalculator.Compute` and compare all totals + splits; add sequence-vs-numbers and orphan dues/stock checks. (Pairs with the VERIFY-2 chunk-boundary check.)
 
 ### DATA-1 (MEDIUM) — Migration strategy is additive-only; the first v1.1 restructure has no framework and will silently not happen
-- **Status:** OPEN · **Found by:** Flaw hunter, 2026-10-20
+- **Status:** FIXED-AWAITING-VERIFY (Claude Code, 2026-11-06: `Migrations.Steps` ordered history 2-7, one transaction with table creation, stamp only after all steps; `MigrationFrameworkTests`) · was OPEN · **Found by:** Flaw hunter, 2026-10-20
 - **Evidence:** `AngadiDb` Migrate = ten bare `CreateTable` calls ("additive migrations are automatic"), then `schema_version` is overwritten. Zero `ALTER TABLE` in src/. A column-type change or table split (e.g. a payments table for split tender) will be skipped or improvised against live shop data.
 - **Fix:** ordered `Migrations[]` keyed by from-version, run in ONE transaction, version stamp bumped only after all steps succeed; backfill the existing v2/v3 changes as the first entries. Must land before ANY v1.1 schema change.
 - **Adjacent LOWs (same lane):** (a) `int.Parse` (not TryParse) on `schema_version` can crash-loop startup on a non-numeric value — TryParse → throw DamagedDatabaseException so snapshot recovery handles it. (b) Two backup exports in the same minute overwrite each other (filename has minute precision, `overwrite: true`) — INCLUDING the pre-restore safety copy: export at 10:42, restore at 10:42, and the safety copy IS the overwritten file. Fix: seconds/GUID suffix; safety copies `overwrite: false`. — **BOTH FIXED-AWAITING-VERIFY by FIX-2, 2026-10-20** (tests `UnparseableSchemaVersion_RecoversInsteadOfCrashing` + `DATA1_TwoExportsInTheSameSecond_ProduceTwoFiles`. UNVERIFIED-CI. The MEDIUM framework above stays OPEN — FIX-2 wave-2 item 11.)
@@ -540,3 +540,10 @@ Development no longer runs through one implementer. Muse's own dev/fix agents no
 - **Why:** employees and their money were the owner's stated gap; on-phone first keeps the counter offline-capable.
 - **Not included:** statutory payroll (PF/ESI/TDS) and filing; needs a compliance partner.
 - **Tests:** `PayrollTests` (arithmetic, flow, guards, share, permissions); `LargeShopTests` (PERF-2).
+
+### QUOTA-RO, SHOP-SWITCH-2, STAFF-CAP (LOW-MEDIUM) — reviewer's Nov 2 follow-ups
+- **Status:** FIXED-AWAITING-VERIFY · **Fixed by:** Claude Code, 2026-11-06
+- **QUOTA-RO:** other shops' databases are opened read-only to count their bills (were read-write); IO errors degrade to 0 like SQLite errors.
+- **SHOP-SWITCH-2:** a failure copying the language after a successful shop switch no longer reports the switch as failed (any non-cancellation error is logged).
+- **STAFF-CAP:** turning a staff member back on enforces the 20-active limit (`StaffCapTests`).
+- **Not changed (owner decision):** cashiers may void and refund by default; the owner can turn either off in Settings → Staff, and every void/refund is in the activity log with the cashier's name.

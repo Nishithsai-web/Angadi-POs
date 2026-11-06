@@ -136,48 +136,59 @@ public sealed class AngadiDb : IUnitOfWork, IDisposable
         File.Copy(path, path + ".pre-update", overwrite: true);
     }
 
-    /// <summary>sqlite-net CreateTable adds missing columns, so additive migrations are automatic.</summary>
-    private static void Migrate(SQLiteConnection c)
+    // FIX(DATA-1, 2026-11-06, Claude): Flaw: migration was ten-plus bare CreateTable calls then an overwritten
+    // schema_version, outside any transaction. sqlite-net only ADDS tables/columns, so the first change that needs
+    // data moved, a column re-typed or a table split would silently not happen, and a crash half-way left a database
+    // stamped with a version it never reached. Fix: ordered MigrationSteps (Migrations.Steps), each run once for
+    // versions above the stored one, all inside ONE transaction with the table creation; the version is stamped only
+    // after every step succeeds, so a failure rolls the whole upgrade back and the next start retries it. History 2-7
+    // is back-filled as additive no-op steps. Why: shops' books live in this file; an upgrade must be all-or-nothing.
+    // Logged in docs/AGENT_FIX_LOG.md.
+    private static void Migrate(SQLiteConnection c) => Migrate(c, Migrations.Steps);
+
+    internal static void Migrate(SQLiteConnection c, IReadOnlyList<MigrationStep> steps) => c.RunInTransaction(() =>
     {
-        c.CreateTable<ItemRow>();
-        c.CreateTable<BillRow>();
-        c.CreateTable<BillLineRow>();
-        c.CreateTable<CustomerRow>();
-        c.CreateTable<DuesEntryRow>();
-        c.CreateTable<StockMoveRow>();
-        c.CreateTable<OutboxRow>();
-        c.CreateTable<ShopProfileRow>();
-        c.CreateTable<MetaRow>();
-        c.CreateTable<NoteRow>();
-        c.CreateTable<BillPaymentRow>();    // v2 split tender (schema 4)
-        c.CreateTable<SalesReturnRow>();    // v2 returns (schema 4)
-        c.CreateTable<ReturnLineRow>();
-        // v2-stock (schema 4): additive tables; existing items get TracksBatches/CostPaise = NULL → off / unknown.
-        c.CreateTable<BatchRow>();
-        c.CreateTable<SupplierRow>();
-        c.CreateTable<PurchaseRow>();
-        c.CreateTable<PurchaseLineRow>();
-        c.CreateTable<PurchaseOrderRow>();
-        c.CreateTable<StaffRow>();          // RBAC-1 (schema 6)
-        c.CreateTable<ActivityRow>();
-        c.CreateTable<WorkerRow>();         // staff money (schema 7)
-        c.CreateTable<AttendanceRow>();
-        c.CreateTable<PayEntryRow>();
+            c.CreateTable<ItemRow>();
+            c.CreateTable<BillRow>();
+            c.CreateTable<BillLineRow>();
+            c.CreateTable<CustomerRow>();
+            c.CreateTable<DuesEntryRow>();
+            c.CreateTable<StockMoveRow>();
+            c.CreateTable<OutboxRow>();
+            c.CreateTable<ShopProfileRow>();
+            c.CreateTable<MetaRow>();
+            c.CreateTable<NoteRow>();
+            c.CreateTable<BillPaymentRow>();    // v2 split tender (schema 4)
+            c.CreateTable<SalesReturnRow>();    // v2 returns (schema 4)
+            c.CreateTable<ReturnLineRow>();
+            // v2-stock (schema 4): additive tables; existing items get TracksBatches/CostPaise = NULL → off / unknown.
+            c.CreateTable<BatchRow>();
+            c.CreateTable<SupplierRow>();
+            c.CreateTable<PurchaseRow>();
+            c.CreateTable<PurchaseLineRow>();
+            c.CreateTable<PurchaseOrderRow>();
+            c.CreateTable<StaffRow>();          // RBAC-1 (schema 6)
+            c.CreateTable<ActivityRow>();
+            c.CreateTable<WorkerRow>();         // staff money (schema 7)
+            c.CreateTable<AttendanceRow>();
+            c.CreateTable<PayEntryRow>();
 
         c.InsertOrReplace(new MetaRow { Key = "app", Value = AppMarker });
         var current = c.Find<MetaRow>("schema_version");
-        // FIX(DATA-1a, 2026-10-20, FIX-2): Flaw: int.Parse on the stored schema_version — a corrupt or
-        // hand-edited value (e.g. 'abc') threw FormatException out of startup: a damaged database crashed
-        // the app instead of being recovered. Fix: TryParse; an unparseable version IS database damage and
-        // throws DamagedDatabaseException, which startup recovery already handles (quarantine the file,
-        // adopt the newest good copy or start fresh, tell the shopkeeper once). Why: damage has exactly
-        // one front door. Logged in docs/AGENT_FIX_LOG.md.
+        // FIX(DATA-1a, 2026-10-20, FIX-2): an unparseable version IS database damage: DamagedDatabaseException, which
+        // startup recovery handles (quarantine, adopt the newest good copy or start fresh, tell the shopkeeper once).
         var storedVersion = 0;
         if (current is not null && !int.TryParse(current.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out storedVersion))
             throw new DamagedDatabaseException($"schema_version '{current.Value}' is not a number");
-        if (current is null || storedVersion < SchemaVersion)
-            c.InsertOrReplace(new MetaRow { Key = "schema_version", Value = SchemaVersion.ToString(CultureInfo.InvariantCulture) });
-    }
+        if (current is not null && storedVersion >= SchemaVersion) return;   // up to date (or written by a newer app: left alone)
+
+        // A brand-new file has nothing to transform: its tables were just created in the latest shape.
+        if (current is not null)
+            foreach (var step in steps)
+                if (step.Version > storedVersion && step.Version <= SchemaVersion)
+                    step.Up(c);
+        c.InsertOrReplace(new MetaRow { Key = "schema_version", Value = SchemaVersion.ToString(CultureInfo.InvariantCulture) });
+    });
 
     /// <summary>Runs a read or write; joins the open transaction when called inside ExecuteAsync.</summary>
     public async Task<T> RunAsync<T>(Func<SQLiteConnection, T> action, CancellationToken ct = default)

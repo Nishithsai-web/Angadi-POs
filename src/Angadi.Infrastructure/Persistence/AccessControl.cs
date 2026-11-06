@@ -165,6 +165,14 @@ internal sealed class AccessControl(AngadiDb db, IPinService pins, IClock clock,
 
     public async Task<Result> SetStaffActiveAsync(Guid id, bool active, CancellationToken ct = default)
     {
+        // FIX(STAFF-CAP, 2026-11-06, Claude): Flaw: the 20-staff limit was checked when ADDING staff only; turning
+        // people off, adding new ones and turning the old ones back on went past it. Fix: reactivating checks the same
+        // limit (not counting this person). Why: one rule, enforced on every path to an active staff PIN.
+        if (active)
+        {
+            var others = await db.RunAsync(c => c.ExecuteScalar<int>("SELECT COUNT(*) FROM Staff WHERE IsActive = 1 AND Id <> ?", id), ct).ConfigureAwait(false);
+            if (others >= IAccessControl.MaxStaff) return Result.Failure(Error.With(ErrorCodes.StaffLimitReached, IAccessControl.MaxStaff));
+        }
         var changed = await db.RunAsync(c => c.Execute("UPDATE Staff SET IsActive = ? WHERE Id = ?", active, id), ct).ConfigureAwait(false);
         if (changed == 0) return Result.Failure(ErrorCodes.StaffNotFound);
         if (!active)

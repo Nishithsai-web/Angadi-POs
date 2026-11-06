@@ -61,7 +61,11 @@ internal sealed class ShopHandlers(
                 await profile.SaveAsync(p, ct);
             }
         }
-        catch (Exception ex) when (ex is IOException or TimeoutException)
+        // FIX(SHOP-SWITCH-2, 2026-11-06, Claude): Flaw: only IO/timeout failures were caught here, so a database error
+        // while copying the language (busy, damaged profile) escaped AFTER the switch had already happened: the screen
+        // said "switch failed" while the other shop was in fact open. Fix: any failure but cancellation is logged and the
+        // switch still reports success. Why: the language is cosmetic; the switch result must tell the truth.
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             log.LogWarning(ex, "Language not carried over to the opened shop");
         }
