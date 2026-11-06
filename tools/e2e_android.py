@@ -255,7 +255,22 @@ def shop_setup():
     type_into(3, "e2e@okaxis")                         # UPI ID
     hide_keyboard()
     tap("Start", exact=True, scroll=True, timeout=60)
+    walkthrough()
     wait_for("Cash", exact=True, timeout=90)           # billing screen after the shell restarts
+
+
+def walkthrough():
+    """The first-time tour appears once after setup: step through all of it (proves every step opens), then Got it."""
+    wait_for("1/8", timeout=90)
+    for _ in range(12):
+        if find("Got it", exact=True) is not None:
+            tap("Got it", exact=True)
+            return
+        if find("Next", exact=True) is not None:
+            tap("Next", exact=True)
+            continue
+        time.sleep(1)
+    raise AssertionError("the first-time walkthrough did not reach its last step; on screen: " + str(screen_texts()))
 
 
 def add_item(search, pick):
